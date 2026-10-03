@@ -141,6 +141,25 @@ def test_cmyk_is_rejected_until_color_policy(service: IngestService, make_image)
     assert [r.code for r in result.rejected] == [RejectCode.UNSUPPORTED_COLOR_MODE]
 
 
+def test_camera_mpo_is_treated_as_jpeg(service: IngestService, tmp_path: Path) -> None:
+    """Regression: Canon EOS JPEGs embed an MPF secondary image and open as 'MPO'."""
+    path = tmp_path / "IMG_0001.JPG"
+    exif = Image.Exif()
+    exif[0x0112] = 8
+    exif.get_ifd(0x8769)[0xA001] = 1  # ExifIFD ColorSpace = sRGB
+    primary = synthetic_rgb((60, 40))
+    primary.save(
+        path, format="MPO", save_all=True, append_images=[synthetic_rgb((16, 12))],
+        exif=exif.tobytes(),
+    )
+    asset = service.ingest_paths([path]).accepted[0]
+    assert asset.probe.container == "MPO"
+    assert asset.probe.format == "JPEG"
+    assert (asset.width_px, asset.height_px) == (40, 60)  # EXIF 8 swaps
+    assert asset.probe.exif_color_space == "sRGB"
+    assert asset.to_ui_dict()["format"] == "JPEG"
+
+
 def test_missing_directory_and_empty_inputs(service: IngestService, tmp_path: Path) -> None:
     result = service.ingest_paths([tmp_path / "nao-existe.jpg", tmp_path, ""])
     assert [r.code for r in result.rejected] == [
