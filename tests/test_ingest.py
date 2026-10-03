@@ -149,7 +149,10 @@ def test_camera_mpo_is_treated_as_jpeg(service: IngestService, tmp_path: Path) -
     exif.get_ifd(0x8769)[0xA001] = 1  # ExifIFD ColorSpace = sRGB
     primary = synthetic_rgb((60, 40))
     primary.save(
-        path, format="MPO", save_all=True, append_images=[synthetic_rgb((16, 12))],
+        path,
+        format="MPO",
+        save_all=True,
+        append_images=[synthetic_rgb((16, 12))],
         exif=exif.tobytes(),
     )
     asset = service.ingest_paths([path]).accepted[0]
