@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "template_version": "0.0.1",
+  "id": "calendar-synthetic",
+  "name": "Calendário SINTÉTICO (somente testes)",
+  "status": "draft",
+  "canvas": {
+    "width_mm": 100,
+    "height_mm": 140,
+    "dpi": 150
+  },
+  "output": {
+    "format": "JPEG",
+    "quality": 95,
+    "filename_prefix": "Calendario_"
+  },
+  "slots": [
+    {
+      "id": "foto_principal",
+      "x_mm": 10,
+      "y_mm": 10,
+      "width_mm": 80,
+      "height_mm": 40,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    }
+  ],
+  "overlay": null,
+  "groups": [],
+  "provenance": {
+    "measured": [],
+    "derived": [],
+    "pending": [
+      "fixture sintética de teste: NÃO representa medida de produto"
+    ]
+  },
+  "notes": [
+    "Geometria arbitrária para testes determinísticos do renderer/editor."
+  ]
+}
