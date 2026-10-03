@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "template_version": "0.1.0",
+  "template_version": "0.1.1",
   "id": "calendario-2027",
   "name": "Calendário 2027",
   "status": "draft",
@@ -12,7 +12,7 @@
   "output": {
     "format": "JPEG",
     "quality": 95,
-    "filename_prefix": "CALENDARIO_"
+    "filename_prefix": "Calendario_"
   },
   "slots": [
     {
