@@ -1,40 +1,43 @@
 ---
 name: fabric-canvas
-description: Implementa ou revisa o editor React/Fabric.js de slots, clipping, pan, zoom, rotação, substituição de foto e serialização normalizada. Use em qualquer mudança do canvas Operador/Gestor.
+description: "Implementa o runtime React/Fabric.js de slots, clipping, transforms, history e layers sem acoplar o contrato ao Fabric. Use ao alterar o canvas ou interação direta da foto."
 ---
-# Fabric Slot Editor
+# Fabric Slot Runtime
 
-## Contrato
-- Fabric.js é runtime visual; Template/Job são a fonte de verdade persistente.
-- O canvas de preview nunca gera o arquivo final de produção.
-- Cada slot tem região fixa e foto transformável dentro de clip próprio.
+Leia `apps/ui/AGENTS.md`, `docs/EDITOR_UX.md` e use /editor-performance em interação de alta frequência.
+
+## Modelo
+- Template define geometria/layers.
+- Job define source + pan/zoom/rotação por slot.
+- SourceRegistry fornece preview decodificado.
+- FabricObject é apenas projeção desses três estados.
 
 ## Transformação persistida
-Persistir por slot, no Job:
+Por slot:
 - `pan_x_norm`
 - `pan_y_norm`
 - `scale` relativo ao cover mínimo
 - `rotation_deg`
-- `source_id`/arquivo lógico
+- `source_id`
 
-Nunca persistir left/top/scaleX do Fabric como contrato público.
+Nunca persistir left/top/scaleX/angle bruto do Fabric como contrato.
 
-## Regras de interação
-1. Calcule primeiro o `cover` mínimo.
-2. `scale >= 1.0` significa multiplicador sobre esse cover.
-3. Restrinja pan/zoom/rotação para `cover_required=true` não revelar fundo.
-4. Resize da janela recalcula projeção visual, não transforma o Job.
-5. Overlay de produto fica non-selectable no modo Operador.
-6. Substituir foto mantém ou reseta transformação conforme regra explícita do produto; nunca por acidente.
+## Crop/adjust
+1. compute cover mínimo;
+2. `scale=1` = cover;
+3. aplicar pan em coordenada normalizada;
+4. clamp para não revelar vazio quando cover_required;
+5. rotação recalcula limites/clamp;
+6. commit Job ao fim do gesto.
 
-## Gestor
-- Expor apenas canvas físico, slots, grupos, overlay, permissões e naming.
-- Usar snap/guias como auxílio, mas salvar mm no Template.
-- Validar antes de permitir publicação `production`.
+## History
+- uma interação contínua = uma entrada;
+- snapshot apenas de state pequeno, nunca pixels;
+- undo/redo precisa restaurar source/transform/layer action de forma determinística.
 
-## Verificação
-- teste de serialização round-trip Job→UI→Job;
-- teste de resize sem drift;
-- teste de clamp para impedir área vazia;
-- teste de rotação + cover;
-- teste de override individual no Chaveiro.
+## Layers
+Operador: slot/background/overlay seguem Template, sem reordenação estrutural.
+Gestor: reordenação/lock/visibility permitidos dentro das regras do template.
+
+## Testes
+round-trip, resize sem drift, cover/clamp, rotação, history, source reuse, seleção e layer lock.

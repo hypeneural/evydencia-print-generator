@@ -1,58 +1,69 @@
 # Plano de Implementação
 
-Ordem: contratos → matemática → render → editor → produtos → gestor → Windows/installer → hardening.
+Estratégia atual: vertical slice funcional antes de generalizar. Ver `docs/EDITOR_IMPLEMENTATION_PLAN.md`.
 
-## Fase 0 — Bootstrap e governança
-- [x] Auditoria oficial AntiGravity 2.19.1.
-- [x] Root AGENTS enxuto + regras por diretório.
-- [x] Agente principal + 5 especialistas.
-- [x] Skills progressivas; workflows novos proibidos.
-- [x] Hook pós-escrita para validar customizações.
-- [x] Schemas Template/Job v1.
-- [x] Validadores mecânicos + CI Linux/Windows.
-- [x] Templates draft dos 3 produtos.
+## Fase 0 — Bootstrap/governança
+- [x] AntiGravity 2.19.1 validado contra docs oficiais.
+- [x] Root AGENTS curto + regras por diretório.
+- [x] `evydencia-builder` + especialistas.
+- [x] Skills progressivas; zero workflows novos.
+- [x] Hook/validators + CI Linux/Windows.
+- [x] Template/Job schema v1 + templates draft.
 
-## Fase 1 — Contratos e geometria
-- [x] Helper canônico mm→px + testes.
-- [ ] Confirmar DPI de produção.
-- [ ] Confirmar Chaveiro em prova física e pareamento frente/verso.
-- [ ] Confirmar geometria do Calendário.
-- [ ] Confirmar X/Y do Globo.
-- [ ] Fechar naming/collision policy.
-
-## Fase 2 — Renderer
-- [ ] EXIF transpose.
-- [ ] cover/crop/pan/zoom/rotação.
-- [ ] clipping e overlay RGBA.
-- [ ] output atômico/collision-safe.
+## Fase 1 — Editor foundation
+- [ ] SourceRegistry.
+- [ ] Ingest único para CLI/dialog/drop.
+- [ ] preview proxy cache 2048px + dedupe.
+- [ ] benchmark baseline Windows.
+- [ ] renderer EXIF/cover/pan/zoom/rotate/clip.
+- [ ] alpha overlay.
+- [ ] JPEG/PNG quality/DPI/collision policy.
 - [ ] golden tests.
+- [ ] confirmar color policy/lab profile.
 
-## Fase 3 — Calendário MVP
-- [ ] React/Vite/Fabric.
-- [ ] pywebview bundle local.
+## Fase 2 — Calendário vertical slice
+- [ ] React/Vite/Fabric shell.
+- [ ] source tray.
+- [ ] slot editável.
+- [ ] overlay bloqueado.
+- [ ] history command stack.
 - [ ] Job round-trip.
-- [ ] render Pillow.
+- [ ] Generate → Pillow.
+- [ ] preview/render parity.
+- [ ] performance gate.
 
-## Fase 4 — Chaveiro
+## Fase 3 — Chaveiro
+- [ ] 18 slots.
 - [ ] quantidade 1–9.
-- [ ] preencher quantidade/folha.
+- [ ] fill quantity/fill sheet.
 - [ ] overrides individuais.
+- [ ] confirmar pareamento/margens em prova física.
 
-## Fase 5 — Globo
-- [ ] dois slots independentes/duplicáveis.
+## Fase 4 — Globo
+- [ ] confirmar X/Y;
+- [ ] 2 slots independentes;
+- [ ] duplicate same source.
 
-## Fase 6 — Gestor
-- [ ] editor visual de canvas/slots/grupos/overlay.
-- [ ] validação + publish/version.
+## Fase 5 — Gestor / Template schema 1.1
+- [ ] layers/background/assets;
+- [ ] bring forward/send backward;
+- [ ] lock/visibility;
+- [ ] criar/redimensionar slot;
+- [ ] guides/snap;
+- [ ] groups/regras;
+- [ ] validate/publish/version.
 
-## Fase 7 — Windows
-- [ ] CLI launch contract.
-- [ ] PyInstaller.
-- [ ] Inno Setup + classic shell verb.
-- [ ] matriz Win10/11.
+## Fase 6 — Windows
+- [ ] CLI launch real;
+- [ ] PyInstaller;
+- [ ] Inno Setup;
+- [ ] context menu clássico;
+- [ ] matriz Win10/11;
+- [ ] multi-select somente após V1 estável;
 - [ ] avaliar IExplorerCommand/MSIX.
 
-## Fase 8 — Hardening
-- [ ] benchmark.
-- [ ] deps/licenças/security.
-- [ ] assinatura quando aplicável.
+## Fase 7 — Hardening
+- [ ] benchmarks e memory profiles;
+- [ ] ICC/lab physical output validation;
+- [ ] deps/licenças/security;
+- [ ] assinatura de executável se necessário.

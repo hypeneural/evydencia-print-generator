@@ -1,39 +1,36 @@
 # Status
 
-**Estado:** Fase 0 concluída e validada remotamente; Fase 1 parcialmente iniciada.
+**Estado:** Fundação pronta; próximo marco é o vertical slice do editor Calendário.
 
 ## Infra concluída
-- AntiGravity 2.19.1 auditado contra documentação oficial em 2026-10-03.
-- `evydencia-builder` + 5 subagentes especializados.
-- Root `AGENTS.md` enxuto + regras por diretório.
-- 8 Skills com progressive disclosure; zero workflows legados.
-- Hook pós-escrita para validar customizações.
+- AntiGravity 2.19.1 auditado em 2026-10-03.
+- `evydencia-builder` + especialistas de produto, UX, Fabric, render, Windows e QA.
+- Rules/Skills/Hooks com validação mecânica.
 - Schemas Template/Job v1.
-- Templates draft: Chaveiro, Calendário e Globo.
-- Python package mínimo + helper canônico mm→px.
-- 7 ADRs materializados e indexados.
-- CI Linux + Windows usando `actions/checkout@v7` e `actions/setup-python@v7`.
+- Templates draft: Chaveiro, Calendário, Globo.
+- Python package mínimo + mm→px.
+- CI Linux + Windows verde.
 
-## Evidência remota
-GitHub Actions run #16:
-- commit: `b7bc07873497a01d6f10e074d1323646d9ed24bc`
-- conclusion: **success**
-- contracts (Ubuntu): verify_repo + pytest + Ruff = success
-- windows-contract: instalação + validação AntiGravity/templates + CLI = success
-- URL: https://github.com/hypeneural/evydencia-print-generator/actions/runs/37152264949
+## Auditoria de editor adicionada
+- UX separada em Operador/Gestor.
+- Ingest unificado: context menu, dialog e drag/drop.
+- preview proxy desacoplado do original.
+- budgets de performance.
+- pipeline EXIF/ICC/DPI/JPEG documentado.
+- Fabric 7.4.0, pywebview 6.2.1 e Pillow 12.x validados contra docs atuais.
 
-## Produto confirmado
-- Chaveiro: 216×152 mm; grid 6×3; slot 34×44 mm; 2 fotos/chaveiro.
-- Calendário: 1 foto sob overlay; pan/zoom/rotação.
-- Globo: 152×102 mm; 2 fotos 50×80 mm.
-- Entrada desejada: menu de contexto Windows e abertura direta.
-
-## Bloqueios para templates production
-- DPI final;
+## Bloqueios físicos
+- DPI de produção;
 - geometria física do Calendário;
 - X/Y do Globo;
 - prova física/margens/pareamento do Chaveiro;
+- política ICC/profile do laboratório;
 - naming final.
 
-## Próximo passo
-Fechar Fase 1 com dados físicos confirmados; em seguida construir o renderer Pillow antes da UI Fabric.
+## Próximo passo executável
+Implementar `docs/EDITOR_IMPLEMENTATION_PLAN.md` E1 + E2:
+1. SourceRegistry/preview pipeline;
+2. renderer determinístico;
+3. só então UI Calendário com Fabric.
+
+Não iniciar o modo Gestor completo antes de provar preview/render parity no Calendário.
