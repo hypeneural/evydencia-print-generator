@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "template_version": "0.1.0",
+  "id": "globo-neve",
+  "name": "Globo de Neve",
+  "status": "draft",
+  "canvas": {
+    "width_mm": 152,
+    "height_mm": 102,
+    "dpi": null
+  },
+  "output": {
+    "format": "JPEG",
+    "quality": 95,
+    "filename_prefix": "GLOBO_"
+  },
+  "slots": [
+    {
+      "id": "foto_1",
+      "x_mm": null,
+      "y_mm": null,
+      "width_mm": 50,
+      "height_mm": 80,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "foto_2",
+      "x_mm": null,
+      "y_mm": null,
+      "width_mm": 50,
+      "height_mm": 80,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    }
+  ],
+  "overlay": null,
+  "groups": [],
+  "provenance": {
+    "measured": [
+      "canvas 152x102 mm",
+      "2 fotos de 50x80 mm"
+    ],
+    "derived": [],
+    "pending": [
+      "coordenadas X/Y dos dois slots",
+      "DPI de produção",
+      "confirmar overlay final"
+    ]
+  },
+  "notes": [
+    "Cada slot deve poder usar fonte diferente ou duplicar a mesma foto."
+  ]
+}

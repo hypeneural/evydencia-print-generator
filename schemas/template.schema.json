@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evydencia.local/schemas/template.schema.json",
+  "title": "EVYDÊNCIA Print Template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "template_version",
+    "id",
+    "name",
+    "status",
+    "canvas",
+    "output",
+    "slots",
+    "overlay",
+    "groups",
+    "provenance",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "template_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "production"
+      ]
+    },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width_mm",
+        "height_mm",
+        "dpi"
+      ],
+      "properties": {
+        "width_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "height_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "dpi": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 72,
+          "maximum": 1200
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "quality",
+        "filename_prefix"
+      ],
+      "properties": {
+        "format": {
+          "enum": [
+            "JPEG",
+            "PNG"
+          ]
+        },
+        "quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "filename_prefix": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "slots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "x_mm",
+          "y_mm",
+          "width_mm",
+          "height_mm",
+          "fit",
+          "allow_pan",
+          "allow_zoom",
+          "allow_rotate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "x_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "y_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "width_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "height_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "fit": {
+            "enum": [
+              "cover"
+            ]
+          },
+          "allow_pan": {
+            "type": "boolean"
+          },
+          "allow_zoom": {
+            "type": "boolean"
+          },
+          "allow_rotate": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "overlay": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "required"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "slot_ids",
+          "fill_mode"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slot_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "fill_mode": {
+            "enum": [
+              "independent",
+              "duplicate-source"
+            ]
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measured",
+        "derived",
+        "pending"
+      ],
+      "properties": {
+        "measured": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "derived": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "production"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "canvas": {
+            "properties": {
+              "width_mm": {
+                "type": "number"
+              },
+              "height_mm": {
+                "type": "number"
+              },
+              "dpi": {
+                "type": "integer"
+              }
+            }
+          },
+          "slots": {
+            "items": {
+              "properties": {
+                "x_mm": {
+                  "type": "number"
+                },
+                "y_mm": {
+                  "type": "number"
+                },
+                "width_mm": {
+                  "type": "number"
+                },
+                "height_mm": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

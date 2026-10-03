@@ -1,22 +1,28 @@
 # Status
 
-**Estado:** Bootstrap arquitetural + governança Antigravity publicada.
+**Estado:** Fase 0 concluída; Fase 1 parcialmente iniciada.
 
-## Confirmado
-- Repositório: hypeneural/evydencia-print-generator.
-- Runtime alvo: Antigravity 2.19.1.
-- Chaveiro: 216×152 mm; 18 slots 6×3; slot 34×44 mm; 2 slots/chaveiro; máximo 9.
-- Calendário: overlay PNG transparente 1067×1474; pan/zoom/rotação.
-- Globo: 152×102 mm; 2 slots de 50×80 mm.
+## Infra concluída
+- AntiGravity 2.19.1 auditado contra docs oficiais.
+- evydencia-builder + 5 subagentes especializados.
+- Rules/Skills/Hooks com validação mecânica.
+- Schemas Template/Job v1.
+- Templates draft: Chaveiro, Calendário, Globo.
+- Python package mínimo + helper mm→px.
+- CI Linux e Windows.
+
+## Produto confirmado
+- Chaveiro: 216×152 mm; grid 6×3; slot 34×44 mm; 2 fotos/chaveiro.
+- Calendário: 1 foto sob overlay; pan/zoom/rotação.
+- Globo: 152×102 mm; 2 fotos 50×80 mm.
 - Entrada desejada: menu de contexto Windows e abertura direta.
-- V1 do shell: processo externo simples; nada pesado dentro de explorer.exe.
 
-## Pendente
-- dimensão física/slot do Calendário;
-- X/Y dos slots do Globo;
-- DPI final de produção;
-- naming final;
-- pareamento e centralização finais do Chaveiro após prova impressa.
+## Bloqueios para production templates
+- DPI final;
+- geometria física do Calendário;
+- X/Y do Globo;
+- prova física/margens/pareamento do Chaveiro;
+- naming final.
 
 ## Próximo passo
-Fase 1: contratos Template/Job, mm→px, validação semântica e testes de geometria.
+Fechar Fase 1 com os dados físicos; depois iniciar renderer Pillow antes da UI Fabric.

@@ -1,64 +1,58 @@
 # Plano de Implementação
 
-Sequência: contratos → matemática → render → editor → produtos → gestor → Windows/installer → hardening.
+Ordem: contratos → matemática → render → editor → produtos → gestor → Windows/installer → hardening.
 
-## Fase 0 — Bootstrap
-- [x] Auditoria Antigravity 2.19.1.
+## Fase 0 — Bootstrap e governança
+- [x] Auditoria oficial AntiGravity 2.19.1.
 - [x] Root AGENTS enxuto + regras por diretório.
-- [x] Custom agents com model/policy/skills.
-- [x] Skills progressivas; zero workflows novos.
-- [x] Auditoria Fabric.js/editores/pywebview/PowerToys.
-- [x] Specs conhecidos dos três produtos.
-- [ ] Validar CI remoto após publicação.
+- [x] Agente principal + 5 especialistas.
+- [x] Skills progressivas; workflows novos proibidos.
+- [x] Hook pós-escrita para validar customizações.
+- [x] Schemas Template/Job v1.
+- [x] Validadores mecânicos + CI Linux/Windows.
+- [x] Templates draft dos 3 produtos.
 
 ## Fase 1 — Contratos e geometria
-- [ ] Fechar template.schema.json v1 e job.schema.json v1.
-- [ ] Helper canônico mm↔px + testes.
-- [ ] Validação draft vs production.
-- [ ] Testar Chaveiro 216×152, 34×44, 6×3 e centralização derivada.
-- [ ] Confirmar pareamento/margens em prova física.
+- [x] Helper canônico mm→px + testes.
+- [ ] Confirmar DPI de produção.
+- [ ] Confirmar Chaveiro em prova física e pareamento frente/verso.
+- [ ] Confirmar geometria do Calendário.
+- [ ] Confirmar X/Y do Globo.
+- [ ] Fechar naming/collision policy.
 
-## Fase 2 — Render
-- [ ] API render(template, job).
+## Fase 2 — Renderer
 - [ ] EXIF transpose.
-- [ ] cover/crop, pan, zoom e rotação.
+- [ ] cover/crop/pan/zoom/rotação.
 - [ ] clipping e overlay RGBA.
-- [ ] output collision-safe/atômico.
+- [ ] output atômico/collision-safe.
 - [ ] golden tests.
 
 ## Fase 3 — Calendário MVP
-- [ ] React/Vite/Fabric e lockfile.
-- [ ] pywebview com bundle local.
-- [ ] foto sob overlay travado.
-- [ ] pan/zoom/rotação/reset.
-- [ ] Job round-trip UI↔Python.
-- [ ] render final Pillow.
+- [ ] React/Vite/Fabric.
+- [ ] pywebview bundle local.
+- [ ] Job round-trip.
+- [ ] render Pillow.
 
 ## Fase 4 — Chaveiro
-- [ ] 18 slots.
-- [ ] quantidade 1–9, 2 slots/unidade.
-- [ ] preencher quantidade / preencher folha.
-- [ ] override individual.
+- [ ] quantidade 1–9.
+- [ ] preencher quantidade/folha.
+- [ ] overrides individuais.
 
 ## Fase 5 — Globo
-- [ ] confirmar X/Y dos 2 slots 50×80 mm.
-- [ ] fontes independentes/duplicação.
+- [ ] dois slots independentes/duplicáveis.
 
-## Fase 6 — Modo Gestor
-- [ ] editar canvas/slots/grupos/overlay/permissões.
-- [ ] snap/guias sem usar JSON Fabric como contrato.
-- [ ] validação/publicação/versionamento.
+## Fase 6 — Gestor
+- [ ] editor visual de canvas/slots/grupos/overlay.
+- [ ] validação + publish/version.
 
 ## Fase 7 — Windows
-- [ ] contrato CLI.
+- [ ] CLI launch contract.
 - [ ] PyInstaller.
-- [ ] Inno Setup.
-- [ ] shell verb via HKA\Software\Classes.
-- [ ] teste Windows 10/11, Unicode, espaços, caminho longo, uninstall.
-- [ ] avaliar IExplorerCommand/MSIX pós-MVP.
+- [ ] Inno Setup + classic shell verb.
+- [ ] matriz Win10/11.
+- [ ] avaliar IExplorerCommand/MSIX.
 
 ## Fase 8 — Hardening
-- [ ] CI Linux + Windows completo.
-- [ ] benchmark com fotos de câmera.
-- [ ] auditoria deps/licenças/security.
-- [ ] assinatura de executável quando necessário.
+- [ ] benchmark.
+- [ ] deps/licenças/security.
+- [ ] assinatura quando aplicável.

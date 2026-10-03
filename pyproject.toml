@@ -9,12 +9,12 @@ description = "Local deterministic print composition engine for EVYDENCIA photog
 requires-python = ">=3.12,<3.14"
 dependencies = [
   "Pillow>=12.3,<13",
-  "pywebview>=6.2.1,<7",
+  "jsonschema>=4.25,<5",
+  "pywebview>=6.2.1,<7; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "jsonschema>=4.25,<5",
   "pytest>=8,<10",
   "ruff>=0.13,<1",
 ]

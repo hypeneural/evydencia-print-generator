@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "template_version": "0.1.0",
+  "id": "calendario-2027",
+  "name": "Calendário 2027",
+  "status": "draft",
+  "canvas": {
+    "width_mm": null,
+    "height_mm": null,
+    "dpi": null
+  },
+  "output": {
+    "format": "JPEG",
+    "quality": 95,
+    "filename_prefix": "CALENDARIO_"
+  },
+  "slots": [
+    {
+      "id": "foto_principal",
+      "x_mm": null,
+      "y_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    }
+  ],
+  "overlay": {
+    "path": "assets/calendar-2027-overlay.png",
+    "required": true
+  },
+  "groups": [],
+  "provenance": {
+    "measured": [
+      "existe overlay PNG transparente fornecido pelo usuário"
+    ],
+    "derived": [],
+    "pending": [
+      "medida física do canvas",
+      "posição e dimensão física do slot",
+      "DPI de produção",
+      "adicionar overlay aprovado ao repositório"
+    ]
+  },
+  "notes": [
+    "Foto fica sob o overlay e precisa pan, zoom e rotação."
+  ]
+}

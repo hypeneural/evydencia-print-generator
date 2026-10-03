@@ -1,0 +1,239 @@
+{
+  "schema_version": "1.0",
+  "template_version": "0.1.0",
+  "id": "chaveiro-3x4",
+  "name": "Chaveiro 3x4 — folha 216x152",
+  "status": "draft",
+  "canvas": {
+    "width_mm": 216,
+    "height_mm": 152,
+    "dpi": null
+  },
+  "output": {
+    "format": "JPEG",
+    "quality": 95,
+    "filename_prefix": "CHAVEIRO_"
+  },
+  "slots": [
+    {
+      "id": "slot_01",
+      "x_mm": 6,
+      "y_mm": 10,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_02",
+      "x_mm": 40,
+      "y_mm": 10,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_03",
+      "x_mm": 74,
+      "y_mm": 10,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_04",
+      "x_mm": 108,
+      "y_mm": 10,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_05",
+      "x_mm": 142,
+      "y_mm": 10,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_06",
+      "x_mm": 176,
+      "y_mm": 10,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_07",
+      "x_mm": 6,
+      "y_mm": 54,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_08",
+      "x_mm": 40,
+      "y_mm": 54,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_09",
+      "x_mm": 74,
+      "y_mm": 54,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_10",
+      "x_mm": 108,
+      "y_mm": 54,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_11",
+      "x_mm": 142,
+      "y_mm": 54,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_12",
+      "x_mm": 176,
+      "y_mm": 54,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_13",
+      "x_mm": 6,
+      "y_mm": 98,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_14",
+      "x_mm": 40,
+      "y_mm": 98,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_15",
+      "x_mm": 74,
+      "y_mm": 98,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_16",
+      "x_mm": 108,
+      "y_mm": 98,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_17",
+      "x_mm": 142,
+      "y_mm": 98,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    },
+    {
+      "id": "slot_18",
+      "x_mm": 176,
+      "y_mm": 98,
+      "width_mm": 34,
+      "height_mm": 44,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    }
+  ],
+  "overlay": null,
+  "groups": [],
+  "provenance": {
+    "measured": [
+      "canvas 216x152 mm",
+      "slot 34x44 mm",
+      "grid 6x3",
+      "1 chaveiro usa 2 fotos"
+    ],
+    "derived": [
+      "grid centralizada matematicamente: 6 mm laterais e 10 mm verticais"
+    ],
+    "pending": [
+      "validar margens em prova física",
+      "confirmar pareamento físico frente/verso",
+      "confirmar DPI de produção"
+    ]
+  },
+  "notes": [
+    "Todos os 18 slots devem permitir substituição individual.",
+    "Preenchimento automático por quantidade será definido após confirmar o pareamento físico."
+  ]
+}
