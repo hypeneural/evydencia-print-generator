@@ -1,0 +1,648 @@
+{
+  "adr": "ADR-011",
+  "tolerance": 1e-09,
+  "placement_cases": [
+    {
+      "name": "landscape_in_square_identity",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        1000
+      ],
+      "transform": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": 0.0,
+        "scale": 1.0,
+        "rotation_deg": 0.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.0,
+          "pan_y_norm": 0.0,
+          "scale": 1.0,
+          "rotation_deg": 0.0
+        },
+        "cover_scale": 0.3333333333333333,
+        "effective_scale": 0.3333333333333333,
+        "center": [
+          500.0,
+          500.0
+        ],
+        "max_pan": [
+          166.66666666666663,
+          0.0
+        ],
+        "affine": [
+          3.0,
+          0.0,
+          500.0,
+          -0.0,
+          3.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "landscape_in_square_pan_right_edge",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        1000
+      ],
+      "transform": {
+        "pan_x_norm": 1.0,
+        "pan_y_norm": 0.0,
+        "scale": 1.0,
+        "rotation_deg": 0.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 1.0,
+          "pan_y_norm": 0.0,
+          "scale": 1.0,
+          "rotation_deg": 0.0
+        },
+        "cover_scale": 0.3333333333333333,
+        "effective_scale": 0.3333333333333333,
+        "center": [
+          666.6666666666666,
+          500.0
+        ],
+        "max_pan": [
+          166.66666666666663,
+          0.0
+        ],
+        "affine": [
+          3.0,
+          0.0,
+          0.0,
+          -0.0,
+          3.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "landscape_in_square_pan_y_no_range",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        1000
+      ],
+      "transform": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": 1.0,
+        "scale": 1.0,
+        "rotation_deg": 0.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.0,
+          "pan_y_norm": 1.0,
+          "scale": 1.0,
+          "rotation_deg": 0.0
+        },
+        "cover_scale": 0.3333333333333333,
+        "effective_scale": 0.3333333333333333,
+        "center": [
+          500.0,
+          500.0
+        ],
+        "max_pan": [
+          166.66666666666663,
+          0.0
+        ],
+        "affine": [
+          3.0,
+          0.0,
+          500.0,
+          -0.0,
+          3.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "portrait_slot_zoom2_pan",
+      "src": [
+        6000,
+        4000
+      ],
+      "slot": [
+        800,
+        1200
+      ],
+      "transform": {
+        "pan_x_norm": -0.5,
+        "pan_y_norm": 0.25,
+        "scale": 2.0,
+        "rotation_deg": 0.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": -0.5,
+          "pan_y_norm": 0.25,
+          "scale": 2.0,
+          "rotation_deg": 0.0
+        },
+        "cover_scale": 0.3,
+        "effective_scale": 0.6,
+        "center": [
+          -300.0,
+          750.0
+        ],
+        "max_pan": [
+          1400.0,
+          600.0
+        ],
+        "affine": [
+          1.6666666666666667,
+          0.0,
+          3500.0,
+          -0.0,
+          1.6666666666666667,
+          750.0
+        ]
+      }
+    },
+    {
+      "name": "rot90_wide_slot",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        500
+      ],
+      "transform": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": 0.0,
+        "scale": 1.0,
+        "rotation_deg": 90.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.0,
+          "pan_y_norm": 0.0,
+          "scale": 1.0,
+          "rotation_deg": 90.0
+        },
+        "cover_scale": 0.3333333333333333,
+        "effective_scale": 0.3333333333333333,
+        "center": [
+          500.0,
+          250.0
+        ],
+        "max_pan": [
+          416.66666666666663,
+          0.0
+        ],
+        "affine": [
+          0.0,
+          3.0,
+          1250.0,
+          -3.0,
+          0.0,
+          3000.0
+        ]
+      }
+    },
+    {
+      "name": "rot90_pan",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        500
+      ],
+      "transform": {
+        "pan_x_norm": 0.5,
+        "pan_y_norm": -0.5,
+        "scale": 1.5,
+        "rotation_deg": 90.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.5,
+          "pan_y_norm": -0.5,
+          "scale": 1.5,
+          "rotation_deg": 90.0
+        },
+        "cover_scale": 0.3333333333333333,
+        "effective_scale": 0.5,
+        "center": [
+          625.0,
+          625.0
+        ],
+        "max_pan": [
+          750.0,
+          250.0
+        ],
+        "affine": [
+          0.0,
+          2.0,
+          750.0,
+          -2.0,
+          0.0,
+          2750.0
+        ]
+      }
+    },
+    {
+      "name": "rot180",
+      "src": [
+        3000,
+        3000
+      ],
+      "slot": [
+        900,
+        600
+      ],
+      "transform": {
+        "pan_x_norm": 0.3,
+        "pan_y_norm": 0.3,
+        "scale": 1.2,
+        "rotation_deg": 180.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.3,
+          "pan_y_norm": 0.3,
+          "scale": 1.2,
+          "rotation_deg": -180.0
+        },
+        "cover_scale": 0.3,
+        "effective_scale": 0.36,
+        "center": [
+          423.0,
+          228.0
+        ],
+        "max_pan": [
+          90.0,
+          240.0
+        ],
+        "affine": [
+          -2.7777777777777777,
+          0.0,
+          2675.0,
+          -0.0,
+          -2.7777777777777777,
+          2133.3333333333335
+        ]
+      }
+    },
+    {
+      "name": "rot_minus90",
+      "src": [
+        3000,
+        4000
+      ],
+      "slot": [
+        700,
+        900
+      ],
+      "transform": {
+        "pan_x_norm": -1.0,
+        "pan_y_norm": 1.0,
+        "scale": 1.1,
+        "rotation_deg": -90.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": -1.0,
+          "pan_y_norm": 1.0,
+          "scale": 1.1,
+          "rotation_deg": -90.0
+        },
+        "cover_scale": 0.3,
+        "effective_scale": 0.33,
+        "center": [
+          660.0,
+          495.0
+        ],
+        "max_pan": [
+          45.0,
+          310.0
+        ],
+        "affine": [
+          0.0,
+          -3.0303030303030303,
+          3000.0,
+          3.0303030303030303,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "rot45_square",
+      "src": [
+        3000,
+        3000
+      ],
+      "slot": [
+        1000,
+        1000
+      ],
+      "transform": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": 0.0,
+        "scale": 1.0,
+        "rotation_deg": 45.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.0,
+          "pan_y_norm": 0.0,
+          "scale": 1.0,
+          "rotation_deg": 45.0
+        },
+        "cover_scale": 0.4714045207910317,
+        "effective_scale": 0.4714045207910317,
+        "center": [
+          500.0,
+          500.0
+        ],
+        "max_pan": [
+          0.0,
+          0.0
+        ],
+        "affine": [
+          1.5000000000000002,
+          1.5000000000000002,
+          0.0,
+          -1.5000000000000002,
+          1.5000000000000002,
+          1500.0
+        ]
+      }
+    },
+    {
+      "name": "rot_minus12_5_pan_zoom",
+      "src": [
+        5472,
+        3648
+      ],
+      "slot": [
+        1181,
+        1654
+      ],
+      "transform": {
+        "pan_x_norm": 0.4,
+        "pan_y_norm": -0.7,
+        "scale": 1.75,
+        "rotation_deg": -12.5
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.4,
+          "pan_y_norm": -0.7,
+          "scale": 1.75,
+          "rotation_deg": -12.5
+        },
+        "cover_scale": 0.5127217049992514,
+        "effective_scale": 0.89726298374869,
+        "center": [
+          1147.8840966823016,
+          200.52780412088322
+        ],
+        "max_pan": [
+          1699.413170605284,
+          701.4032924389758
+        ],
+        "affine": [
+          1.0880823401864301,
+          -0.2412220473353712,
+          1535.3793132768408,
+          0.2412220473353712,
+          1.0880823401864301,
+          1328.9142857142854
+        ]
+      }
+    },
+    {
+      "name": "rot270_normalizes",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        500
+      ],
+      "transform": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": 0.0,
+        "scale": 1.0,
+        "rotation_deg": 270.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.0,
+          "pan_y_norm": 0.0,
+          "scale": 1.0,
+          "rotation_deg": -90.0
+        },
+        "cover_scale": 0.3333333333333333,
+        "effective_scale": 0.3333333333333333,
+        "center": [
+          500.0,
+          250.0
+        ],
+        "max_pan": [
+          416.66666666666663,
+          0.0
+        ],
+        "affine": [
+          0.0,
+          -3.0,
+          2750.0,
+          3.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "name": "clamps_out_of_range",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        1000
+      ],
+      "transform": {
+        "pan_x_norm": 3.0,
+        "pan_y_norm": -3.0,
+        "scale": 20.0,
+        "rotation_deg": 540.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 1.0,
+          "pan_y_norm": -1.0,
+          "scale": 8.0,
+          "rotation_deg": -180.0
+        },
+        "cover_scale": 0.3333333333333333,
+        "effective_scale": 2.6666666666666665,
+        "center": [
+          -4333.333333333333,
+          4000.0
+        ],
+        "max_pan": [
+          4833.333333333333,
+          3500.0
+        ],
+        "affine": [
+          -0.375,
+          0.0,
+          375.0,
+          -0.0,
+          -0.375,
+          3000.0
+        ]
+      }
+    },
+    {
+      "name": "clamps_scale_below_one",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        1000
+      ],
+      "transform": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": 0.0,
+        "scale": 0.25,
+        "rotation_deg": 0.0
+      },
+      "expected": {
+        "clamped": {
+          "pan_x_norm": 0.0,
+          "pan_y_norm": 0.0,
+          "scale": 1.0,
+          "rotation_deg": 0.0
+        },
+        "cover_scale": 0.3333333333333333,
+        "effective_scale": 0.3333333333333333,
+        "center": [
+          500.0,
+          500.0
+        ],
+        "max_pan": [
+          166.66666666666663,
+          0.0
+        ],
+        "affine": [
+          3.0,
+          0.0,
+          500.0,
+          -0.0,
+          3.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "drag_cases": [
+    {
+      "name": "drag_right_rot0",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        1000
+      ],
+      "transform": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": 0.0,
+        "scale": 1.5,
+        "rotation_deg": 0.0
+      },
+      "delta": [
+        100,
+        0
+      ],
+      "expected": {
+        "pan_x_norm": 0.2,
+        "pan_y_norm": 0.0,
+        "scale": 1.5,
+        "rotation_deg": 0.0
+      }
+    },
+    {
+      "name": "drag_right_rot90",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        500
+      ],
+      "transform": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": 0.0,
+        "scale": 1.5,
+        "rotation_deg": 90.0
+      },
+      "delta": [
+        100,
+        0
+      ],
+      "expected": {
+        "pan_x_norm": 0.0,
+        "pan_y_norm": -0.4,
+        "scale": 1.5,
+        "rotation_deg": 90.0
+      }
+    },
+    {
+      "name": "drag_diag_rot30_clamps",
+      "src": [
+        4000,
+        3000
+      ],
+      "slot": [
+        1000,
+        800
+      ],
+      "transform": {
+        "pan_x_norm": 0.9,
+        "pan_y_norm": 0.9,
+        "scale": 2.0,
+        "rotation_deg": 30.0
+      },
+      "delta": [
+        5000,
+        5000
+      ],
+      "expected": {
+        "pan_x_norm": 1.0,
+        "pan_y_norm": 1.0,
+        "scale": 2.0,
+        "rotation_deg": 30.0
+      }
+    }
+  ]
+}
