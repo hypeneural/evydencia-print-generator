@@ -57,17 +57,21 @@
             "minLength": 1
           },
           "pan_x_norm": {
-            "type": "number"
+            "type": "number",
+            "description": "ADR-011: [-1, 1] along the rotated photo x axis; 0 = centered, ±1 = edge flush with slot."
           },
           "pan_y_norm": {
-            "type": "number"
+            "type": "number",
+            "description": "ADR-011: [-1, 1] along the rotated photo y axis; 0 = centered, ±1 = edge flush with slot."
           },
           "scale": {
             "type": "number",
-            "minimum": 1
+            "minimum": 1,
+            "description": "ADR-011: multiplier over the rotation-aware cover scale; 1 = minimum cover, never reveals empty area."
           },
           "rotation_deg": {
             "type": "number",
+            "description": "ADR-011: clockwise-positive on screen; normalized to [-180, 180) by the domain.",
             "minimum": -360,
             "maximum": 360
           }

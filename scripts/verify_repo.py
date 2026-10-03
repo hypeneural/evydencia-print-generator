@@ -33,6 +33,8 @@ REQUIRED = [
     "docs/adr/008-preview-original-boundary.md",
     "docs/adr/009-operator-manager-modes.md",
     "docs/adr/010-domain-command-history.md",
+    "docs/adr/011-slot-transform-semantics.md",
+    "tests/fixtures/transform_vectors.json",
 ]
 
 
