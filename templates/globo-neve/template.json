@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "template_version": "0.1.0",
+  "template_version": "0.2.0",
   "id": "globo-neve",
   "name": "Globo de Neve",
   "status": "draft",
@@ -17,8 +17,8 @@
   "slots": [
     {
       "id": "foto_1",
-      "x_mm": null,
-      "y_mm": null,
+      "x_mm": 22.5,
+      "y_mm": 11,
       "width_mm": 50,
       "height_mm": 80,
       "fit": "cover",
@@ -28,8 +28,8 @@
     },
     {
       "id": "foto_2",
-      "x_mm": null,
-      "y_mm": null,
+      "x_mm": 79.5,
+      "y_mm": 11,
       "width_mm": 50,
       "height_mm": 80,
       "fit": "cover",
@@ -43,16 +43,19 @@
   "provenance": {
     "measured": [
       "canvas 152x102 mm",
-      "2 fotos de 50x80 mm"
+      "2 fotos de 50x80 mm (largura x altura)",
+      "espaço de ~7 mm entre as fotos no esquema enviado em 2026-10-03"
     ],
-    "derived": [],
+    "derived": [
+      "layout simétrico aprovado pelo usuário em 2026-10-03: par centralizado, gap 7 mm, margens laterais 22,5 mm, margens verticais 11 mm"
+    ],
     "pending": [
-      "coordenadas X/Y dos dois slots",
       "DPI de produção",
-      "confirmar overlay final"
+      "prova física do layout simétrico"
     ]
   },
   "notes": [
-    "Cada slot deve poder usar fonte diferente ou duplicar a mesma foto."
+    "Sem overlay: o fundo branco é gerado pelo renderer no tamanho físico exato.",
+    "Cada slot pode usar fonte diferente ou a mesma foto (ação 'Usar mesma foto nos dois')."
   ]
 }

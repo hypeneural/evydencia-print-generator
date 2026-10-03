@@ -1,5 +1,20 @@
 # Product Specifications
 
+## Abordagem de composição por produto (decidido em 2026-10-03)
+
+| Produto | Base | Fotos | Overlay |
+|---|---|---|---|
+| Calendário | canvas branco | sob o overlay | PNG transparente fornecido pelo estúdio |
+| Chaveiro | canvas branco **gerado pelo renderer** no tamanho físico | sobre o fundo | nenhum |
+| Globo | canvas branco **gerado pelo renderer** no tamanho físico | sobre o fundo | nenhum |
+
+Por que não criar PNG de moldura para Chaveiro/Globo:
+- o canvas é derivado de mm + DPI; um PNG fixo teria resolução própria e poderia divergir do DPI de produção;
+- nada para versionar/atualizar quando DPI ou margens mudarem: só o template muda;
+- o modelo já suporta `overlay: null` sem mudança de schema.
+
+Evolução opcional (não implementada): guias de corte finas ou cor de fundo por template exigem schema 1.1 + ADR; só após validação com o laboratório.
+
 ## Chaveiro 3x4
 Confirmado pelo usuário:
 - folha: 216 × 152 mm;
@@ -48,15 +63,17 @@ Confirmado:
 - cada foto: 50 × 80 mm (largura × altura);
 - pan/zoom/rotação por foto.
 
-Derivado do esquema enviado em 2026-10-03 (≈ 6,5 px/mm; tolerância ±0,5 mm; não é prova física):
-- foto_1: x ≈ 16,7 mm, y ≈ 10,2 mm;
-- foto_2: x ≈ 73,6 mm, y ≈ 10,5 mm;
-- espaço entre fotos ≈ 7,0 mm; margem direita ≈ 28,4 mm (layout assimétrico); margem inferior ≈ 11,8 mm.
+Esquema de referência enviado em 2026-10-03 (≈ 6,5 px/mm; ±0,5 mm): foto_1 x≈16,7 y≈10,2; foto_2 x≈73,6 y≈10,5; gap ≈ 7 mm; layout assimétrico (margem direita ≈ 28,4 mm).
+
+Layout adotado (usuário pediu simetria, 2026-10-03) — template v0.2.0:
+- par centralizado lado a lado, gap 7 mm (mantido da referência);
+- foto_1: x 22,5 mm, y 11 mm; foto_2: x 79,5 mm, y 11 mm;
+- margens laterais 22,5 mm, margens verticais 11 mm;
+- sem overlay; fundo branco gerado pelo renderer.
 
 Pendente:
-- confirmar X/Y exatos e se a assimetria é intencional;
 - DPI;
-- overlay final.
+- prova física do layout simétrico.
 
 ## Regra de status
 Enquanto houver geometria necessária pendente, template fica `draft`. `production` exige prova física e provenance.pending vazio.
