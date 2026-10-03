@@ -76,8 +76,14 @@ def test_edge_based_rects_tile_without_gaps() -> None:
     data = json.loads(SYNTHETIC_TEMPLATE.read_text(encoding="utf-8"))
     data["canvas"] = {"width_mm": 216, "height_mm": 152, "dpi": 300}
     data["slots"] = [
-        {**data["slots"][0], "id": f"s{i}", "x_mm": 6 + 34 * i, "y_mm": 10,
-         "width_mm": 34, "height_mm": 44}
+        {
+            **data["slots"][0],
+            "id": f"s{i}",
+            "x_mm": 6 + 34 * i,
+            "y_mm": 10,
+            "width_mm": 34,
+            "height_mm": 44,
+        }
         for i in range(6)
     ]
     tpl = parse_template(data, SYNTHETIC_TEMPLATE.parent)

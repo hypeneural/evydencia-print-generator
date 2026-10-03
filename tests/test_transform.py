@@ -168,14 +168,12 @@ def test_committed_vectors_match_implementation() -> None:
         assert p.effective_scale == pytest.approx(exp["effective_scale"], abs=tol), case["name"]
         assert [p.center_x, p.center_y] == pytest.approx(exp["center"], abs=tol), case["name"]
         assert [p.max_dx, p.max_dy] == pytest.approx(exp["max_pan"], abs=tol), case["name"]
-        assert list(slot_to_source_affine(sw, sh, p)) == pytest.approx(
-            exp["affine"], abs=tol
-        ), case["name"]
+        assert list(slot_to_source_affine(sw, sh, p)) == pytest.approx(exp["affine"], abs=tol), (
+            case["name"]
+        )
     for case in data["drag_cases"]:
         (sw, sh), (w, h) = case["src"], case["slot"]
-        result = pan_by_slot_delta(
-            sw, sh, w, h, SlotTransform(**case["transform"]), *case["delta"]
-        )
+        result = pan_by_slot_delta(sw, sh, w, h, SlotTransform(**case["transform"]), *case["delta"])
         exp = SlotTransform(**case["expected"])
         assert result.pan_x_norm == pytest.approx(exp.pan_x_norm, abs=tol), case["name"]
         assert result.pan_y_norm == pytest.approx(exp.pan_y_norm, abs=tol), case["name"]
