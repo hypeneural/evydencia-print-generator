@@ -43,7 +43,7 @@ class SourceIdentity:
 
 @dataclass(frozen=True)
 class ImageProbe:
-    format: str  # detected from content, not extension
+    format: str  # detected from content, not extension; MPO is normalized to "JPEG"
     mode: str
     width_px: int  # after EXIF orientation
     height_px: int
@@ -52,6 +52,8 @@ class ImageProbe:
     exif_orientation: int
     has_icc: bool
     icc_description: str | None
+    container: str = ""  # raw Pillow format, e.g. "MPO" for Canon camera JPEGs
+    exif_color_space: str | None = None  # "sRGB" | "uncalibrated" | None (EXIF 0xA001)
 
 
 @dataclass
