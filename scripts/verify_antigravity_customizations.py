@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,8 +11,15 @@ VALID_TRIGGERS = {"always_on", "model_decision", "glob", "manual"}
 VALID_MODELS = {"inherit", "flash", "pro"}
 VALID_POLICIES = {"off", "auto", "eager", "sandbox"}
 VALID_TOOLS = {
-    "view_file", "write_to_file", "replace_file_content", "multi_replace_file_content",
-    "list_dir", "find_by_name", "grep_search", "search_web", "read_url_content",
+    "view_file",
+    "write_to_file",
+    "replace_file_content",
+    "multi_replace_file_content",
+    "list_dir",
+    "find_by_name",
+    "grep_search",
+    "search_web",
+    "read_url_content",
     "run_command",
 }
 
@@ -54,12 +60,20 @@ def validate_agents(errors: list[str]) -> int:
         errors.append(".agents/agents: missing")
         return count
     agent_files = list(base.glob("*.md")) + list(base.glob("*/agent.md"))
+    required = (
+        "name",
+        "description",
+        "mainAgent",
+        "subagent",
+        "model",
+        "commandExecutionPolicy",
+    )
     for path in sorted(agent_files):
         count += 1
         scalars, lists, local = parse_frontmatter(path)
         errors.extend(local)
         rel = path.relative_to(ROOT)
-        for key in ("name", "description", "mainAgent", "subagent", "model", "commandExecutionPolicy"):
+        for key in required:
             if key not in scalars:
                 errors.append(f"{rel}: missing {key}")
         if scalars.get("model") not in VALID_MODELS:

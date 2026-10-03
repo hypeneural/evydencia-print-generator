@@ -11,17 +11,26 @@ CHECKS = [
     "validate_templates.py",
     "check_privacy.py",
 ]
+REQUIRED = [
+    "AGENTS.md",
+    "schemas/template.schema.json",
+    "schemas/job.schema.json",
+    "docs/ARCHITECTURE.md",
+    "docs/PRODUCT_SPECS.md",
+    "docs/ANTIGRAVITY.md",
+    "docs/WINDOWS_INTEGRATION.md",
+    "docs/adr/001-template-driven-engine.md",
+    "docs/adr/002-millimeters-canonical.md",
+    "docs/adr/003-fabric-pillow-boundary.md",
+    "docs/adr/004-windows-shell-phases.md",
+    "docs/adr/005-domain-editor.md",
+    "docs/adr/006-antigravity-context.md",
+    "docs/adr/007-explorer-process-boundary.md",
+]
 
 
 def main() -> int:
-    required = [
-        ROOT / "AGENTS.md",
-        ROOT / "schemas" / "template.schema.json",
-        ROOT / "schemas" / "job.schema.json",
-        ROOT / "docs" / "ARCHITECTURE.md",
-        ROOT / "docs" / "PRODUCT_SPECS.md",
-    ]
-    missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
+    missing = [item for item in REQUIRED if not (ROOT / item).exists()]
     if missing:
         print("Repository verification FAILED: missing required files")
         for item in missing:

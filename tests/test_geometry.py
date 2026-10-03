@@ -1,5 +1,4 @@
 import pytest
-
 from evydencia_print_generator.geometry import mm_to_px
 
 
