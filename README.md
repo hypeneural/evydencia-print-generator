@@ -2,47 +2,96 @@
 
 [![CI](https://github.com/hypeneural/evydencia-print-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/hypeneural/evydencia-print-generator/actions/workflows/ci.yml)
 
-Aplicativo desktop Windows local para compor produtos fotográficos de impressão da EVYDÊNCIA por templates e slots de foto, com fluxo simples para o operador e configuração controlada para o gestor.
+Editor desktop Windows local para produzir Calendário, Chaveiro e Globo com fluxo extremamente simples para o operador e templates configuráveis pelo gestor.
 
 ## Fluxo alvo
-1. Botão direito sobre uma foto no Windows → **Gerar com EVYDÊNCIA**.
-2. Escolher produto: Calendário, Chaveiro ou Globo.
-3. Ajustar cada foto com arrastar, zoom e rotação dentro do slot.
-4. Gerar arquivo final sem alterar a fotografia original.
+1. Botão direito numa foto → **Gerar com EVYDÊNCIA**.
+2. Escolher produto.
+3. Ajustar foto(s) visualmente: arrastar, zoom, rotação, substituir.
+4. Gerar arquivo final com o **original**, sem alterar a origem.
+
+Também aceita **Adicionar fotos** e drag-and-drop dentro do app.
+
+## Princípio de performance e qualidade
+**Editar leve, renderizar original.**
+
+O Fabric.js recebe previews/proxies leves e deduplicados. O Python/Pillow reabre o original somente no render final. Assim o editor permanece fluido sem usar o preview como arquivo de impressão.
+
+## Modos
+
+### Operador
+Sem layers genéricas, pixels ou DPI:
+- source tray;
+- selecionar slot;
+- substituir;
+- pan/crop;
+- zoom;
+- rotação;
+- reset;
+- undo/redo;
+- ações específicas do produto;
+- gerar.
+
+### Gestor
+Ferramentas estruturais:
+- canvas em mm;
+- criar/redimensionar slots;
+- layer order;
+- trazer para frente/enviar para trás;
+- lock/visibility;
+- overlays/assets;
+- groups;
+- guides/snap;
+- validar/publicar template.
 
 ## Produtos iniciais
 | Produto | Canvas físico | Slots | Estado |
 |---|---:|---:|---|
 | Chaveiro 3x4 | 216 × 152 mm | 18 (6×3), 34 × 44 mm | draft; prova física pendente |
-| Calendário 2027 | dimensão física a confirmar | 1 | draft; overlay/pan/zoom/rotação |
+| Calendário 2027 | dimensão física a confirmar | 1 | primeiro vertical slice |
 | Globo de neve | 152 × 102 mm | 2 × 50 × 80 mm | draft; X/Y pendentes |
 
-## Arquitetura
-- **React + TypeScript + Fabric.js**: preview e edição visual.
-- **Python + pywebview**: host desktop/bridge.
-- **Pillow**: render final determinístico sobre as fotos originais.
-- **JSON Schema**: contratos Template/Job.
-- **PyInstaller + Inno Setup**: distribuição Windows.
-- **Windows V1**: shell verb clássico; V2 moderna opcional com `IExplorerCommand`/MSIX.
-
-O projeto não forkará um editor estilo Canva inteiro. Fabric é o motor; editores open source são referências de UX/arquitetura.
+## Stack
+- React + TypeScript + Fabric.js 7.x
+- Python + pywebview 6.x
+- Pillow 12.x
+- JSON Schema
+- PyInstaller + Inno Setup
+- Windows V1: classic shell verb; menu moderno opcional depois
 
 ## AntiGravity 2.19.1
-O repositório foi estruturado para progressive disclosure:
-- root `AGENTS.md` enxuto;
-- `AGENTS.md` por domínio;
+Estrutura otimizada para progressive disclosure:
+- root `AGENTS.md` curto;
+- AGENTS por domínio;
 - Rules condicionais;
-- 8 Skills focadas;
-- `evydencia-builder` + 5 subagentes;
+- **12 Skills focadas**;
+- `evydencia-builder` + **6 subagentes especialistas**;
 - hook de validação;
-- `/plan` nativo para mudanças não triviais.
+- `/plan` para feature transversal;
+- `/grill-me` para requisito ambíguo;
+- auditor independente antes de merge/release.
 
-Leia:
+## Próximo marco
+Issue **#4 — SourceRegistry + Preview Pipeline + Renderer do Calendário**.
+
+Ordem:
+1. ingest/source registry;
+2. preview proxy/cache;
+3. renderer determinístico;
+4. Calendário no Fabric;
+5. parity + performance;
+6. depois Chaveiro/Globo;
+7. modo Gestor por último.
+
+## Documentação principal
 - `docs/ANTIGRAVITY.md`
-- `docs/audits/ANTIGRAVITY_2_19_1_FORENSIC_AUDIT.md`
-- `docs/ARCHITECTURE.md`
+- `docs/EDITOR_UX.md`
+- `docs/IMAGE_PIPELINE.md`
+- `docs/PERFORMANCE_BUDGETS.md`
+- `docs/EDITOR_IMPLEMENTATION_PLAN.md`
 - `docs/PRODUCT_SPECS.md`
 - `docs/WINDOWS_INTEGRATION.md`
+- `docs/audits/ANTIGRAVITY_2_19_1_EDITOR_FORENSIC_AUDIT.md`
 
 ## Validação
 ```bash
@@ -55,7 +104,7 @@ ruff check apps/desktop/src tests scripts
 CI roda em Ubuntu e Windows.
 
 ## Privacidade
-Não versionar fotografias reais de clientes, caminhos pessoais, credenciais ou outputs de produção.
+Não versionar fotos reais de clientes, caminhos pessoais, credenciais ou outputs de produção.
 
 ## Licença
 Código proprietário da EVYDÊNCIA; dependências mantêm suas próprias licenças.

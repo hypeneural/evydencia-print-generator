@@ -7,5 +7,8 @@
 | [ADR-003](docs/adr/003-fabric-pillow-boundary.md) | Fabric.js no preview e Pillow no render | Aceito |
 | [ADR-004](docs/adr/004-windows-shell-phases.md) | Shell clássico primeiro, moderno depois | Aceito |
 | [ADR-005](docs/adr/005-domain-editor.md) | Editor específico de slots, não fork integral de Canva | Aceito |
-| [ADR-006](docs/adr/006-antigravity-context.md) | Contexto AntiGravity progressivo por diretório/skills | Aceito |
-| [ADR-007](docs/adr/007-explorer-process-boundary.md) | Explorer só lança o app; processamento fica fora do shell | Aceito |
+| [ADR-006](docs/adr/006-antigravity-context.md) | Contexto AntiGravity progressivo | Aceito |
+| [ADR-007](docs/adr/007-explorer-process-boundary.md) | Explorer só lança o app | Aceito |
+| [ADR-008](docs/adr/008-preview-original-boundary.md) | Preview proxy no editor, original no renderer | Aceito |
+| [ADR-009](docs/adr/009-operator-manager-modes.md) | Operador e Gestor são modos distintos | Aceito |
+| [ADR-010](docs/adr/010-domain-command-history.md) | Undo/redo por comandos de domínio | Aceito |

@@ -18,6 +18,10 @@ REQUIRED = [
     "docs/ARCHITECTURE.md",
     "docs/PRODUCT_SPECS.md",
     "docs/ANTIGRAVITY.md",
+    "docs/EDITOR_UX.md",
+    "docs/IMAGE_PIPELINE.md",
+    "docs/PERFORMANCE_BUDGETS.md",
+    "docs/EDITOR_IMPLEMENTATION_PLAN.md",
     "docs/WINDOWS_INTEGRATION.md",
     "docs/adr/001-template-driven-engine.md",
     "docs/adr/002-millimeters-canonical.md",
@@ -26,6 +30,9 @@ REQUIRED = [
     "docs/adr/005-domain-editor.md",
     "docs/adr/006-antigravity-context.md",
     "docs/adr/007-explorer-process-boundary.md",
+    "docs/adr/008-preview-original-boundary.md",
+    "docs/adr/009-operator-manager-modes.md",
+    "docs/adr/010-domain-command-history.md",
 ]
 
 

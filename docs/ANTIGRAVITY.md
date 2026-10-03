@@ -1,58 +1,82 @@
-# AntiGravity 2.19.1 — Repository Operating Guide
+# AntiGravity 2.19.1 — Operating Guide
 
 Auditado em 2026-10-03 contra a documentação oficial.
 
-## Versão
-Antigravity 2.19.1 é a versão mais recente da linha Antigravity 2.0 no changelog oficial em 2026-09-30. A versão corrige custom agents que ignoravam regras globais/de projeto e permite enviar mensagens diretamente a subagentes.
-
-Fonte: https://www.antigravity.google/docs/changelog
-
-## Regras
-- AGENTS.md/GEMINI.md não usam frontmatter e são always-on no escopo do diretório.
-- Rules em .agents/rules/*.md precisam de trigger válido.
-- Regras são cumulativas; diretório mais específico tem precedência.
-- Regras expressam invariantes; Skills expressam procedimentos.
-
-Fonte: https://www.antigravity.google/docs/rules/
-
-## Skills
-Skills ficam em .agents/skills/<skill>/SKILL.md. Só name/description entram inicialmente no contexto; corpo e recursos são carregados sob demanda. Scripts/examples/resources devem ficar dentro da skill quando específicos.
-
-Fonte: https://www.antigravity.google/docs/skills
-
-## Workflows e planejamento
-Workflows estão deprecated e serão retirados em 2026-11-01. Não criar workflows novos. Desde 2.17, /plan oferece exploração sem efeitos colaterais, artifact review e Proceed; por isso este projeto não mantém uma skill duplicada de planning.
+## Baseline
+O changelog oficial marca **v2.19.1 — 2026-09-30 — Latest**. A versão permite mensagens diretas a subagentes e corrige custom agents que ignoravam regras globais/de projeto.
 
 Fontes:
-- https://www.antigravity.google/docs/migration/workflows-to-skills
-- https://www.antigravity.google/docs/plan/
+- https://www.antigravity.google/docs/changelog
+- https://www.antigravity.google/docs/rules/
+- https://www.antigravity.google/docs/skills
+- https://www.antigravity.google/docs/subagents
+- https://www.antigravity.google/docs/slash-commands/
+- https://www.antigravity.google/docs/hooks
 
-## Custom agents
-Local: .agents/agents/<name>/agent.md.
-O projeto usa allowlists de tools documentadas, model/policy explícitos e skills por agente. O coordenador declara dependências dos especialistas.
+## Estratégia de contexto
+- `AGENTS.md`/GEMINI não usam frontmatter e são always-on.
+- Rules modulares usam triggers e só guardam constraints/invariantes.
+- Skills guardam procedimentos multi-etapa.
+- Skills seguem progressive disclosure: name+description primeiro, corpo sob demanda.
+- Skills complexas devem ter decision tree.
+- Scripts/resources/examples ficam no bundle da skill.
+- Scripts de skill devem ser usados como black box quando possível; rode `--help` antes de ler fonte grande.
 
-Fonte: https://www.antigravity.google/docs/subagents
+## Slash commands do projeto
+- `/plan`: feature transversal, refactor, contrato ou risco alto.
+- `/grill-me`: UX/medidas/requisito ainda ambíguo.
+- `/boost`: bugs difíceis de geometria/performance quando disponível.
+- `/browser`: validar UI do Vite, fluxos e screenshots sintéticas.
+- `/learn`: transformar correções recorrentes em Rule/Skill depois de revisar o diff.
 
-### Estratégia
-- evydencia-builder: principal/orquestrador.
-- product-architect: contratos/geometria.
-- canvas-engineer: React/Fabric.
-- render-engineer: Pillow/bitmap.
-- windows-engineer: shell/installer.
-- quality-auditor: revisão independente somente leitura.
+## Agents
 
-Não paralelizar agentes que editam os mesmos arquivos.
+### Principal
+`evydencia-builder`
+Coordena vertical slices, contexto mínimo e gates.
+
+### Subagentes
+1. `product-architect` — Template/Job/geometria/ADR.
+2. `editor-ux-engineer` — Operador/Gestor, fluxo e ergonomia.
+3. `canvas-engineer` — React/Fabric/history/performance.
+4. `render-engineer` — Pillow/EXIF/ICC/DPI/pixels.
+5. `windows-engineer` — pywebview/shell/installer.
+6. `quality-auditor` — auditor independente read-only na primeira passagem.
+
+Pesquisa/benchmark pode paralelizar. Dois agentes não editam os mesmos arquivos simultaneamente.
+
+## Skills
+Workspace: `.agents/skills/<skill>/SKILL.md`.
+
+Skills atuais:
+- antigravity-maintenance
+- editor-performance
+- editor-ux
+- fabric-canvas
+- image-ingest-preview
+- image-quality
+- print-geometry
+- product-onboarding
+- render-golden-tests
+- repo-audit
+- template-authoring
+- windows-shell-integration
 
 ## Hooks
-Workspace hooks ficam em .agents/hooks.json. O hook deste repo roda somente após ferramentas de escrita e só efetivamente valida quando a escrita toca customizações.
+`.agents/hooks.json` usa PostToolUse leve para validar customizações após escrita. O hook não deve virar um build global a cada arquivo.
 
-Fonte: https://www.antigravity.google/docs/hooks
+## Workflows
+Não criar novos workflows. Estão deprecated e serão retirados em 2026-11-01; usar Skills.
 
-## Configuração de projeto
-Desde 2.17, customização por repositório usa /.gemini/config.json; .agents/settings.json não é mais lido. Não criar config vazio: só usar quando houver configuração real.
+## Configuração
+Configuração por projeto pertence a `/.gemini/config.json` quando necessária. Não criar arquivo vazio.
 
-## Verificação manual após clone
-1. Customizations → confirme Rules/Skills/Hooks.
-2. /agents → confirme os seis agentes.
-3. /plan → valide artifact review numa mudança pequena.
-4. Rode python scripts/verify_antigravity_customizations.py.
+## Sequência recomendada no issue #4
+1. `/plan M1 SourceRegistry + Preview Pipeline + Renderer do Calendário`
+2. revisar artifact;
+3. se surgirem decisões de interação/medida, `/grill-me`;
+4. implementar E1/E2 em incrementos;
+5. canvas-engineer + editor-ux-engineer implementam E3;
+6. `/browser` contra Vite para validar UX;
+7. quality-auditor roda auditoria independente;
+8. CI verde + benchmark registrado.
