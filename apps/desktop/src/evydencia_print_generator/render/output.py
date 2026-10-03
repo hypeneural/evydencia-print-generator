@@ -18,6 +18,19 @@ def extension_for_format(fmt: str) -> str:
     return f".{fmt.lower().lstrip('.')}"
 
 
+def _same_or_case_colliding(path_a: Path, path_b: Path) -> bool:
+    """True if paths resolve to same file or collide case-insensitively in same dir."""
+    try:
+        if path_a.resolve() == path_b.resolve():
+            return True
+        return (
+            path_a.parent.resolve() == path_b.parent.resolve()
+            and path_a.name.lower() == path_b.name.lower()
+        )
+    except Exception:
+        return path_a.name.lower() == path_b.name.lower()
+
+
 def resolve_output_path(
     source_path: Path,
     prefix: str,
@@ -42,7 +55,7 @@ def resolve_output_path(
     candidate = dest_dir / base_name
 
     # Invariant: Never overwrite input source
-    if candidate.resolve() == source_path.resolve():
+    if _same_or_case_colliding(candidate, source_path):
         raise ValueError(f"Resolved output path matches input source path: {candidate.resolve()}")
 
     if overwrite or not candidate.exists():
@@ -52,7 +65,7 @@ def resolve_output_path(
     seq = 2
     while True:
         candidate = dest_dir / f"{prefix}{stem}_{seq:03d}{ext}"
-        if candidate.resolve() == source_path.resolve():
+        if _same_or_case_colliding(candidate, source_path):
             seq += 1
             continue
         if not candidate.exists():
