@@ -61,6 +61,7 @@ class PreviewInfo:
     status: PreviewStatus = PreviewStatus.PENDING
     fingerprint: str | None = None
     error_code: str | None = None
+    cached_path: Path | None = field(default=None, repr=False)
 
 
 @dataclass

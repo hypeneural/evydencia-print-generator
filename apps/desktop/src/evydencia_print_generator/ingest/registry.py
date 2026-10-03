@@ -70,14 +70,24 @@ class SourceRegistry:
         fingerprint: str,
         status: PreviewStatus,
         error_code: str | None = None,
+        cached_path: Path | None = None,
     ) -> SourceAsset | None:
         """Update preview state; ignored if the asset changed meanwhile (stale fingerprint)."""
         with self._lock:
             asset = self._by_id.get(source_id)
             if asset is None or asset.identity.fingerprint != fingerprint:
                 return None
+            new_cached_path = (
+                cached_path
+                if cached_path is not None
+                else (asset.preview.cached_path if status == PreviewStatus.READY else None)
+            )
             asset.preview = replace(
-                asset.preview, status=status, fingerprint=fingerprint, error_code=error_code
+                asset.preview,
+                status=status,
+                fingerprint=fingerprint,
+                error_code=error_code,
+                cached_path=new_cached_path,
             )
             return asset
 
