@@ -1,46 +1,149 @@
 # Auditoria Forense — AntiGravity 2.19.1
 
-Data: 2026-10-03
-Escopo: hypeneural/evydencia-print-generator
+**Data:** 2026-10-03  
+**Repositório:** `hypeneural/evydencia-print-generator`  
+**Versão alvo:** AntiGravity 2.19.1  
+**Gate final:** `READY_FOR_NEXT_PHASE`
 
-## Fontes oficiais
-- https://www.antigravity.google/docs/changelog
-- https://www.antigravity.google/docs/rules/
-- https://www.antigravity.google/docs/skills
-- https://www.antigravity.google/docs/subagents
-- https://www.antigravity.google/docs/hooks
-- https://www.antigravity.google/docs/plan/
-- https://www.antigravity.google/docs/migration/workflows-to-skills
+## Fontes oficiais validadas
+- Changelog: https://www.antigravity.google/docs/changelog
+- Rules: https://www.antigravity.google/docs/rules/
+- Skills: https://www.antigravity.google/docs/skills
+- Custom subagents: https://www.antigravity.google/docs/subagents
+- Hooks: https://www.antigravity.google/docs/hooks
+- Plan: https://www.antigravity.google/docs/plan/
+- Workflow migration: https://www.antigravity.google/docs/migration/workflows-to-skills
 
-## Achados
+## Baseline oficial
+O changelog oficial marca **v2.19.1 (2026-09-30)** como Latest. A release adiciona mensagens diretas para subagentes e corrige custom agents que ignoravam regras globais/de projeto.
 
-### A-01 — planning local duplicava /plan nativo — HIGH
-Desde v2.17 existe /plan com exploração sem side effects, Implementation Plan revisável e Proceed. A skill local implementation-plan deve ser removida.
+Rules:
+- `AGENTS.md`/`GEMINI.md` não usam frontmatter e são always-on no escopo.
+- `.agents/rules/*.md` exige trigger válido.
+- `model_decision` e Skills permitem progressive disclosure.
 
-### A-02 — faltava agente principal de domínio — HIGH
-Só existiam especialistas subagent-only. Criado evydencia-builder para coordenação explícita.
+Skills:
+- workspace: `.agents/skills/<name>/SKILL.md`;
+- metadata é indexada antes do corpo;
+- scripts/resources/examples podem ser agrupados no bundle.
 
-### A-03 — toolsets dos subagentes não estavam explícitos — MEDIUM
-A especificação aceita allowlists e alerta que tool name inválido pode travar execução. Foram usados apenas nomes documentados. quality-auditor não recebe tools de escrita.
+Subagents:
+- workspace: `.agents/agents/<name>/agent.md` ou arquivo .md direto;
+- frontmatter suporta tools, mainAgent, subagent, model, commandExecutionPolicy e skills;
+- `agents` permite declarar subagentes dependentes;
+- tool names inválidos são risco conhecido de hang.
 
-### A-04 — faltava hook de sanidade — MEDIUM
-Rule inválida pode ser descartada silenciosamente. Criado PostToolUse focado em customizações.
+Hooks:
+- workspace: `.agents/hooks.json`;
+- `PostToolUse` recebe toolCall + args e retorna `{}`.
 
-### A-05 — CI referencia scripts inexistentes — BLOCKER
-O bootstrap inicial apontava para verificadores ainda não publicados. O commit seguinte deve publicar os validadores e contratos antes de considerar o bootstrap verde.
+Workflows:
+- deprecated;
+- retirada anunciada para 2026-11-01;
+- Skills substituem workflows com carregamento progressivo.
 
-### A-06 — documentação local de versão inexistente — MEDIUM
-Criado docs/ANTIGRAVITY.md para evitar pesquisas repetidas e convenções antigas.
+## Achados e correções
 
-### A-07 — repositório público — NOTE
-A API do GitHub reporta visibility=public. Nenhuma foto/segredo pode entrar no repo; se o código também precisar ser privado, alterar visibility nas configurações do GitHub.
+### A-01 — protocolo local de planejamento duplicava /plan — HIGH — RESOLVIDO
+A skill `implementation-plan` duplicava capacidade nativa. Removida. O root agora orienta `/plan`, que explora sem escrever, cria artifact revisável e só executa após Proceed.
 
-## 2.19.1 aproveitado
-- custom agents voltam a respeitar rules;
-- mensagens diretas para subagentes;
-- root rules não precisam carregar processos multi-etapa graças a Skills;
-- /plan substitui protocolo local de planejamento.
+### A-02 — ausência de agente principal de domínio — HIGH — RESOLVIDO
+Criado `evydencia-builder`, mainAgent responsável por coordenação e delegação.
 
-## Gate
-Customização: READY após validação automática.
-Produto: permanece em Fase 1.
+### A-03 — toolsets de agentes implícitos/subespecificados — MEDIUM — RESOLVIDO
+Todos os agentes declaram toolsets usando nomes oficiais. `quality-auditor` não recebe ferramentas explícitas de escrita.
+
+### A-04 — ausência de validação automática de customizações — MEDIUM — RESOLVIDO
+Adicionado `.agents/hooks.json` com PostToolUse leve e `verify_antigravity_customizations.py`.
+
+### A-05 — CI referenciava scripts inexistentes — BLOCKER — RESOLVIDO
+Publicados:
+- `verify_antigravity_customizations.py`
+- `validate_templates.py`
+- `check_privacy.py`
+- `verify_repo.py`
+
+### A-06 — documentação AntiGravity insuficiente — MEDIUM — RESOLVIDO
+Adicionados `docs/ANTIGRAVITY.md` e este relatório.
+
+### A-07 — decisões arquiteturais sem ADR físico — MEDIUM — RESOLVIDO
+Materializados ADR-001..ADR-007 e `verify_repo.py` agora exige sua presença.
+
+### A-08 — GitHub Actions legado e warnings Node 20 — MEDIUM — RESOLVIDO
+Atualizado para `actions/checkout@v7` + `actions/setup-python@v7`, conforme documentação/release atual.
+
+### A-09 — lint bloqueando CI — LOW — RESOLVIDO
+Corrigidos imports e formatação detectados pelo Ruff.
+
+### A-10 — repositório público — NOTE — ABERTO
+A API do GitHub reporta `visibility=public`. Nenhuma fotografia real, segredo ou caminho privado pode entrar. Se o código precisar ser privado, alterar a visibilidade no GitHub.
+
+## Organização final das customizações
+
+```text
+AGENTS.md
+├── apps/ui/AGENTS.md
+├── apps/desktop/AGENTS.md
+├── templates/AGENTS.md
+├── schemas/AGENTS.md
+├── installer/AGENTS.md
+└── tests/AGENTS.md
+
+.agents/
+├── agents/
+│   ├── evydencia-builder/
+│   ├── product-architect/
+│   ├── canvas-engineer/
+│   ├── render-engineer/
+│   ├── windows-engineer/
+│   └── quality-auditor/
+├── rules/
+│   ├── architecture.md
+│   ├── dependency-policy.md
+│   ├── privacy.md
+│   └── customizations.md
+├── skills/
+│   ├── antigravity-maintenance/
+│   ├── fabric-canvas/
+│   ├── print-geometry/
+│   ├── product-onboarding/
+│   ├── render-golden-tests/
+│   ├── repo-audit/
+│   ├── template-authoring/
+│   └── windows-shell-integration/
+└── hooks.json
+```
+
+## Por que isso é performático
+1. O root always-on contém somente invariantes.
+2. Detalhes de UI/Python/Templates/Windows são carregados por diretório.
+3. Rules condicionais não despejam todo o conteúdo em cada turno.
+4. Skills carregam metadata primeiro e corpo apenas sob demanda.
+5. O agente principal coordena; especialistas têm contexto menor e toolsets focados.
+6. O quality-auditor atua separadamente para reduzir auto-validação enviesada.
+7. `/plan` nativo substitui prompt de planejamento duplicado.
+8. Hook roda o verificador apenas quando uma escrita toca customizações.
+
+## Evidência mecânica
+### Run anterior
+Run #11 encontrou quatro problemas de lint após todo o restante passar:
+- validators: OK;
+- 3 templates: OK;
+- privacy: OK;
+- pytest: 2 passed;
+- Ruff: 4 findings.
+
+### Run final
+**GitHub Actions #16 — SUCCESS**
+- SHA: `b7bc07873497a01d6f10e074d1323646d9ed24bc`
+- Ubuntu/contracts: SUCCESS
+- Windows/windows-contract: SUCCESS
+- `verify_repo.py`: SUCCESS
+- `pytest -q`: SUCCESS
+- `ruff check`: SUCCESS
+- Windows CLI/bootstrap contract: SUCCESS
+
+https://github.com/hypeneural/evydencia-print-generator/actions/runs/37152264949
+
+## Conclusão
+A configuração AntiGravity não é mais o bloqueio do projeto. O repositório está pronto para entrar na Fase 1/2: fechar geometria física pendente e implementar o renderer determinístico.
