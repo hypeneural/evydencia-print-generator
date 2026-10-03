@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "evydencia-print-generator"
+version = "0.0.0"
+description = "Local deterministic print composition engine for EVYDENCIA photographic products"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "Pillow>=12.3,<13",
+  "pywebview>=6.2.1,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "jsonschema>=4.25,<5",
+  "pytest>=8,<10",
+  "ruff>=0.13,<1",
+]
+
+[project.scripts]
+evydencia-print-generator = "evydencia_print_generator.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["apps/desktop/src/evydencia_print_generator"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["apps/desktop/src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
