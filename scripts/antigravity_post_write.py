@@ -8,6 +8,7 @@ from pathlib import Path
 
 WATCH_NAMES = {"AGENTS.md", "GEMINI.md"}
 
+
 def target_from_payload(payload: dict) -> str:
     args = payload.get("toolCall", {}).get("args", {})
     for key in ("TargetFile", "AbsolutePath"):
@@ -16,12 +17,14 @@ def target_from_payload(payload: dict) -> str:
             return value
     return ""
 
+
 def is_customization(path_text: str) -> bool:
     if not path_text:
         return False
     normalized = path_text.replace("\\", "/")
     path = Path(normalized)
     return "/.agents/" in f"/{normalized}/" or path.name in WATCH_NAMES
+
 
 def main() -> int:
     try:
@@ -45,6 +48,7 @@ def main() -> int:
 
     print("{}")
     return result.returncode
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
