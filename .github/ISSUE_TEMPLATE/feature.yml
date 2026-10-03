@@ -1,0 +1,35 @@
+name: Feature
+description: Nova capacidade do editor ou infraestrutura
+title: "[Feature] "
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Objetivo do usuário
+      description: Descreva o resultado, não a implementação.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Superfície
+      options:
+        - Operador
+        - Gestor
+        - Renderer
+        - Windows
+        - Infra/AntiGravity
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de aceite
+      description: Comportamentos observáveis e métricas.
+    validations:
+      required: true
+  - type: textarea
+    id: perf
+    attributes:
+      label: Impacto de performance/qualidade
+      description: Latência, memória, FPS, render ou impressão.

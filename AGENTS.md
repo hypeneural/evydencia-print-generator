@@ -20,9 +20,10 @@ Criar um editor desktop Windows profissional, porém simples, para gerar Calend�
 12. Simplicidade do operador vence flexibilidade genérica. Recursos avançados pertencem ao modo Gestor.
 
 ## Stack aprovada
-React + TypeScript + Fabric.js 7.x; Python + pywebview 6.x + Pillow 12.x; JSON Schema; PyInstaller + Inno Setup.
+React + TypeScript + Fabric.js 7.x; Python + pywebview 6.x + Pillow 12.x; JSON Schema; PyInstaller + Inno Setup; C++/IExplorerCommand para o menu moderno do Windows 11.
 
 ## Fluxo de desenvolvimento com AntiGravity 2.19.1
+- Antes de explorar o repo, consulte @docs/REPOSITORY_MAP.md.
 - Feature transversal, arquitetura ou mudança de contrato: use /plan.
 - Requisito ambíguo de UX, impressão ou produto: use /grill-me antes do código.
 - Bug difícil de geometria/render/performance: /boost é apropriado quando disponível.
@@ -33,6 +34,7 @@ React + TypeScript + Fabric.js 7.x; Python + pywebview 6.x + Pillow 12.x; JSON S
 - Antes de concluir: `python scripts/verify_repo.py`, testes e lints relevantes.
 
 ## Documentos de entrada
+- @docs/REPOSITORY_MAP.md
 - @PLAN.md
 - @STATUS.md
 - @docs/ARCHITECTURE.md
@@ -45,6 +47,7 @@ React + TypeScript + Fabric.js 7.x; Python + pywebview 6.x + Pillow 12.x; JSON S
 ## Regras por área
 - apps/ui/AGENTS.md
 - apps/desktop/AGENTS.md
+- native/windows-shell/AGENTS.md
 - templates/AGENTS.md
 - schemas/AGENTS.md
 - installer/AGENTS.md

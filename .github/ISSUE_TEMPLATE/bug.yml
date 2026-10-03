@@ -1,0 +1,34 @@
+name: Bug
+description: Falha reproduzível no editor, render, Windows ou tooling
+title: "[Bug] "
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Operador/UI
+        - Gestor/Templates
+        - Ingest/Preview
+        - Renderer/Qualidade
+        - Windows/Shell/Installer
+        - AntiGravity/Repo/CI
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reprodução
+      description: Passos mínimos e resultado esperado/obtido.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidência
+      description: Logs, fixture sintética, vídeo/screenshot sem foto real de cliente.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Ambiente
+      description: Windows/build, commit SHA, cold/warm cache quando relevante.

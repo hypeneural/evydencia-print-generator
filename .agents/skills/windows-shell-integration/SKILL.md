@@ -1,35 +1,61 @@
 ---
 name: windows-shell-integration
-description: Projeta e valida integração com Explorer, linha de comando, pywebview, PyInstaller e Inno Setup. Use ao criar menu de contexto, installer ou fluxo de abertura de imagens no Windows.
+description: "Projeta, implementa e audita integração profissional com Windows 11 Explorer: IExplorerCommand, sparse MSIX, signing, fallback clássico, CLI, pywebview e installer. Use em menu de contexto, host desktop e distribuição."
 ---
 # Windows Shell Integration
 
-## Arquitetura em fases
+Leia primeiro:
+- `docs/WINDOWS_CONTEXT_MENU_PRO.md`
+- `docs/DEV_MACHINE_PROFILE.md`
+- `native/windows-shell/AGENTS.md`
 
-### V1 — shell verb clássico
-- Registre via instalador em `HKA\Software\Classes`.
-- O shell apenas executa o app com caminho(s) citado(s); não processa imagem dentro de Explorer.
-- Aceite que no Windows 11 a entrada possa aparecer em **Mostrar mais opções**.
-- O app precisa funcionar também aberto sem argumento.
+Use resources desta skill apenas quando necessário.
 
-### V2 — menu moderno do Windows 11
-Só avaliar depois do MVP estável. A referência oficial de implementação é Microsoft PowerToys: sparse MSIX + `IExplorerCommand`, com signing e registro próprios.
+## Decision tree
 
-## Contrato de lançamento
-- Executável: `EvydenciaPrintGenerator.exe`.
-- Argumentos devem ser tratados como entrada não confiável.
-- Validar existência, extensão/assinatura real e arquivos suportados.
-- Não persistir caminho completo em logs normais.
+### Precisa aparecer no menu moderno do Windows 11?
+Sim → `IExplorerCommand` + package identity/sparse MSIX.
 
-## Matriz mínima de teste
-- Windows 10/11 suportado pelo produto.
-- JPG/JPEG/PNG.
-- caminho com espaços.
-- acentos/Unicode.
-- caminho longo.
-- arquivo inexistente/corrompido.
-- abrir app diretamente.
-- instalar → usar → desinstalar → confirmar remoção da chave.
-- múltipla seleção somente quando contrato e registro forem explicitamente implementados/testados.
+### É build local/CI sem assinatura?
+Use classic fallback/CLI para testes funcionais. Não alegue cobertura do tier-1 moderno.
 
-Referência: `docs/WINDOWS_INTEGRATION.md`.
+### O handler precisa processar a foto?
+Não. Pare. Extraia paths e lance o app.
+
+### Seleção múltipla pode estourar command line?
+Use shell-request manifest temporário; não copie pixels.
+
+## Produção
+
+```text
+Explorer
+  -> EvydenciaShellExtension.dll (C++)
+  -> IExplorerCommand::Invoke
+  -> EvydenciaPrintGenerator.exe
+  -> IngestService
+```
+
+## GetState
+- filtros baratos por seleção/extensão;
+- supported image → enabled;
+- seleção incompatível → hidden/disabled;
+- sem open/decode/stat pesado.
+
+## Signing
+Sparse MSIX moderno exige assinatura/trust. Chave privada nunca entra no Git.
+
+## Test matrix
+Ver `resources/windows11-test-matrix.md`.
+
+## Referências
+Ver:
+- `resources/microsoft-modern-menu.md`
+- `resources/powertoys-patterns.md`
+
+## Definition of Done
+- modern menu real validado no Windows 11 Home 25H2;
+- fallback clássico funcional;
+- install/update/uninstall sem resíduos;
+- Unicode/space/long path;
+- Explorer permanece responsivo;
+- CI separa testes signed e unsigned.
