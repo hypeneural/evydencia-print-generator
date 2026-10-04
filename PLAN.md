@@ -34,17 +34,17 @@ Estratégia: vertical slice funcional antes de generalizar. Ver `docs/EDITOR_IMP
 - [x] preview/render parity.
 - [x] performance gate.
 
-## Fase 3 — Windows 11 professional shell
-- [ ] contrato CLI estável.
-- [ ] `native/windows-shell` C++20 x64.
-- [ ] IExplorerCommand.
-- [ ] sparse MSIX.
-- [ ] signing de desenvolvimento.
-- [ ] menu moderno real no Windows 11 Home 25H2.
-- [ ] classic fallback per-user.
-- [ ] installer install/update/uninstall.
-- [ ] signed CI/release strategy.
-- [ ] multi-select depois do single-select estável.
+## Fase 3 — Windows 11 professional shell (M3 Concluído)
+- [x] contrato CLI estável (--shell-request manifest protocol).
+- [x] `native/windows-shell` C++20 x64.
+- [x] IExplorerCommand.
+- [x] sparse MSIX.
+- [x] signing de desenvolvimento.
+- [x] menu moderno real no Windows 11 Home 25H2.
+- [x] classic fallback per-user.
+- [x] installer install/update/uninstall.
+- [x] signed CI/release strategy.
+- [x] multi-select depois do single-select estável.
 
 ## Fase 4 — Chaveiro (M2 Concluído)
 - [x] 18 slots.

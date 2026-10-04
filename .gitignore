@@ -25,3 +25,7 @@ customer-photos/
 .env.*
 !.env.example
 installer/output/
+*.pfx
+*.cer
+*.msix
+*.pri

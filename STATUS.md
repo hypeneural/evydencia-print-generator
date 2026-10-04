@@ -1,6 +1,6 @@
 # Status
 
-**Estado:** M1 (Calendário) e M2 (Globo de Neve & Chaveiro 3x4) 100% concluídos e validados em produção real. Próximo marco: Integração do Menu de Contexto do Windows 11 (Issue #5).
+**Estado:** M1 (Calendário), M2 (Globo de Neve & Chaveiro 3x4) e M3 (Integração Shell Windows 11 com IExplorerCommand + Sparse MSIX + Fallback) 100% concluídos e validados.
 
 ## Infra concluída
 - AntiGravity 2.19.1 auditado contra documentação oficial.
@@ -26,6 +26,14 @@
 - Editor Operador: Seletor de produtos, seleção visual de slot ativo no canvas Fabric.js, destaque em azul, ações em lote ("Usar mesma foto nos dois", "Preencher todos os 18 slots").
 - Suíte de testes automatizada `tests/test_multi_product.py` e validação E2E `scripts/test_production_e2e.py --template all`.
 
+## M3 — Integração Shell Windows 11 Concluída (Issue #5)
+- Shell C++20 x64 nativo (`native/windows-shell`): implementação pura de `IExplorerCommand` e `IObjectWithSite` compilada com MSVC e verificada via testes de contrato COM (`test_shell_extension.exe`).
+- Zero-jank Explorer: `GetState` realiza apenas verificação de extensão em memória (`.jpg`, `.jpeg`, `.png`), retornando `ECS_HIDDEN` para outros formatos. Sem Pillow, sem Python, sem I/O pesado de disco.
+- Protocolo escalável de seleção: CLI estendida com `--shell-request <manifest>` para suportar qualquer quantidade de fotos sem estourar limites de linha de comando.
+- Pacote Sparse MSIX assinado: `AppxManifest.xml` declarando `windows.fileExplorerContextMenus` e `windows.comServer` com pipeline automatizado via `makeappx.exe` e `signtool.exe`.
+- Fallback clássico per-user: `installer/shell_fallback.py` com registro em HKCU e proteção contra duplicação de menu quando o pacote moderno estiver ativo.
+- Gerenciador unificado: `scripts/manage_shell_extension.py` (status, build, install --auto, uninstall).
+
 ## Windows alvo real
 - Windows 11 Home Single Language 25H2 x64.
 - i7-11800H / 32 GB RAM / RTX 3060 Laptop 6 GB.
@@ -37,7 +45,7 @@
 - [x] Calendário: geometria e overlay PNG validados com `moldura.png` real.
 - [x] Globo: 2 slots simétricos 50x80mm em papel 10x15cm com linhas de corte de 1px a 300 DPI.
 - [x] Chaveiro: 18 slots 34x44mm em folha 15x21cm com grade 6x3 a 300 DPI.
+- [x] Windows 11 Context Menu: comando "Gerar com EVYDÊNCIA" integrado ao menu de contexto.
 
 ## Próximos marcos
-1. Issue #5: Integração com menu de contexto moderno do Windows 11 (`IExplorerCommand` + sparse MSIX).
-2. Modo Gestor completo.
+1. Modo Gestor completo.
