@@ -65,8 +65,20 @@ Resize não altera Job.
 - success com caminho + Abrir pasta;
 - collision-safe, sem overwrite silencioso.
 
-## Gestor
-Separado do Operador. Pode editar canvas físico, slots, groups, layers, lock/visibility, overlays/assets, medidas, output e publish/version.
+## Gestor (Marco M5)
+Separado do Operador através de controle de modo no cabeçalho superior (`Operador` | `Gestor`), utilizando o **Shared Editor Runtime** (`ProductCanvas.tsx` com capabilities distintas) e modelo efêmero `TemplateDraft`.
+
+### Princípios e Interações do Gestor:
+- **Milímetros (mm) como Fonte da Verdade**: Todas as entradas e inspeções no painel do Gestor utilizam milímetros físicos (`x_mm`, `y_mm`, `width_mm`, `height_mm`).
+- **Coordenadas Derivadas**: Coordenadas em pixels (`rect_px`) são estritamente calculadas via `mm_to_px(mm, dpi)`.
+- **Seleção e Bounding Box**: O slot ativo exibe borda destacada e 4 alças de redimensionamento nos cantos (`NW`, `NE`, `SE`, `SW`).
+- **Manipulação Direta**: Arrastar o corpo do slot desloca a posição em milímetros; arrastar os cantos redimensiona a largura e altura com restrição aos limites da folha.
+- **Inspector Contextual (Progressive Disclosure)**:
+  - Folha/Canvas: dimensões físicas em mm, DPI e alternância de orientação;
+  - Slot Ativo: ID, coordenadas e dimensões em mm, proporção, modo de enquadramento (`cover`/`fit`) e permissões do Operador (`allow_pan`, `allow_zoom`, `allow_rotate`);
+  - Overlay: inspeção de caminho de máscara decorativa;
+  - Validação em Tempo Real: feedback visual imediato (`validateTemplateDraft`) garantindo que nenhum slot exceda os limites físicos da folha ou possua ID duplicado.
+- **Imutabilidade em Disco**: O Gestor edita uma instância em memória (`TemplateDraft`). A publicação e gravação versionada em disco ocorre no Marco M5-B.
 
 ## Acessibilidade
 - foco visível;
