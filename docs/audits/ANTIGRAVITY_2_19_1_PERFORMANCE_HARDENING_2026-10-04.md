@@ -2,7 +2,7 @@
 
 ## Official baseline
 - Download page exposes Antigravity 2.0 v2.19.1.
-- Public changelog still lists v2.18.1 as Latest at audit time; do not infer undocumented 2.19.1 release notes.
+- Official changelog lists v2.19.1 as Latest (2026-09-30): direct subagent messaging and fix for custom agents ignoring global/project Rules.
 - Rules are cumulative and directory-scoped; AGENTS.md is always-on.
 - Skills use progressive disclosure.
 - Subagents have isolated context and can use isolated branch/worktree workspaces.
