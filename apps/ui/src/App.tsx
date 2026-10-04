@@ -37,8 +37,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     async function init() {
       try {
-        const availableTemplates = await bridge.getTemplates();
+        const [availableTemplates, initialSources] = await Promise.all([
+          bridge.getTemplates(),
+          bridge.getSources(),
+        ]);
         setTemplates(availableTemplates);
+        setSources(initialSources);
 
         if (availableTemplates.length > 0) {
           const tpl = availableTemplates[0];
@@ -51,11 +55,20 @@ export const App: React.FC = () => {
             template_version: tpl.template_version,
             slot_edits: {},
           };
+
+          if (initialSources.length > 0 && firstSlotId) {
+            initialEdit.slot_edits[firstSlotId] = {
+              source_id: initialSources[0].id,
+              pan_x_norm: 0.0,
+              pan_y_norm: 0.0,
+              scale: 1.0,
+              rotation_deg: 0.0,
+            };
+          }
+
           setEditState(initialEdit);
           historyRef.current = createHistoryManager(initialEdit);
         }
-        const initialSources = await bridge.getSources();
-        setSources(initialSources);
       } catch (err: unknown) {
         setErrorMessage(err instanceof Error ? err.message : String(err));
       }
@@ -547,6 +560,7 @@ export const App: React.FC = () => {
         >
           {template ? (
             <ProductCanvas
+              key={template.id}
               template={template}
               activeSlotId={activeSlotId}
               onSelectSlot={setActiveSlotId}

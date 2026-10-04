@@ -43,7 +43,10 @@ const mockTemplates: TemplateModel[] = [
         allow_rotate: true,
       },
     ],
-    overlay: null,
+    overlay: {
+      path: "assets/calendar-2027-overlay.png",
+      url: "/api/templates/calendario-2027/assets/calendar-2027-overlay.png",
+    },
   },
   {
     id: "globo-neve",
@@ -116,12 +119,40 @@ const mockTemplates: TemplateModel[] = [
 
 let mockSources: SourceAssetModel[] = [];
 
+let pywebviewWaitPromise: Promise<boolean> | null = null;
+
+function waitForPyWebView(timeoutMs = 1500): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.pywebview?.api) return Promise.resolve(true);
+
+  if (!pywebviewWaitPromise) {
+    pywebviewWaitPromise = new Promise((resolve) => {
+      let resolved = false;
+      const handleReady = () => {
+        if (!resolved) {
+          resolved = true;
+          resolve(true);
+        }
+      };
+      window.addEventListener("pywebviewready", handleReady, { once: true });
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(!!window.pywebview?.api);
+        }
+      }, timeoutMs);
+    });
+  }
+  return pywebviewWaitPromise;
+}
+
 export const bridge = {
   isPyWebView(): boolean {
     return typeof window !== "undefined" && !!window.pywebview?.api;
   },
 
   async getTemplates(): Promise<TemplateModel[]> {
+    await waitForPyWebView();
     if (window.pywebview?.api) {
       return window.pywebview.api.get_templates();
     }
@@ -129,6 +160,7 @@ export const bridge = {
   },
 
   async getSources(): Promise<SourceAssetModel[]> {
+    await waitForPyWebView();
     if (window.pywebview?.api) {
       return window.pywebview.api.get_sources();
     }

@@ -276,12 +276,38 @@ def test_render_with_overlay_composition(tmp_path: Path) -> None:
         assert abs(pb - 255) <= 2
 
 
-def test_render_unrenderable_template_raises_template_error() -> None:
-    from evydencia_print_generator.domain.template import TemplateError
-    from evydencia_print_generator.paths import templates_dir
+def test_render_unrenderable_template_raises_template_error(tmp_path: Path) -> None:
+    from evydencia_print_generator.domain.template import (
+        Canvas,
+        OutputSpec,
+        Slot,
+        Template,
+        TemplateError,
+    )
 
-    # calendario-2027 is in draft status with null dimensions
-    draft_tpl = load_template(templates_dir() / "calendario-2027" / "template.json")
+    draft_tpl = Template(
+        id="draft-item",
+        template_version="1.0.0",
+        name="Draft Item",
+        status="draft",
+        canvas=Canvas(width_mm=None, height_mm=None, dpi=None),
+        output=OutputSpec(format="JPEG", quality=95, filename_prefix="Draft_"),
+        slots=(
+            Slot(
+                id="s1",
+                x_mm=None,
+                y_mm=None,
+                width_mm=None,
+                height_mm=None,
+                fit="cover",
+                allow_pan=True,
+                allow_zoom=True,
+                allow_rotate=True,
+            ),
+        ),
+        overlay=None,
+        base_dir=tmp_path,
+    )
     assert not draft_tpl.is_renderable
 
     # Dummy snapshot

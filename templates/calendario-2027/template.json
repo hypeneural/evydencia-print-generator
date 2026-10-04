@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
-  "template_version": "0.1.1",
+  "template_version": "1.0.0",
   "id": "calendario-2027",
   "name": "Calendário 2027",
-  "status": "draft",
+  "status": "production",
   "canvas": {
-    "width_mm": null,
-    "height_mm": null,
-    "dpi": null
+    "width_mm": 106.7,
+    "height_mm": 147.4,
+    "dpi": 254
   },
   "output": {
     "format": "JPEG",
@@ -17,10 +17,10 @@
   "slots": [
     {
       "id": "foto_principal",
-      "x_mm": null,
-      "y_mm": null,
-      "width_mm": null,
-      "height_mm": null,
+      "x_mm": 11.8,
+      "y_mm": 10.7,
+      "width_mm": 82.3,
+      "height_mm": 39.5,
       "fit": "cover",
       "allow_pan": true,
       "allow_zoom": true,
@@ -34,17 +34,16 @@
   "groups": [],
   "provenance": {
     "measured": [
-      "existe overlay PNG transparente fornecido pelo usuário"
+      "overlay moldura.png 1067x1474 px @ 254 DPI medido no Photoshop",
+      "janela da foto em x=118, y=107, w=823, h=395 px"
     ],
-    "derived": [],
-    "pending": [
-      "medida física do canvas",
-      "posição e dimensão física do slot",
-      "DPI de produção",
-      "adicionar overlay aprovado ao repositório"
-    ]
+    "derived": [
+      "canvas 106.7 x 147.4 mm",
+      "slot foto_principal 82.3 x 39.5 mm posicionado em (11.8, 10.7) mm"
+    ],
+    "pending": []
   },
   "notes": [
-    "Foto fica sob o overlay e precisa pan, zoom e rotação."
+    "Foto fica sob o overlay transparente decorativo e possui pan, zoom e rotação."
   ]
 }

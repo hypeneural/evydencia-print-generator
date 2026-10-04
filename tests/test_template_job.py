@@ -10,7 +10,11 @@ import pytest
 from conftest import SYNTHETIC_TEMPLATE
 from evydencia_print_generator.domain.job import EditState, JobError, build_job_snapshot
 from evydencia_print_generator.domain.template import (
+    Canvas,
+    OutputSpec,
     PixelRect,
+    Slot,
+    Template,
     TemplateError,
     load_template,
     parse_template,
@@ -55,12 +59,43 @@ def test_repo_templates_load(product: str) -> None:
     assert tpl.status in {"draft", "production"}
 
 
-def test_real_calendar_is_not_renderable_until_measured() -> None:
+def test_real_calendar_is_production_and_renderable() -> None:
     tpl = load_template(templates_dir() / "calendario-2027" / "template.json")
+    assert tpl.is_renderable
+    assert tpl.status == "production"
+    assert tpl.output.filename_prefix == "Calendario_"
+    assert tpl.canvas_px() == (1067, 1474)
+    assert tpl.overlay is not None
+    assert tpl.overlay_path() is not None and tpl.overlay_path().is_file()
+
+
+def test_draft_template_not_renderable() -> None:
+    tpl = Template(
+        id="draft-item",
+        template_version="1.0.0",
+        name="Draft Item",
+        status="draft",
+        canvas=Canvas(width_mm=None, height_mm=None, dpi=None),
+        output=OutputSpec(format="JPEG", quality=95, filename_prefix="Draft_"),
+        slots=(
+            Slot(
+                id="s1",
+                x_mm=None,
+                y_mm=None,
+                width_mm=None,
+                height_mm=None,
+                fit="cover",
+                allow_pan=True,
+                allow_zoom=True,
+                allow_rotate=True,
+            ),
+        ),
+        overlay=None,
+        base_dir=Path("."),
+    )
     assert not tpl.is_renderable
     missing = tpl.missing_for_render()
-    assert "canvas.dpi" in missing and "slots.foto_principal.width_mm" in missing
-    assert tpl.output.filename_prefix == "Calendario_"
+    assert "canvas.dpi" in missing and "slots.s1.width_mm" in missing
     with pytest.raises(TemplateError):
         tpl.canvas_px()
 

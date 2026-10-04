@@ -269,18 +269,20 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
             }
           }
         }
+      }
 
-        // 3. Slot borders: Highlight active slot vs subtle cut guidelines for others
-        const isActive = slot.id === activeSlotId;
+      // 3. Subtle cut guidelines for inactive slots
+      for (const slot of template.slots) {
+        if (slot.id === activeSlotId) continue;
+        const r = slot.rect_px;
         const border = new Rect({
           left: r.left,
           top: r.top,
           width: r.width,
           height: r.height,
           fill: "transparent",
-          stroke: isActive ? "#2563eb" : "#cbd5e1",
-          strokeWidth: isActive ? 3 : 1,
-          strokeDashArray: isActive ? [6, 4] : undefined,
+          stroke: "#cbd5e1",
+          strokeWidth: 1,
           selectable: false,
           evented: false,
         });
@@ -309,6 +311,25 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
         }
       }
 
+      // 5. Active slot indicator: Highlighted on top of overlay for crystal clear framing
+      const activeSlot = template.slots.find((s) => s.id === activeSlotId);
+      if (activeSlot) {
+        const r = activeSlot.rect_px;
+        const activeBorder = new Rect({
+          left: r.left,
+          top: r.top,
+          width: r.width,
+          height: r.height,
+          fill: "transparent",
+          stroke: "#2563eb",
+          strokeWidth: 3,
+          strokeDashArray: [6, 4],
+          selectable: false,
+          evented: false,
+        });
+        fabric.add(activeBorder);
+      }
+
       fabric.requestRenderAll();
     }
 
@@ -322,15 +343,18 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
   return (
     <div
       style={{
+        width: `${canvasW}px`,
+        height: `${canvasH}px`,
         transform: `scale(${scaleViewport})`,
         transformOrigin: "center center",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
         borderRadius: "4px",
         overflow: "hidden",
         backgroundColor: "#ffffff",
+        position: "relative",
       }}
     >
-      <canvas ref={canvasElRef} />
+      <canvas ref={canvasElRef} width={canvasW} height={canvasH} />
     </div>
   );
 };
