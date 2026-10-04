@@ -9,9 +9,13 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import winreg
 from pathlib import Path
 from typing import TypedDict
+
+if sys.platform == "win32":
+    import winreg
+else:
+    winreg = None  # type: ignore[assignment]
 
 VERB_KEY = r"Software\Classes\*\shell\EvydenciaPrintGenerator"
 COMMAND_KEY = rf"{VERB_KEY}\command"

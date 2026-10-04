@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
-import winreg
+import sys
 from unittest.mock import patch
 
-from installer.shell_fallback import (
+import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows only test suite")
+
+if sys.platform == "win32":
+    import winreg
+else:
+    winreg = None  # type: ignore[assignment]
+
+from installer.shell_fallback import (  # noqa: E402
     APPLIES_TO,
     COMMAND_KEY,
     VERB_KEY,
