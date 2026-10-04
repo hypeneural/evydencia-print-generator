@@ -189,9 +189,8 @@ class DesktopBridge:
         ingest_res = self.ingest_service.ingest_paths(paths, origin="dialog")
         for asset in ingest_res.accepted:
             fut = self.preview_service.ensure_preview(asset)
-            # Wait briefly so preview is ready if fast
             try:
-                fut.result(timeout=1.5)
+                fut.result(timeout=1.0)
             except Exception:
                 pass
 

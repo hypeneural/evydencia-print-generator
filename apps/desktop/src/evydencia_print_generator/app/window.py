@@ -31,14 +31,9 @@ def launch_app(
     preview_service = PreviewService(registry, cache=cache)
     ingest_service = IngestService(registry, schedule_preview=preview_service.ensure_preview)
 
-    # Pre-ingest any initial paths passed via CLI / Explorer
+    # Pre-ingest any initial paths passed via CLI / Explorer (non-blocking)
     if initial_image_paths:
-        ingest_result = ingest_service.ingest_paths(initial_image_paths, origin="cli")
-        for asset in ingest_result.accepted:
-            try:
-                preview_service.ensure_preview(asset).result(timeout=2.0)
-            except Exception:
-                logger.warning("Preview generation timed out for %s", asset.display_name)
+        ingest_service.ingest_paths(initial_image_paths, origin="cli")
 
     # 2. Start localhost asset server
     server = AssetServer(cache_dir=cache.cache_dir)
