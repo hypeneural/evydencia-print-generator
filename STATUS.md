@@ -15,15 +15,15 @@
 - Chaveiro: output 2551×1795.
 - Render final e preview visual são contratos diferentes; UI não é considerada validada apenas pelos testes de output.
 
-## UI Operador — HARDENING
-Pendências prioritárias:
-- PreviewLayout separado de canvas físico;
-- corrigir aspect ratio visual de Globo/Chaveiro;
-- overlay do Calendário ocupar 100% do preview;
-- cena Fabric persistente sem reload no hot path;
-- startup sem bloquear por thumbnail;
-- double-click de duplicação por produto;
-- testes visuais/E2E e frontend CI.
+## UI Operador — HARDENING (M4 — Issue #15)
+Status dos entregáveis:
+- [x] PreviewLayout separado de canvas físico: PASS local (`apps/ui/src/domain/layout.ts`)
+- [x] Corrigir aspect ratio visual de Globo/Chaveiro: PASS local (`apps/ui/src/domain/visual_layout.test.ts`)
+- [x] Overlay do Calendário ocupar 100% do preview: PASS local (`ProductCanvas.tsx`)
+- [x] Cena Fabric persistente sem reload no hot path: PASS local (`ProductCanvas.tsx`)
+- [x] Startup assíncrono sem bloqueio de thumbnails: PASS local (`window.py`, `bridge.py`, `App.tsx`)
+- [x] Double-click de duplicação por produto: PASS local (`duplication.ts`, `duplication.test.ts`, `App.tsx`)
+- [x] Bateria de testes visuais e frontend CI: PASS local (42 testes Vitest, build Vite, CI workflow atualizado)
 
 ## Windows
 - menu moderno: VISUAL PASS;
