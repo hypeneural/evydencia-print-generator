@@ -28,9 +28,9 @@ def find_cmake() -> str:
         Path(r"C:\Program Files\CMake\bin\cmake.exe"),
         Path(r"C:\Program Files (x86)\CMake\bin\cmake.exe"),
     ]
-    for c in candidates:
-        if c.exists():
-            return str(c)
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
     raise RuntimeError("CMake executable not found. Please install CMake or add it to PATH.")
 
 
@@ -55,7 +55,7 @@ def probe_vswhere() -> dict | None:
         ]
         out = subprocess.check_output(cmd, text=True, errors="replace")
         data = json.loads(out)
-        if data and isinstance(data, list) and len(data) > 0:
+        if data and isinstance(data, list):
             return data[0]
     except Exception:
         pass
@@ -79,10 +79,10 @@ def detect_vs_generators(cmake_bin: str) -> list[str]:
                 name = name.split("[")[0].strip()
                 available.append(name)
 
-        ordered = [p for p in preferred if p in available]
-        for a in available:
-            if a not in ordered:
-                ordered.append(a)
+        ordered = [item for item in preferred if item in available]
+        for item in available:
+            if item not in ordered:
+                ordered.append(item)
         if ordered:
             return ordered
     except Exception:
@@ -92,12 +92,12 @@ def detect_vs_generators(cmake_bin: str) -> list[str]:
 
 
 def ensure_icon() -> None:
-    """Ensure dedicated app.ico exists in canonical assets directory without regenerating if present."""
+    """Ensure the dedicated app.ico exists without regenerating an existing asset."""
     if ICO_PATH.exists():
-        print(f"==> Using deterministic versioned icon: {ICO_PATH} ({ICO_PATH.stat().st_size} bytes)")
+        size = ICO_PATH.stat().st_size
+        print(f"==> Using deterministic versioned icon: {ICO_PATH} ({size} bytes)")
         return
 
-    # Fallback copy from package/Assets if present
     pkg_ico = SHELL_DIR / "package" / "Assets" / "app.ico"
     if pkg_ico.exists():
         ASSETS_DIR.mkdir(parents=True, exist_ok=True)
@@ -118,7 +118,6 @@ def build_and_test() -> int:
     ensure_icon()
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Toolchain detection
     vs_info = probe_vswhere()
     if vs_info:
         print("\n=== Detected C++ Toolchain (MSVC x64) ===")
@@ -131,8 +130,8 @@ def build_and_test() -> int:
     generators = detect_vs_generators(cmake)
     configured = False
 
-    for gen in generators:
-        print(f"==> [1/3] Configuring CMake ({gen} -A x64)...")
+    for generator in generators:
+        print(f"==> [1/3] Configuring CMake ({generator} -A x64)...")
         config_cmd = [
             cmake,
             "-B",
@@ -140,7 +139,7 @@ def build_and_test() -> int:
             "-S",
             str(SHELL_DIR),
             "-G",
-            gen,
+            generator,
             "-A",
             "x64",
         ]
@@ -148,7 +147,7 @@ def build_and_test() -> int:
         if res.returncode == 0:
             configured = True
             break
-        print(f"Notice: Generator '{gen}' failed to configure, trying next...")
+        print(f"Notice: Generator '{generator}' failed to configure, trying next...")
         shutil.rmtree(BUILD_DIR / "CMakeFiles", ignore_errors=True)
         if (BUILD_DIR / "CMakeCache.txt").exists():
             (BUILD_DIR / "CMakeCache.txt").unlink(missing_ok=True)
