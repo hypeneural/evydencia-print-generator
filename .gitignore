@@ -9,6 +9,7 @@ build/
 *.spec
 node_modules/
 apps/ui/dist/
+*.tsbuildinfo
 .pnpm-store/
 .vscode/
 .idea/
