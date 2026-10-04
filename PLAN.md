@@ -12,27 +12,27 @@ Estratégia: vertical slice funcional antes de generalizar. Ver `docs/EDITOR_IMP
 - [x] Repository Map para reduzir exploração.
 - [x] Arquitetura profissional do menu Windows documentada.
 
-## Fase 1 — Editor foundation
-- [ ] SourceRegistry.
-- [ ] Ingest único para CLI/dialog/drop.
-- [ ] preview proxy cache 2048px + dedupe.
-- [ ] benchmark baseline na máquina Windows 11 Home 25H2.
-- [ ] renderer EXIF/cover/pan/zoom/rotate/clip.
-- [ ] alpha overlay.
-- [ ] JPEG/PNG quality/DPI/collision policy.
-- [ ] golden tests.
-- [ ] confirmar color policy/lab profile.
+## Fase 1 — Editor foundation (M1 Concluído)
+- [x] SourceRegistry.
+- [x] Ingest único para CLI/dialog/drop.
+- [x] preview proxy cache 2048px + dedupe.
+- [x] benchmark baseline na máquina Windows 11 Home 25H2.
+- [x] renderer EXIF/cover/pan/zoom/rotate/clip.
+- [x] alpha overlay.
+- [x] JPEG/PNG quality/DPI/collision policy.
+- [x] golden tests.
+- [x] confirmar color policy/lab profile.
 
-## Fase 2 — Calendário vertical slice
-- [ ] React/Vite/Fabric shell.
-- [ ] source tray.
-- [ ] slot editável.
-- [ ] overlay bloqueado.
-- [ ] history command stack.
-- [ ] Job round-trip.
-- [ ] Generate → Pillow.
-- [ ] preview/render parity.
-- [ ] performance gate.
+## Fase 2 — Calendário vertical slice (M1 Concluído)
+- [x] React/Vite/Fabric shell.
+- [x] source tray.
+- [x] slot editável.
+- [x] overlay bloqueado.
+- [x] history command stack.
+- [x] Job round-trip.
+- [x] Generate → Pillow.
+- [x] preview/render parity.
+- [x] performance gate.
 
 ## Fase 3 — Windows 11 professional shell
 - [ ] contrato CLI estável.
