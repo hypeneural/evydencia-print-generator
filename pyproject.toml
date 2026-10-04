@@ -27,7 +27,7 @@ packages = ["apps/desktop/src/evydencia_print_generator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["apps/desktop/src"]
+pythonpath = ["apps/desktop/src", "."]
 
 [tool.ruff]
 line-length = 100
