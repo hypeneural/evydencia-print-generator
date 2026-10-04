@@ -8,10 +8,13 @@ import {
   clampTransform,
 } from "../domain/transform";
 import type {
+  PixelRect,
   SlotEditState,
   SourceAssetModel,
   TemplateModel,
 } from "../domain/types";
+import type { DraftSlot, TemplateDraft } from "../domain/draft";
+import { pxToMm } from "../domain/draft";
 
 interface ProductCanvasProps {
   template: TemplateModel;
@@ -26,7 +29,28 @@ interface ProductCanvasProps {
   ) => void;
   layout: PreviewLayout;
   onDoubleClickSlot?: (slotId: string) => void;
+  mode?: "operator" | "manager";
+  draft?: TemplateDraft | null;
+  onDraftSlotChange?: (slotId: string, updated: DraftSlot) => void;
 }
+
+type ManagerDragState =
+  | { kind: "none" }
+  | {
+      kind: "move";
+      slotId: string;
+      startPointer: { x: number; y: number };
+      startRect: PixelRect;
+      currentRect?: PixelRect;
+    }
+  | {
+      kind: "resize";
+      corner: "nw" | "ne" | "se" | "sw";
+      slotId: string;
+      startPointer: { x: number; y: number };
+      startRect: PixelRect;
+      currentRect?: PixelRect;
+    };
 
 export const ProductCanvas: React.FC<ProductCanvasProps> = ({
   template,
@@ -37,24 +61,47 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
   onTransformChange,
   layout,
   onDoubleClickSlot,
+  mode = "operator",
+  draft,
+  onDraftSlotChange,
 }) => {
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<FabricCanvas | null>(null);
 
   // Persistent scene objects (Gate 5)
+  const slotPlaceholdersRef = useRef<Map<string, Rect>>(new Map());
+  const slotBordersRef = useRef<Map<string, Rect>>(new Map());
   const slotImagesRef = useRef<Map<string, FabricImage>>(new Map());
   const loadedSourceIdsRef = useRef<Map<string, string>>(new Map());
   const overlayImgRef = useRef<FabricImage | null>(null);
   const activeBorderRef = useRef<Rect | null>(null);
 
-  // Interaction refs
+  // Corner resize handles for manager mode
+  const handleNWRef = useRef<Rect | null>(null);
+  const handleNERef = useRef<Rect | null>(null);
+  const handleSERef = useRef<Rect | null>(null);
+  const handleSWRef = useRef<Rect | null>(null);
+
+  // Interaction refs (Operator mode)
   const isDraggingRef = useRef(false);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const transientTransformRef = useRef<Map<string, SlotTransform>>(new Map());
   const wheelCommitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafPendingRef = useRef(false);
 
+  // Interaction refs (Manager mode)
+  const managerDragRef = useRef<ManagerDragState>({ kind: "none" });
+
   // Synchronized prop refs
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  const onDraftSlotChangeRef = useRef(onDraftSlotChange);
+  onDraftSlotChangeRef.current = onDraftSlotChange;
+
   const activeSlotIdRef = useRef(activeSlotId);
   activeSlotIdRef.current = activeSlotId;
 
@@ -96,8 +143,11 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       const img = slotImagesRef.current.get(slotId);
       if (!img) return;
 
-      const currentTpl = templateRef.current;
-      const slot = currentTpl.slots.find((s) => s.id === slotId);
+      const currentSlots =
+        modeRef.current === "manager" && draftRef.current
+          ? draftRef.current.slots
+          : templateRef.current.slots;
+      const slot = currentSlots.find((s) => s.id === slotId);
       if (!slot) return;
 
       const edit = slotEditsRef.current[slotId];
@@ -130,6 +180,91 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     [scheduleRender]
   );
 
+  // Update slot visual elements in real-time (placeholder, border, activeBorder, handles, clipPath)
+  const updateSlotVisual = useCallback(
+    (slotId: string, rect: PixelRect) => {
+      const placeholder = slotPlaceholdersRef.current.get(slotId);
+      if (placeholder) {
+        placeholder.set({
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+
+      const border = slotBordersRef.current.get(slotId);
+      if (border) {
+        border.set({
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+
+      if (slotId === activeSlotIdRef.current && activeBorderRef.current) {
+        activeBorderRef.current.set({
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        });
+
+        // Update manager resize handles
+        if (modeRef.current === "manager") {
+          handleNWRef.current?.set({ left: rect.left, top: rect.top });
+          handleNERef.current?.set({ left: rect.left + rect.width, top: rect.top });
+          handleSERef.current?.set({
+            left: rect.left + rect.width,
+            top: rect.top + rect.height,
+          });
+          handleSWRef.current?.set({ left: rect.left, top: rect.top + rect.height });
+        }
+      }
+
+      // Update image clip path and placement if photo exists
+      const img = slotImagesRef.current.get(slotId);
+      if (img) {
+        if (img.clipPath) {
+          (img.clipPath as Rect).set({
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+          });
+        }
+
+        const edit = slotEditsRef.current[slotId];
+        const asset = sourcesRef.current.find((s) => s.id === edit?.source_id);
+        if (edit && asset) {
+          const previewW = img.width || asset.probe.oriented_width || asset.probe.width;
+          const previewH = img.height || asset.probe.oriented_height || asset.probe.height;
+          const placement = resolvePlacement(
+            previewW,
+            previewH,
+            rect.width,
+            rect.height,
+            {
+              pan_x_norm: edit.pan_x_norm,
+              pan_y_norm: edit.pan_y_norm,
+              scale: edit.scale,
+              rotation_deg: edit.rotation_deg,
+            }
+          );
+          img.set({
+            left: rect.left + placement.center_x,
+            top: rect.top + placement.center_y,
+            scaleX: placement.effective_scale,
+            scaleY: placement.effective_scale,
+            angle: placement.rotation_deg,
+          });
+        }
+      }
+    },
+    []
+  );
+
   // Initialize Fabric Canvas & Interaction Events
   useEffect(() => {
     if (!canvasElRef.current) return;
@@ -148,7 +283,7 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       { cssOnly: true }
     );
 
-    // 1. Static Base Scene: Background & Placeholders
+    // 1. Static Base Scene: Background
     const bg = new Rect({
       left: 0,
       top: 0,
@@ -160,7 +295,12 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     });
     fabric.add(bg);
 
-    for (const slot of template.slots) {
+    // Slot placeholders and borders
+    slotPlaceholdersRef.current.clear();
+    slotBordersRef.current.clear();
+
+    const initialSlots = template.slots;
+    for (const slot of initialSlots) {
       const r = slot.rect_px;
       const placeholder = new Rect({
         left: r.left,
@@ -172,8 +312,8 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
         evented: false,
       });
       fabric.add(placeholder);
+      slotPlaceholdersRef.current.set(slot.id, placeholder);
 
-      // Subtle cut guideline for slots
       const border = new Rect({
         left: r.left,
         top: r.top,
@@ -186,10 +326,11 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
         evented: false,
       });
       fabric.add(border);
+      slotBordersRef.current.set(slot.id, border);
     }
 
     // 2. Active slot indicator (created once, updated dynamically)
-    const initialActiveSlot = template.slots.find((s) => s.id === activeSlotIdRef.current);
+    const initialActiveSlot = initialSlots.find((s) => s.id === activeSlotIdRef.current);
     const activeBorder = new Rect({
       left: initialActiveSlot?.rect_px.left || 0,
       top: initialActiveSlot?.rect_px.top || 0,
@@ -206,7 +347,33 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     fabric.add(activeBorder);
     activeBorderRef.current = activeBorder;
 
-    // 3. Load static decorative overlay if template has one
+    // 3. Manager Corner Handles
+    const createCornerHandle = () =>
+      new Rect({
+        width: 14,
+        height: 14,
+        fill: "#ffffff",
+        stroke: "#2563eb",
+        strokeWidth: 2,
+        originX: "center",
+        originY: "center",
+        selectable: false,
+        evented: false,
+        visible: false,
+      });
+
+    const hNW = createCornerHandle();
+    const hNE = createCornerHandle();
+    const hSE = createCornerHandle();
+    const hSW = createCornerHandle();
+
+    fabric.add(hNW, hNE, hSE, hSW);
+    handleNWRef.current = hNW;
+    handleNERef.current = hNE;
+    handleSERef.current = hSE;
+    handleSWRef.current = hSW;
+
+    // 4. Load static decorative overlay if template has one
     let isCancelled = false;
     if (template.overlay?.url) {
       FabricImage.fromURL(template.overlay.url, { crossOrigin: "anonymous" })
@@ -223,6 +390,10 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
           fabric.add(overlayImg);
           overlayImgRef.current = overlayImg;
           fabric.bringObjectToFront(activeBorder);
+          fabric.bringObjectToFront(hNW);
+          fabric.bringObjectToFront(hNE);
+          fabric.bringObjectToFront(hSE);
+          fabric.bringObjectToFront(hSW);
           scheduleRender();
         })
         .catch((err) => {
@@ -232,16 +403,81 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
     scheduleRender();
 
-    // Mouse handlers for drag
+    // Mouse handlers
     fabric.on("mouse:down", (opt) => {
       if (!opt.scenePoint) return;
       const { x, y } = opt.scenePoint;
 
-      // Detect which slot was clicked
+      // MANAGER MODE INTERACTION
+      if (modeRef.current === "manager") {
+        const currentDraft = draftRef.current;
+        const currentSlot = currentDraft?.slots.find(
+          (s) => s.id === activeSlotIdRef.current
+        );
+
+        // Check if clicked near active slot corner handles
+        if (currentSlot) {
+          const r = currentSlot.rect_px;
+          const hitRadius = 14;
+          const corners = [
+            { id: "nw" as const, x: r.left, y: r.top },
+            { id: "ne" as const, x: r.left + r.width, y: r.top },
+            { id: "se" as const, x: r.left + r.width, y: r.top + r.height },
+            { id: "sw" as const, x: r.left, y: r.top + r.height },
+          ];
+
+          const hitCorner = corners.find(
+            (c) => Math.abs(x - c.x) <= hitRadius && Math.abs(y - c.y) <= hitRadius
+          );
+
+          if (hitCorner) {
+            managerDragRef.current = {
+              kind: "resize",
+              corner: hitCorner.id,
+              slotId: currentSlot.id,
+              startPointer: { x, y },
+              startRect: { ...r },
+            };
+            return;
+          }
+        }
+
+        // Check if clicked inside any slot
+        const slots = currentDraft?.slots || templateRef.current.slots;
+        const clickedSlot = slots.find((s) => {
+          const r = s.rect_px;
+          return (
+            x >= r.left &&
+            x <= r.left + r.width &&
+            y >= r.top &&
+            y <= r.top + r.height
+          );
+        });
+
+        if (clickedSlot) {
+          if (clickedSlot.id !== activeSlotIdRef.current) {
+            onSelectSlotRef.current(clickedSlot.id);
+          }
+          managerDragRef.current = {
+            kind: "move",
+            slotId: clickedSlot.id,
+            startPointer: { x, y },
+            startRect: { ...clickedSlot.rect_px },
+          };
+        }
+        return;
+      }
+
+      // OPERATOR MODE INTERACTION
       const currentTpl = templateRef.current;
       const clickedSlot = currentTpl.slots.find((s) => {
         const r = s.rect_px;
-        return x >= r.left && x <= r.left + r.width && y >= r.top && y <= r.top + r.height;
+        return (
+          x >= r.left &&
+          x <= r.left + r.width &&
+          y >= r.top &&
+          y <= r.top + r.height
+        );
       });
 
       if (clickedSlot) {
@@ -265,12 +501,18 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
     fabric.on("mouse:dblclick", (opt) => {
       if (!opt.scenePoint) return;
-      const { x, y } = opt.scenePoint;
+      if (modeRef.current === "manager") return;
 
+      const { x, y } = opt.scenePoint;
       const currentTpl = templateRef.current;
       const clickedSlot = currentTpl.slots.find((s) => {
         const r = s.rect_px;
-        return x >= r.left && x <= r.left + r.width && y >= r.top && y <= r.top + r.height;
+        return (
+          x >= r.left &&
+          x <= r.left + r.width &&
+          y >= r.top &&
+          y <= r.top + r.height
+        );
       });
 
       if (clickedSlot && onDoubleClickSlotRef.current) {
@@ -279,7 +521,134 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     });
 
     fabric.on("mouse:move", (opt) => {
-      if (!isDraggingRef.current || !lastPointerRef.current || !opt.scenePoint) return;
+      if (!opt.scenePoint) return;
+      const { x, y } = opt.scenePoint;
+
+      // MANAGER MODE MOVE/RESIZE
+      if (modeRef.current === "manager") {
+        const drag = managerDragRef.current;
+        if (drag.kind === "move" || drag.kind === "resize") {
+          const dx = x - drag.startPointer.x;
+          const dy = y - drag.startPointer.y;
+          const newRect: PixelRect = { ...drag.startRect };
+          const minSize = 20;
+
+          if (drag.kind === "move") {
+            newRect.left = Math.max(
+              0,
+              Math.min(canvasW - drag.startRect.width, drag.startRect.left + dx)
+            );
+            newRect.top = Math.max(
+              0,
+              Math.min(canvasH - drag.startRect.height, drag.startRect.top + dy)
+            );
+          } else if (drag.kind === "resize" && drag.corner) {
+            if (drag.corner === "se") {
+              newRect.width = Math.max(
+                minSize,
+                Math.min(canvasW - drag.startRect.left, drag.startRect.width + dx)
+              );
+              newRect.height = Math.max(
+                minSize,
+                Math.min(canvasH - drag.startRect.top, drag.startRect.height + dy)
+              );
+            } else if (drag.corner === "sw") {
+              const leftCandidate = Math.max(
+                0,
+                Math.min(
+                  drag.startRect.left + drag.startRect.width - minSize,
+                  drag.startRect.left + dx
+                )
+              );
+              newRect.width = drag.startRect.width - (leftCandidate - drag.startRect.left);
+              newRect.left = leftCandidate;
+              newRect.height = Math.max(
+                minSize,
+                Math.min(canvasH - drag.startRect.top, drag.startRect.height + dy)
+              );
+            } else if (drag.corner === "ne") {
+              newRect.width = Math.max(
+                minSize,
+                Math.min(canvasW - drag.startRect.left, drag.startRect.width + dx)
+              );
+              const topCandidate = Math.max(
+                0,
+                Math.min(
+                  drag.startRect.top + drag.startRect.height - minSize,
+                  drag.startRect.top + dy
+                )
+              );
+              newRect.height =
+                drag.startRect.height - (topCandidate - drag.startRect.top);
+              newRect.top = topCandidate;
+            } else if (drag.corner === "nw") {
+              const leftCandidate = Math.max(
+                0,
+                Math.min(
+                  drag.startRect.left + drag.startRect.width - minSize,
+                  drag.startRect.left + dx
+                )
+              );
+              const topCandidate = Math.max(
+                0,
+                Math.min(
+                  drag.startRect.top + drag.startRect.height - minSize,
+                  drag.startRect.top + dy
+                )
+              );
+              newRect.width = drag.startRect.width - (leftCandidate - drag.startRect.left);
+              newRect.height =
+                drag.startRect.height - (topCandidate - drag.startRect.top);
+              newRect.left = leftCandidate;
+              newRect.top = topCandidate;
+            }
+          }
+
+          updateSlotVisual(drag.slotId, newRect);
+          drag.currentRect = newRect;
+          scheduleRender();
+        } else {
+          // Hover cursor feedback in manager mode
+          const currentDraft = draftRef.current;
+          const currentSlot = currentDraft?.slots.find(
+            (s) => s.id === activeSlotIdRef.current
+          );
+          if (currentSlot && fabricRef.current) {
+            const r = currentSlot.rect_px;
+            const hitRadius = 14;
+            const nearNW =
+              Math.abs(x - r.left) <= hitRadius && Math.abs(y - r.top) <= hitRadius;
+            const nearSE =
+              Math.abs(x - (r.left + r.width)) <= hitRadius &&
+              Math.abs(y - (r.top + r.height)) <= hitRadius;
+            const nearNE =
+              Math.abs(x - (r.left + r.width)) <= hitRadius &&
+              Math.abs(y - r.top) <= hitRadius;
+            const nearSW =
+              Math.abs(x - r.left) <= hitRadius &&
+              Math.abs(y - (r.top + r.height)) <= hitRadius;
+
+            if (nearNW || nearSE) {
+              fabricRef.current.defaultCursor = "nwse-resize";
+            } else if (nearNE || nearSW) {
+              fabricRef.current.defaultCursor = "nesw-resize";
+            } else if (
+              x >= r.left &&
+              x <= r.left + r.width &&
+              y >= r.top &&
+              y <= r.top + r.height
+            ) {
+              fabricRef.current.defaultCursor = "move";
+            } else {
+              fabricRef.current.defaultCursor = "default";
+            }
+          }
+        }
+        return;
+      }
+
+      // OPERATOR MODE PAN
+      if (!isDraggingRef.current || !lastPointerRef.current) return;
       const currentSlotId = activeSlotIdRef.current;
       const currentTpl = templateRef.current;
       const currentEdit = slotEditsRef.current[currentSlotId];
@@ -291,7 +660,6 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       const slot = currentTpl.slots.find((s) => s.id === currentSlotId);
       if (!slot) return;
 
-      const { x, y } = opt.scenePoint;
       const dx = x - lastPointerRef.current.x;
       const dy = y - lastPointerRef.current.y;
       lastPointerRef.current = { x, y };
@@ -318,6 +686,39 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     });
 
     fabric.on("mouse:up", () => {
+      // MANAGER MODE UP
+      if (modeRef.current === "manager") {
+        const drag = managerDragRef.current;
+        if (
+          (drag.kind === "move" || drag.kind === "resize") &&
+          drag.currentRect
+        ) {
+          const dpi =
+            draftRef.current?.canvas.dpi || templateRef.current.canvas.dpi;
+          const currentSlot = draftRef.current?.slots.find(
+            (s) => s.id === drag.slotId
+          );
+          if (currentSlot && onDraftSlotChangeRef.current) {
+            const x_mm = pxToMm(drag.currentRect.left, dpi);
+            const y_mm = pxToMm(drag.currentRect.top, dpi);
+            const width_mm = pxToMm(drag.currentRect.width, dpi);
+            const height_mm = pxToMm(drag.currentRect.height, dpi);
+
+            onDraftSlotChangeRef.current(drag.slotId, {
+              ...currentSlot,
+              x_mm,
+              y_mm,
+              width_mm,
+              height_mm,
+              rect_px: { ...drag.currentRect },
+            });
+          }
+        }
+        managerDragRef.current = { kind: "none" };
+        return;
+      }
+
+      // OPERATOR MODE UP
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
         lastPointerRef.current = null;
@@ -329,8 +730,10 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       }
     });
 
-    // Mouse wheel for zoom
+    // Mouse wheel for zoom (Operator mode only)
     const handleWheel = (e: WheelEvent) => {
+      if (modeRef.current === "manager") return;
+
       e.preventDefault();
       const currentSlotId = activeSlotIdRef.current;
       const currentEdit = slotEditsRef.current[currentSlotId];
@@ -369,12 +772,18 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       canvasEl.removeEventListener("wheel", handleWheel);
       fabric.dispose();
       fabricRef.current = null;
+      slotPlaceholdersRef.current.clear();
+      slotBordersRef.current.clear();
       slotImagesRef.current.clear();
       loadedSourceIdsRef.current.clear();
       overlayImgRef.current = null;
       activeBorderRef.current = null;
+      handleNWRef.current = null;
+      handleNERef.current = null;
+      handleSERef.current = null;
+      handleSWRef.current = null;
     };
-  }, [canvasW, canvasH, template, scheduleRender, applyImageTransform]);
+  }, [canvasW, canvasH, template, scheduleRender, applyImageTransform, updateSlotVisual]);
 
   // Synchronize CSS display dimensions when layout changes
   useEffect(() => {
@@ -386,29 +795,83 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     );
   }, [layout.displayWidth, layout.displayHeight]);
 
-  // Synchronize Active Slot Border Position
+  // Synchronize Active Slot Border and Manager Handles Position & Visibility
   useEffect(() => {
     const border = activeBorderRef.current;
     if (!border) return;
 
-    const currentTpl = templateRef.current;
-    const slot = currentTpl.slots.find((s) => s.id === activeSlotId);
+    const currentSlots =
+      mode === "manager" && draft ? draft.slots : templateRef.current.slots;
+    const slot = currentSlots.find((s) => s.id === activeSlotId);
+
+    const isManager = mode === "manager";
+
     if (slot) {
       border.set({
         left: slot.rect_px.left,
         top: slot.rect_px.top,
         width: slot.rect_px.width,
         height: slot.rect_px.height,
+        stroke: isManager ? "#38bdf8" : "#2563eb",
+        strokeDashArray: isManager ? undefined : [6, 4],
+        strokeWidth: isManager ? 2 : 3,
         visible: true,
       });
+
+      // Update manager corner handles
+      if (handleNWRef.current && handleNERef.current && handleSERef.current && handleSWRef.current) {
+        handleNWRef.current.set({
+          left: slot.rect_px.left,
+          top: slot.rect_px.top,
+          visible: isManager,
+        });
+        handleNERef.current.set({
+          left: slot.rect_px.left + slot.rect_px.width,
+          top: slot.rect_px.top,
+          visible: isManager,
+        });
+        handleSERef.current.set({
+          left: slot.rect_px.left + slot.rect_px.width,
+          top: slot.rect_px.top + slot.rect_px.height,
+          visible: isManager,
+        });
+        handleSWRef.current.set({
+          left: slot.rect_px.left,
+          top: slot.rect_px.top + slot.rect_px.height,
+          visible: isManager,
+        });
+      }
+
       if (fabricRef.current) {
         fabricRef.current.bringObjectToFront(border);
+        if (handleNWRef.current) fabricRef.current.bringObjectToFront(handleNWRef.current);
+        if (handleNERef.current) fabricRef.current.bringObjectToFront(handleNERef.current);
+        if (handleSERef.current) fabricRef.current.bringObjectToFront(handleSERef.current);
+        if (handleSWRef.current) fabricRef.current.bringObjectToFront(handleSWRef.current);
       }
     } else {
       border.set({ visible: false });
+      handleNWRef.current?.set({ visible: false });
+      handleNERef.current?.set({ visible: false });
+      handleSERef.current?.set({ visible: false });
+      handleSWRef.current?.set({ visible: false });
+    }
+
+    if (!isManager && fabricRef.current) {
+      fabricRef.current.defaultCursor = "default";
+    }
+
+    scheduleRender();
+  }, [activeSlotId, mode, draft, scheduleRender]);
+
+  // Synchronize slot visual positions when draft updates externally
+  useEffect(() => {
+    if (mode !== "manager" || !draft) return;
+    for (const slot of draft.slots) {
+      updateSlotVisual(slot.id, slot.rect_px);
     }
     scheduleRender();
-  }, [activeSlotId, scheduleRender]);
+  }, [draft, mode, scheduleRender, updateSlotVisual]);
 
   // Synchronize Slot Photos & Transforms (Persistent Scene)
   useEffect(() => {
@@ -418,12 +881,14 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       const curFabric = fabricRef.current;
       if (!curFabric) return;
 
-      for (const slot of template.slots) {
+      const currentSlots =
+        mode === "manager" && draft ? draft.slots : template.slots;
+
+      for (const slot of currentSlots) {
         const edit = slotEdits[slot.id];
         const loadedSourceId = loadedSourceIdsRef.current.get(slot.id);
 
         if (!edit) {
-          // Remove photo if slot was cleared
           const existingImg = slotImagesRef.current.get(slot.id);
           if (existingImg) {
             curFabric.remove(existingImg);
@@ -440,17 +905,20 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
           const previewUrl = asset?.preview?.url;
           if (previewUrl) {
             try {
-              const img = await FabricImage.fromURL(previewUrl, { crossOrigin: "anonymous" });
+              const img = await FabricImage.fromURL(previewUrl, {
+                crossOrigin: "anonymous",
+              });
               if (isCancelled || !fabricRef.current) return;
 
-              // Remove previous image for this slot if any
               const oldImg = slotImagesRef.current.get(slot.id);
               if (oldImg) {
                 curFabric.remove(oldImg);
               }
 
-              const previewW = img.width || asset.probe.oriented_width || asset.probe.width;
-              const previewH = img.height || asset.probe.oriented_height || asset.probe.height;
+              const previewW =
+                img.width || asset.probe.oriented_width || asset.probe.width;
+              const previewH =
+                img.height || asset.probe.oriented_height || asset.probe.height;
 
               const t: SlotTransform = {
                 pan_x_norm: edit.pan_x_norm,
@@ -492,13 +960,17 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
               slotImagesRef.current.set(slot.id, img);
               loadedSourceIdsRef.current.set(slot.id, edit.source_id);
 
-              // Maintain z-index: overlay and active border remain on top
+              // Maintain z-index: overlay, active border, and handles remain on top
               if (overlayImgRef.current) {
                 curFabric.bringObjectToFront(overlayImgRef.current);
               }
               if (activeBorderRef.current) {
                 curFabric.bringObjectToFront(activeBorderRef.current);
               }
+              if (handleNWRef.current) curFabric.bringObjectToFront(handleNWRef.current);
+              if (handleNERef.current) curFabric.bringObjectToFront(handleNERef.current);
+              if (handleSERef.current) curFabric.bringObjectToFront(handleSERef.current);
+              if (handleSWRef.current) curFabric.bringObjectToFront(handleSWRef.current);
 
               scheduleRender();
             } catch (err) {
@@ -506,8 +978,8 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
             }
           }
         } else {
-          // Case B: Same source, transform updated via props (e.g. Undo/Redo or Slider)
-          if (!isDraggingRef.current) {
+          // Case B: Same source, transform updated via props
+          if (!isDraggingRef.current && managerDragRef.current.kind === "none") {
             applyImageTransform(slot.id, {
               pan_x_norm: edit.pan_x_norm,
               pan_y_norm: edit.pan_y_norm,
@@ -524,7 +996,7 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [template, slotEdits, sources, scheduleRender, applyImageTransform]);
+  }, [template, slotEdits, sources, scheduleRender, applyImageTransform, mode, draft]);
 
   return (
     <div
