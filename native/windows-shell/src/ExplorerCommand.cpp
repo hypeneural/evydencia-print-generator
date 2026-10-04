@@ -32,7 +32,7 @@ bool IsSupportedImageExtension(std::wstring_view path) {
 
 static void DummyAddressMarker() {}
 
-static std::wstring GetDllDirectory() {
+static std::wstring GetDllFilePath() {
     HMODULE hModule = nullptr;
     GetModuleHandleExW(
         GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -42,8 +42,14 @@ static std::wstring GetDllDirectory() {
     wchar_t path[MAX_PATH] = {0};
     if (hModule) {
         GetModuleFileNameW(hModule, path, MAX_PATH);
-        PathRemoveFileSpecW(path);
     }
+    return std::wstring(path);
+}
+
+static std::wstring GetDllDirectory() {
+    wchar_t path[MAX_PATH] = {0};
+    wcscpy_s(path, GetDllFilePath().c_str());
+    PathRemoveFileSpecW(path);
     return std::wstring(path);
 }
 
@@ -172,7 +178,15 @@ IFACEMETHODIMP ExplorerCommand::GetIcon(IShellItemArray* /*psiItemArray*/, LPWST
         return E_POINTER;
     }
     *ppszIcon = nullptr;
-    return E_NOTIMPL;
+
+    const std::wstring dllPath = GetDllFilePath();
+    if (dllPath.empty()) {
+        return E_FAIL;
+    }
+
+    // Windows Explorer expects format: "<module_path>,-<resource_id>"
+    const std::wstring iconSpec = dllPath + L",-101";
+    return SHStrDupW(iconSpec.c_str(), ppszIcon);
 }
 
 IFACEMETHODIMP ExplorerCommand::GetToolTip(IShellItemArray* /*psiItemArray*/, LPWSTR* ppszInfo) {
@@ -310,13 +324,54 @@ IFACEMETHODIMP ExplorerCommand::GetSite(REFIID riid, void** ppvSite) {
     return m_site->QueryInterface(riid, ppvSite);
 }
 
+static bool IsPythonExecutable(const std::wstring& exePath) {
+    wchar_t fname[_MAX_FNAME] = {0};
+    wchar_t ext[_MAX_EXT] = {0};
+    if (_wsplitpath_s(exePath.c_str(), nullptr, 0, nullptr, 0, fname, _MAX_FNAME, ext, _MAX_EXT) == 0) {
+        std::wstring base = std::wstring(fname) + ext;
+        for (auto& c : base) {
+            c = towlower(c);
+        }
+        return (base == L"python.exe" || base == L"pythonw.exe");
+    }
+    return false;
+}
+
+static std::string EscapeJsonString(const std::wstring& ws) {
+    int utf8Bytes = WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (utf8Bytes <= 1) {
+        return "";
+    }
+    std::string utf8(utf8Bytes - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, &utf8[0], utf8Bytes - 1, nullptr, nullptr);
+
+    std::string escaped;
+    escaped.reserve(utf8.size() + 16);
+    for (char c : utf8) {
+        if (c == '\\') {
+            escaped += "\\\\";
+        } else if (c == '"') {
+            escaped += "\\\"";
+        } else if (c == '\n') {
+            escaped += "\\n";
+        } else if (c == '\r') {
+            escaped += "\\r";
+        } else if (c == '\t') {
+            escaped += "\\t";
+        } else {
+            escaped += c;
+        }
+    }
+    return escaped;
+}
+
 bool ExplorerCommand::LaunchApplication(const std::vector<std::wstring>& files) {
     if (files.empty()) {
         return false;
     }
 
     const std::wstring exePath = FindAppExecutable();
-    const bool isPython = (exePath.find(L"python") != std::wstring::npos);
+    const bool isPython = IsPythonExecutable(exePath);
 
     std::wstring baseCmd;
     if (isPython) {
@@ -335,36 +390,43 @@ bool ExplorerCommand::LaunchApplication(const std::vector<std::wstring>& files) 
 
     // Protocol threshold: use manifest if more than 10 files or length > 2048
     if (files.size() > 10 || estimatedLength > 2048) {
-        wchar_t tempPath[MAX_PATH] = {0};
-        GetTempPathW(MAX_PATH, tempPath);
-        std::wstring manifestPath = std::wstring(tempPath) + L"evydencia_shell_" +
-            std::to_wstring(GetTickCount64()) + L"_" + std::to_wstring(GetCurrentProcessId()) + L".txt";
+        wchar_t tempDir[MAX_PATH] = {0};
+        wchar_t tempFile[MAX_PATH] = {0};
+        if (GetTempPathW(MAX_PATH, tempDir) > 0 &&
+            GetTempFileNameW(tempDir, L"evy", 0, tempFile) != 0) {
 
-        HANDLE hFile = CreateFileW(
-            manifestPath.c_str(),
-            GENERIC_WRITE,
-            0,
-            nullptr,
-            CREATE_ALWAYS,
-            FILE_ATTRIBUTE_TEMPORARY,
-            nullptr
-        );
+            std::string json = "{\n  \"version\": 1,\n  \"source\": \"windows_explorer_modern_menu\",\n  \"files\": [\n";
+            for (size_t i = 0; i < files.size(); ++i) {
+                json += "    \"" + EscapeJsonString(files[i]) + "\"";
+                if (i + 1 < files.size()) {
+                    json += ",";
+                }
+                json += "\n";
+            }
+            json += "  ]\n}\n";
 
-        if (hFile != INVALID_HANDLE_VALUE) {
-            for (const auto& file : files) {
-                int utf8Bytes = WideCharToMultiByte(CP_UTF8, 0, file.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                if (utf8Bytes > 1) {
-                    std::string utf8Str(utf8Bytes - 1, '\0');
-                    WideCharToMultiByte(CP_UTF8, 0, file.c_str(), -1, &utf8Str[0], utf8Bytes - 1, nullptr, nullptr);
-                    utf8Str += "\n";
-                    DWORD bytesWritten = 0;
-                    WriteFile(hFile, utf8Str.data(), static_cast<DWORD>(utf8Str.size()), &bytesWritten, nullptr);
+            HANDLE hFile = CreateFileW(
+                tempFile,
+                GENERIC_WRITE,
+                0,
+                nullptr,
+                CREATE_ALWAYS,
+                FILE_ATTRIBUTE_TEMPORARY,
+                nullptr
+            );
+
+            if (hFile != INVALID_HANDLE_VALUE) {
+                DWORD bytesWritten = 0;
+                WriteFile(hFile, json.data(), static_cast<DWORD>(json.size()), &bytesWritten, nullptr);
+                CloseHandle(hFile);
+                finalCmd = baseCmd + L" --shell-request \"" + tempFile + L"\"";
+            } else {
+                finalCmd = baseCmd;
+                for (const auto& file : files) {
+                    finalCmd += L" \"" + file + L"\"";
                 }
             }
-            CloseHandle(hFile);
-            finalCmd = baseCmd + L" --shell-request \"" + manifestPath + L"\"";
         } else {
-            // Fallback to inline command line
             finalCmd = baseCmd;
             for (const auto& file : files) {
                 finalCmd += L" \"" + file + L"\"";

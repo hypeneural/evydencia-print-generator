@@ -16,6 +16,8 @@ add_library(EvydenciaShellExtension SHARED
     src/Guids.h
     src/DllMain.cpp
     src/EvydenciaShellExtension.def
+    src/resource.h
+    src/EvydenciaShellExtension.rc
 )
 
 target_link_libraries(EvydenciaShellExtension PRIVATE
@@ -29,6 +31,23 @@ target_link_libraries(EvydenciaShellExtension PRIVATE
 set_target_properties(EvydenciaShellExtension PROPERTIES
     OUTPUT_NAME "EvydenciaShellExtension"
     PREFIX ""
+)
+
+# Application launcher executable
+add_executable(EvydenciaPrintGenerator WIN32
+    src/LauncherMain.cpp
+    src/resource.h
+    src/EvydenciaShellExtension.rc
+)
+
+target_link_libraries(EvydenciaPrintGenerator PRIVATE
+    shlwapi
+    user32
+    advapi32
+)
+
+set_target_properties(EvydenciaPrintGenerator PROPERTIES
+    OUTPUT_NAME "EvydenciaPrintGenerator"
 )
 
 # Contract test executable

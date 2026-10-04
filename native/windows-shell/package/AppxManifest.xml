@@ -12,7 +12,7 @@
 
   <Identity
     Name="Evydencia.PrintGenerator"
-    ProcessorArchitecture="neutral"
+    ProcessorArchitecture="x64"
     Publisher="CN=EvydenciaLabDev"
     Version="1.0.1.0" />
 
