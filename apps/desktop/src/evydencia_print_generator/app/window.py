@@ -6,7 +6,7 @@ import logging
 from collections.abc import Sequence
 
 from ..ingest import IngestService, PreviewCache, PreviewService, SourceRegistry
-from ..paths import preview_cache_dir
+from ..paths import preview_cache_dir, ui_dist_dir
 from .bridge import DesktopBridge
 from .server import AssetServer
 
@@ -19,6 +19,11 @@ def launch_app(
 ) -> int:
     """Launch the EVYDÊNCIA Print Generator desktop interface."""
     import webview
+
+    index_html = ui_dist_dir() / "index.html"
+    if not index_html.is_file():
+        logger.error("UI build not found at %s. Run: npm --prefix apps/ui run build", index_html)
+        return 2
 
     # 1. Initialize core services
     registry = SourceRegistry()

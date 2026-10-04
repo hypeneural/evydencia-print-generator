@@ -30,14 +30,18 @@ if (-not $cert) {
 }
 Write-Host "Using Certificate Thumbprint: $($cert.Thumbprint)"
 
-# Ensure in TrustedPublisher store as well
-$pubStore = New-Object System.Security.Cryptography.X509Certificates.X509Store "TrustedPublisher", "CurrentUser"
-$pubStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-$alreadyInPub = $pubStore.Certificates | Where-Object { $_.Thumbprint -eq $cert.Thumbprint }
-if (-not $alreadyInPub) {
-    $pubStore.Add($cert)
+# Microsoft docs: self-signed packages need the PUBLIC cert in TrustedPeople,
+# otherwise Add-AppxPackage fails with 0x800B0109 (CERT_E_UNTRUSTEDROOT).
+# CurrentUser needs no elevation and shows no confirmation dialog.
+$alreadyTrusted = Get-ChildItem Cert:\CurrentUser\TrustedPeople |
+    Where-Object { $_.Thumbprint -eq $cert.Thumbprint }
+if (-not $alreadyTrusted) {
+    $cerFile = Join-Path $env:TEMP "EvydenciaLabDev.cer"
+    Export-Certificate -Cert $cert -FilePath $cerFile | Out-Null
+    Import-Certificate -FilePath $cerFile -CertStoreLocation Cert:\CurrentUser\TrustedPeople | Out-Null
+    Remove-Item $cerFile -Force
+    Write-Host "Certificate trusted in Cert:\CurrentUser\TrustedPeople"
 }
-$pubStore.Close()
 
 Write-Host "`n==> [2/3] Packing Sparse MSIX with makeappx.exe..."
 if (-not (Test-Path $MakeAppxPath)) {

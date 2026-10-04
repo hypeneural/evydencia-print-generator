@@ -91,13 +91,13 @@ static std::wstring FindAppExecutable() {
     // 5. Repo developer environment: traverse parents looking for .venv\Scripts\python.exe
     std::wstring searchDir = dllDir;
     for (int i = 0; i < 5; ++i) {
-        std::wstring venvPy = searchDir + L"\\.venv\\Scripts\\python.exe";
-        if (PathFileExistsW(venvPy.c_str())) {
-            return venvPy;
-        }
         std::wstring venvPyw = searchDir + L"\\.venv\\Scripts\\pythonw.exe";
         if (PathFileExistsW(venvPyw.c_str())) {
             return venvPyw;
+        }
+        std::wstring venvPy = searchDir + L"\\.venv\\Scripts\\python.exe";
+        if (PathFileExistsW(venvPy.c_str())) {
+            return venvPy;
         }
         wchar_t parent[MAX_PATH] = {0};
         wcscpy_s(parent, searchDir.c_str());

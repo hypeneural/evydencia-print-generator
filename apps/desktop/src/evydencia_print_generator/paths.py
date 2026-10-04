@@ -23,6 +23,12 @@ def templates_dir() -> Path:
     return Path(override) if override else repo_root() / "templates"
 
 
+def ui_dist_dir() -> Path:
+    """Folder with the built operator UI (Vite output)."""
+    override = os.environ.get("EVYDENCIA_UI_DIST_DIR")
+    return Path(override) if override else repo_root() / "apps" / "ui" / "dist"
+
+
 def user_data_dir() -> Path:
     override = os.environ.get("EVYDENCIA_DATA_DIR")
     if override:

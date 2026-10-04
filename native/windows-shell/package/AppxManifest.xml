@@ -12,9 +12,9 @@
 
   <Identity
     Name="Evydencia.PrintGenerator"
-    ProcessorArchitecture="x64"
+    ProcessorArchitecture="neutral"
     Publisher="CN=EvydenciaLabDev"
-    Version="1.0.0.0" />
+    Version="1.0.1.0" />
 
   <Properties>
     <DisplayName>EVYDENCIA Print Generator</DisplayName>
@@ -24,20 +24,28 @@
     <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
   </Properties>
 
+  <Resources>
+    <Resource Language="pt-br" />
+    <Resource Language="en-us" />
+  </Resources>
+
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26200.0" />
   </Dependencies>
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
 
   <Applications>
     <Application
       Id="EvydenciaPrintGeneratorApp"
       Executable="EvydenciaPrintGenerator.exe"
-      EntryPoint="Windows.FullTrustApplication">
+      uap10:TrustLevel="mediumIL"
+      uap10:RuntimeBehavior="win32App">
       <uap:VisualElements
+        AppListEntry="none"
         DisplayName="EVYDENCIA Print Generator"
         Description="Gerador de produtos fotográficos de alta precisão"
         BackgroundColor="transparent"

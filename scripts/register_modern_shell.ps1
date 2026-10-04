@@ -47,10 +47,18 @@ if ($Uninstall) {
 }
 
 # Registration
-if (-not (Test-Path $MsixPath)) {
-    Write-Host "Sparse MSIX package not found at $MsixPath."
+$ManifestPath = Join-Path $RepoRoot "native\windows-shell\package\AppxManifest.xml"
+$stale = (Test-Path $MsixPath) -and ((Get-Item $ManifestPath).LastWriteTime -gt (Get-Item $MsixPath).LastWriteTime)
+if ((-not (Test-Path $MsixPath)) -or $stale) {
+    Write-Host "Sparse MSIX package missing or older than AppxManifest.xml."
     Write-Host "Running package_sparse_msix.ps1 first..."
     & (Join-Path $ScriptDir "package_sparse_msix.ps1")
+}
+
+# Docs: a version that is already registered cannot be registered again.
+if ($existing) {
+    Write-Host "Removing previously registered package '$($existing.PackageFullName)'..."
+    Remove-AppxPackage -Package $existing.PackageFullName -ErrorAction Stop
 }
 
 Write-Host "Registering Sparse MSIX Package..."
@@ -62,12 +70,13 @@ try {
     $pkg = Get-AppxPackage -Name $PackageName
     Write-Host "`n[SUCCESS] Modern Shell Extension registered successfully!"
     Write-Host "Package: $($pkg.PackageFullName)"
+    Write-Host "If the command does not show up yet, restart File Explorer or sign out/in."
 } catch {
     Write-Host "`n[NOTICE] Modern package registration did not complete:" -ForegroundColor Yellow
     Write-Host "$($_.Exception.Message)"
     if ($_.Exception.Message -match "0x800B0109") {
-        Write-Host "`nReason: The dev test certificate requires trust in 'Cert:\LocalMachine\Root' or user Root."
-        Write-Host "To trust the certificate, run as Administrator: certutil -addstore Root <cert.cer>"
+        Write-Host "`nReason: the signing certificate is not in 'Cert:\CurrentUser\TrustedPeople'."
+        Write-Host "Re-run scripts\package_sparse_msix.ps1 (it imports the public cert there, no admin needed)."
         Write-Host "Alternatively, use the per-user classic fallback (python scripts/manage_shell_extension.py install --classic)."
     }
     exit 1

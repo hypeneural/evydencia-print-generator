@@ -64,9 +64,15 @@ def get_launcher_command() -> str:
     if adjacent_exe.exists():
         return f'"{adjacent_exe}" --gui "%1"'
 
-    # Python development fallback
-    python_exe = sys.executable
-    return f'"{python_exe}" -m evydencia_print_generator --gui "%1"'
+    # Python development fallback (GUI subsystem: no console window)
+    return f'"{gui_python_executable()}" -m evydencia_print_generator --gui "%1"'
+
+
+def gui_python_executable() -> str:
+    """Return pythonw.exe next to the running interpreter when available."""
+    current = Path(sys.executable)
+    pythonw = current.with_name("pythonw.exe")
+    return str(pythonw if pythonw.exists() else current)
 
 
 def is_classic_fallback_active() -> bool:
@@ -111,10 +117,11 @@ def register_classic_fallback(force: bool = False, custom_command: str | None = 
             winreg.SetValueEx(vkey, "", 0, winreg.REG_SZ, VERB_TITLE)
             winreg.SetValueEx(vkey, "MUIVerb", 0, winreg.REG_SZ, VERB_TITLE)
             winreg.SetValueEx(vkey, "AppliesTo", 0, winreg.REG_SZ, APPLIES_TO)
+            # Classic-menu only: ask Explorer to list this verb first.
+            winreg.SetValueEx(vkey, "Position", 0, winreg.REG_SZ, "Top")
 
             # Icon
-            python_exe = sys.executable
-            winreg.SetValueEx(vkey, "Icon", 0, winreg.REG_SZ, python_exe)
+            winreg.SetValueEx(vkey, "Icon", 0, winreg.REG_SZ, gui_python_executable())
 
         # Create command subkey
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, COMMAND_KEY) as ckey:

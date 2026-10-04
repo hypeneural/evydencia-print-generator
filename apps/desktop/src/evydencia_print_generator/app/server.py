@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from ..paths import preview_cache_dir, templates_dir
+from ..paths import ui_dist_dir as default_ui_dist_dir
 
 
 class AssetHandler(http.server.BaseHTTPRequestHandler):
@@ -46,6 +47,11 @@ class AssetHandler(http.server.BaseHTTPRequestHandler):
         static_file = self.ui_dist_dir / rel_static
         if not static_file.is_file():
             static_file = self.ui_dist_dir / "index.html"
+        if not static_file.is_file():
+            self.send_error(
+                404, "UI build not found. Run: npm --prefix apps/ui run build"
+            )
+            return
 
         self._serve_file(static_file, head_only=head_only)
 
@@ -94,9 +100,7 @@ class AssetServer:
         templates_root: Path | None = None,
     ) -> None:
         if ui_dist_dir is None:
-            # Default to apps/ui/dist relative to package
-            root = Path(__file__).resolve().parents[4]
-            ui_dist_dir = root / "apps" / "ui" / "dist"
+            ui_dist_dir = default_ui_dist_dir()
 
         self.ui_dist_dir = ui_dist_dir
         self.cache_dir = cache_dir or preview_cache_dir()
