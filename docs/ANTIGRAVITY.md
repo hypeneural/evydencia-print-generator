@@ -3,9 +3,11 @@
 Auditado em 2026-10-04 contra documentação oficial.
 
 ## Versão alvo
-A página oficial de download lista **Antigravity 2.0 v2.19.1** para Windows/macOS/Linux.
+O changelog oficial lista **Antigravity 2.0 v2.19.1** (Latest, September 30, 2026) para Windows/macOS/Linux.
 
-Importante: o changelog público consultado em 2026-10-04 ainda marca **v2.18.1** como Latest. Portanto, este repositório não atribui mudanças específicas à v2.19.1 sem release notes oficiais correspondentes.
+Release notes oficiais confirmam:
+- Mensagens diretas para subagentes (`send_message`);
+- Correção de custom agents ignorando Rules globais e de projeto (`.agents/rules/`).
 
 Fontes oficiais:
 - https://www.antigravity.google/download
