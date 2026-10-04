@@ -39,34 +39,45 @@ def test_constants_and_command_format() -> None:
 
 
 def test_classic_registration_lifecycle() -> None:
-    # Ensure starting clean
-    unregister_classic_fallback()
-    assert not is_classic_fallback_active()
+    prior_active = is_classic_fallback_active()
+    prior_status = get_shell_status()
+    prior_command = prior_status.get("command")
 
-    # Register
-    ok = register_classic_fallback(force=True, custom_command='"dummy.exe" --gui "%1"')
-    assert ok is True
-    assert is_classic_fallback_active() is True
+    try:
+        # Ensure starting clean
+        unregister_classic_fallback()
+        assert not is_classic_fallback_active()
 
-    # Verify keys directly in HKCU
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, VERB_KEY, 0, winreg.KEY_READ) as key:
-        title, _ = winreg.QueryValueEx(key, "MUIVerb")
-        assert title == VERB_TITLE
-        applies, _ = winreg.QueryValueEx(key, "AppliesTo")
-        assert applies == APPLIES_TO
+        # Register
+        ok = register_classic_fallback(force=True, custom_command='"dummy.exe" --gui "%1"')
+        assert ok is True
+        assert is_classic_fallback_active() is True
 
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, COMMAND_KEY, 0, winreg.KEY_READ) as key:
-        cmd_val, _ = winreg.QueryValueEx(key, "")
-        assert cmd_val == '"dummy.exe" --gui "%1"'
+        # Verify keys directly in HKCU
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, VERB_KEY, 0, winreg.KEY_READ) as key:
+            title, _ = winreg.QueryValueEx(key, "MUIVerb")
+            assert title == VERB_TITLE
+            applies, _ = winreg.QueryValueEx(key, "AppliesTo")
+            assert applies == APPLIES_TO
+            position, _ = winreg.QueryValueEx(key, "Position")
+            assert position == "Top"
 
-    # Status helper
-    status = get_shell_status()
-    assert status["classic_active"] is True
-    assert status["command"] == '"dummy.exe" --gui "%1"'
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, COMMAND_KEY, 0, winreg.KEY_READ) as key:
+            cmd_val, _ = winreg.QueryValueEx(key, "")
+            assert cmd_val == '"dummy.exe" --gui "%1"'
 
-    # Clean unregister
-    assert unregister_classic_fallback() is True
-    assert not is_classic_fallback_active()
+        # Status helper
+        status = get_shell_status()
+        assert status["classic_active"] is True
+        assert status["command"] == '"dummy.exe" --gui "%1"'
+
+        # Clean unregister
+        assert unregister_classic_fallback() is True
+        assert not is_classic_fallback_active()
+    finally:
+        unregister_classic_fallback()
+        if prior_active and prior_command:
+            register_classic_fallback(force=True, custom_command=prior_command)
 
 
 def test_dual_registration_guard_skips_when_modern_active() -> None:

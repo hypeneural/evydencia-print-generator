@@ -69,6 +69,43 @@ def test_asset_server_serves_static_and_previews(asset_server: AssetServer) -> N
         assert len(res.read()) > 0
 
 
+def test_default_ui_dist_dir_is_repo_apps_ui_dist() -> None:
+    """Regression: the default used to resolve to apps/apps/ui/dist (404 index.html)."""
+    from evydencia_print_generator.paths import repo_root, ui_dist_dir
+
+    server = AssetServer()  # no injected ui_dist_dir on purpose
+    try:
+        assert server.ui_dist_dir == repo_root() / "apps" / "ui" / "dist"
+        assert server.ui_dist_dir == ui_dist_dir()
+        assert server.ui_dist_dir.parent.name == "ui"
+        assert server.ui_dist_dir.parent.parent.name == "apps"
+        assert server.ui_dist_dir.parent.parent.parent == repo_root()
+    finally:
+        server.server.server_close()  # not started: stop() would block in shutdown()
+
+
+def test_ui_dist_dir_env_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from evydencia_print_generator.paths import ui_dist_dir
+
+    monkeypatch.setenv("EVYDENCIA_UI_DIST_DIR", str(tmp_path))
+    assert ui_dist_dir() == tmp_path
+
+
+def test_asset_server_reports_missing_ui_build(tmp_path: Path) -> None:
+    import urllib.error
+
+    server = AssetServer(ui_dist_dir=tmp_path / "nope", cache_dir=tmp_path)
+    server.start()
+    try:
+        with pytest.raises(urllib.error.HTTPError) as exc:
+            urllib.request.urlopen(f"{server.base_url}/")
+        assert exc.value.code == 404
+        assert "UI build not found" in exc.value.reason
+    finally:
+        server.stop()
+
+
+
 def test_desktop_bridge_full_lifecycle(asset_server: AssetServer, tmp_path: Path) -> None:
     registry = SourceRegistry()
     cache = PreviewCache(asset_server.cache_dir)
