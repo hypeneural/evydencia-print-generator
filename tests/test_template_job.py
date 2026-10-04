@@ -52,7 +52,7 @@ def registry_with_source(make_image):
 @pytest.mark.parametrize("product", ["calendario-2027", "chaveiro-3x4", "globo-neve"])
 def test_repo_templates_load(product: str) -> None:
     tpl = load_template(templates_dir() / product / "template.json")
-    assert tpl.status == "draft"
+    assert tpl.status in {"draft", "production"}
 
 
 def test_real_calendar_is_not_renderable_until_measured() -> None:

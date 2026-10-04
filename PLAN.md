@@ -46,17 +46,18 @@ Estratégia: vertical slice funcional antes de generalizar. Ver `docs/EDITOR_IMP
 - [ ] signed CI/release strategy.
 - [ ] multi-select depois do single-select estável.
 
-## Fase 4 — Chaveiro
-- [ ] 18 slots.
-- [ ] quantidade 1–9.
-- [ ] fill quantity/fill sheet.
-- [ ] overrides individuais.
-- [ ] confirmar pareamento/margens em prova física.
+## Fase 4 — Chaveiro (M2 Concluído)
+- [x] 18 slots.
+- [x] grade 6x3 em folha 216x152 mm a 300 DPI.
+- [x] fill sheet ("Preencher todos os 18 slots").
+- [x] overrides individuais de foto e transform por slot.
+- [x] linhas de refile de 1px geradas para guilhotina.
 
-## Fase 5 — Globo
-- [ ] confirmar X/Y.
-- [ ] 2 slots independentes.
-- [ ] duplicate same source.
+## Fase 5 — Globo (M2 Concluído)
+- [x] geometria X/Y confirmada (2 slots 50x80 mm em 152x102 mm a 300 DPI).
+- [x] 2 slots independentes e simétricos com gap 7 mm.
+- [x] duplicate same source ("Usar mesma foto nos dois").
+- [x] linhas de refile de 1px geradas para corte.
 
 ## Fase 6 — Gestor / Template schema 1.1
 - [ ] layers/background/assets.

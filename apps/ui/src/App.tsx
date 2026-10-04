@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { bridge } from "./bridge/api";
-import { CalendarCanvas } from "./components/CalendarCanvas";
+import { ProductCanvas } from "./components/ProductCanvas";
 import { createHistoryManager } from "./domain/history";
 import type { SlotTransform } from "./domain/transform";
 import { clampTransform } from "./domain/transform";
@@ -19,9 +19,10 @@ const DEFAULT_TRANSFORM: SlotTransform = {
 };
 
 export const App: React.FC = () => {
+  const [templates, setTemplates] = useState<TemplateModel[]>([]);
   const [template, setTemplate] = useState<TemplateModel | null>(null);
   const [sources, setSources] = useState<SourceAssetModel[]>([]);
-  const [activeSlotId, setActiveSlotId] = useState<string>("foto_principal");
+  const [activeSlotId, setActiveSlotId] = useState<string>("");
   const [editState, setEditState] = useState<EditStateModel | null>(null);
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
@@ -36,11 +37,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     async function init() {
       try {
-        const templates = await bridge.getTemplates();
-        if (templates.length > 0) {
-          const tpl = templates[0];
+        const availableTemplates = await bridge.getTemplates();
+        setTemplates(availableTemplates);
+
+        if (availableTemplates.length > 0) {
+          const tpl = availableTemplates[0];
           setTemplate(tpl);
-          setActiveSlotId(tpl.slots[0]?.id || "foto_principal");
+          const firstSlotId = tpl.slots[0]?.id || "";
+          setActiveSlotId(firstSlotId);
 
           const initialEdit: EditStateModel = {
             template_id: tpl.id,
@@ -59,18 +63,49 @@ export const App: React.FC = () => {
     init();
   }, []);
 
-  // Compute scale to fit calendar inside center area
+  // Switch template
+  const handleSwitchTemplate = (tpl: TemplateModel) => {
+    if (tpl.id === template?.id) return;
+    setTemplate(tpl);
+    const firstSlot = tpl.slots[0]?.id || "";
+    setActiveSlotId(firstSlot);
+
+    // If existing edit has current slot photo, we can carry over if applicable, or start fresh
+    const newEditState: EditStateModel = {
+      template_id: tpl.id,
+      template_version: tpl.template_version,
+      slot_edits: {},
+    };
+
+    // Auto-assign first source to first slot if available
+    if (sources.length > 0 && firstSlot) {
+      newEditState.slot_edits[firstSlot] = {
+        source_id: sources[0].id,
+        pan_x_norm: 0.0,
+        pan_y_norm: 0.0,
+        scale: 1.0,
+        rotation_deg: 0.0,
+      };
+    }
+
+    setEditState(newEditState);
+    historyRef.current = createHistoryManager(newEditState);
+    setRenderResult(null);
+    setErrorMessage(null);
+  };
+
+  // Compute scale to fit product canvas inside center area
   useEffect(() => {
     function updateScale() {
       if (!canvasContainerRef.current || !template) return;
       const { clientWidth, clientHeight } = canvasContainerRef.current;
       const targetW = template.canvas_px.width;
       const targetH = template.canvas_px.height;
-      const pad = 40;
+      const pad = 48;
       const scaleX = (clientWidth - pad) / targetW;
       const scaleY = (clientHeight - pad) / targetH;
       const s = Math.min(scaleX, scaleY, 1.0);
-      setViewportScale(Math.max(0.2, s));
+      setViewportScale(Math.max(0.15, s));
     }
     updateScale();
     window.addEventListener("resize", updateScale);
@@ -105,15 +140,17 @@ export const App: React.FC = () => {
 
   // Handle Transform change (from drag, wheel, or buttons)
   const handleTransformChange = useCallback(
-    (nextTransform: SlotTransform, commitToHistory: boolean) => {
-      if (!editState || !activeSlotId || !currentSlotEdit) return;
+    (slotId: string, nextTransform: SlotTransform, commitToHistory: boolean) => {
+      if (!editState) return;
+      const existing = editState.slot_edits[slotId];
+      if (!existing) return;
 
       const updatedEditState: EditStateModel = {
         ...editState,
         slot_edits: {
           ...editState.slot_edits,
-          [activeSlotId]: {
-            ...currentSlotEdit,
+          [slotId]: {
+            ...existing,
             pan_x_norm: nextTransform.pan_x_norm,
             pan_y_norm: nextTransform.pan_y_norm,
             scale: nextTransform.scale,
@@ -127,7 +164,7 @@ export const App: React.FC = () => {
         historyRef.current.push(updatedEditState);
       }
     },
-    [editState, activeSlotId, currentSlotEdit]
+    [editState]
   );
 
   // Undo / Redo
@@ -165,7 +202,7 @@ export const App: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleUndo, handleRedo]);
 
-  // Set photo to slot
+  // Set photo to active slot
   const handleSelectSource = (asset: SourceAssetModel) => {
     if (!editState || !activeSlotId) return;
 
@@ -188,6 +225,69 @@ export const App: React.FC = () => {
     }
   };
 
+  // Batch action: Duplicate photo across slots in Globo
+  const handleDuplicateGloboSlot = () => {
+    if (!editState || !template || template.slots.length < 2) return;
+    const slot1Edit = editState.slot_edits["foto_1"];
+    const slot2Edit = editState.slot_edits["foto_2"];
+
+    const sourceEdit = activeSlotId === "foto_2" ? (slot2Edit || slot1Edit) : (slot1Edit || slot2Edit);
+    if (!sourceEdit) return;
+
+    const nextState: EditStateModel = {
+      ...editState,
+      slot_edits: {
+        ...editState.slot_edits,
+        foto_1: { ...sourceEdit },
+        foto_2: { ...sourceEdit },
+      },
+    };
+    setEditState(nextState);
+    if (historyRef.current) {
+      historyRef.current.push(nextState);
+    }
+  };
+
+  // Batch action: Fill all slots in Chaveiro
+  const handleFillAllSlots = () => {
+    if (!editState || !template) return;
+    const baseEdit = currentSlotEdit || Object.values(editState.slot_edits)[0];
+    if (!baseEdit) {
+      setErrorMessage("Selecione uma foto para o slot ativo antes de preencher todos.");
+      return;
+    }
+
+    const newEdits = { ...editState.slot_edits };
+    for (const s of template.slots) {
+      newEdits[s.id] = { ...baseEdit };
+    }
+
+    const nextState: EditStateModel = {
+      ...editState,
+      slot_edits: newEdits,
+    };
+    setEditState(nextState);
+    if (historyRef.current) {
+      historyRef.current.push(nextState);
+    }
+  };
+
+  // Clear active slot
+  const handleClearSlot = () => {
+    if (!editState || !activeSlotId || !editState.slot_edits[activeSlotId]) return;
+    const newEdits = { ...editState.slot_edits };
+    delete newEdits[activeSlotId];
+
+    const nextState: EditStateModel = {
+      ...editState,
+      slot_edits: newEdits,
+    };
+    setEditState(nextState);
+    if (historyRef.current) {
+      historyRef.current.push(nextState);
+    }
+  };
+
   // Add photos button
   const handleAddPhotos = async () => {
     try {
@@ -201,8 +301,9 @@ export const App: React.FC = () => {
           }
           return Array.from(map.values());
         });
-        // Auto-assign to active slot if empty
-        if (!currentSlotEdit) {
+
+        // Automatically assign first imported asset to active slot if empty
+        if (!currentSlotEdit && activeSlotId) {
           handleSelectSource(newAssets[0]);
         }
       }
@@ -211,35 +312,42 @@ export const App: React.FC = () => {
     }
   };
 
-  // Rotate button
+  // Rotation buttons
   const handleRotate = (deltaDeg: number) => {
+    if (!activeSlotId) return;
     const nextDeg = currentTransform.rotation_deg + deltaDeg;
     const clamped = clampTransform({
       ...currentTransform,
       rotation_deg: nextDeg,
     });
-    handleTransformChange(clamped, true);
+    handleTransformChange(activeSlotId, clamped, true);
   };
 
   // Zoom slider / buttons
   const handleZoomChange = (newScale: number) => {
+    if (!activeSlotId) return;
     const clamped = clampTransform({
       ...currentTransform,
       scale: newScale,
     });
-    handleTransformChange(clamped, true);
+    handleTransformChange(activeSlotId, clamped, true);
   };
 
   // Reset button
   const handleResetTransform = () => {
-    handleTransformChange(DEFAULT_TRANSFORM, true);
+    if (!activeSlotId) return;
+    handleTransformChange(activeSlotId, DEFAULT_TRANSFORM, true);
   };
 
   // Render Job
   const handleRender = async () => {
     if (!editState || !template) return;
-    if (Object.keys(editState.slot_edits).length === 0) {
-      setErrorMessage("Adicione uma foto ao calendário antes de gerar.");
+
+    // Check slots
+    const filledCount = Object.keys(editState.slot_edits).length;
+    const totalSlots = template.slots.length;
+    if (filledCount < totalSlots) {
+      setErrorMessage(`Preencha todos os slots antes de gerar (${totalSlots - filledCount} restante(s)).`);
       return;
     }
 
@@ -257,6 +365,13 @@ export const App: React.FC = () => {
     }
   };
 
+  const filledSlotsCount = useMemo(() => {
+    if (!editState) return 0;
+    return Object.keys(editState.slot_edits).length;
+  }, [editState]);
+
+  const allSlotsFilled = template ? filledSlotsCount === template.slots.length : false;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {/* Top Header */}
@@ -265,207 +380,233 @@ export const App: React.FC = () => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "12px 24px",
+          padding: "10px 24px",
           backgroundColor: "#1e293b",
           borderBottom: "1px solid #334155",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <h1 style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "0.5px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <h1 style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "0.5px", margin: 0 }}>
             EVYDÊNCIA
           </h1>
-          <span
+
+          {/* Product Switcher Tabs */}
+          <div
             style={{
-              fontSize: "12px",
-              padding: "2px 8px",
-              borderRadius: "4px",
-              backgroundColor: "#334155",
-              color: "#94a3b8",
+              display: "flex",
+              backgroundColor: "#0f172a",
+              borderRadius: "6px",
+              padding: "3px",
+              gap: "2px",
             }}
           >
-            {template?.name || "Carregando produto..."}
-          </span>
+            {templates.map((t) => {
+              const isSelected = t.id === template?.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => handleSwitchTemplate(t)}
+                  style={{
+                    backgroundColor: isSelected ? "#2563eb" : "transparent",
+                    color: isSelected ? "#ffffff" : "#94a3b8",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "6px 14px",
+                    fontSize: "13px",
+                    fontWeight: isSelected ? "600" : "500",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {t.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Undo / Redo */}
-        <div style={{ display: "flex", gap: "8px" }}>
+        {/* Undo / Redo & Status */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             className="btn-secondary"
             onClick={handleUndo}
             disabled={!historyRef.current?.canUndo}
             title="Desfazer (Ctrl+Z)"
+            style={{ fontSize: "13px", padding: "6px 12px" }}
           >
-            ↺ Desfazer
+            ↶ Desfazer
           </button>
           <button
             className="btn-secondary"
             onClick={handleRedo}
             disabled={!historyRef.current?.canRedo}
             title="Refazer (Ctrl+Y)"
+            style={{ fontSize: "13px", padding: "6px 12px" }}
           >
-            ↻ Refazer
+            ↷ Refazer
           </button>
         </div>
       </header>
 
-      {/* Main Layout Area */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Left Sidebar: Source Tray */}
-        <aside
+      {/* Product Subheader & Slot Selector */}
+      {template && (
+        <div
           style={{
-            width: "280px",
-            backgroundColor: "#0f172a",
-            borderRight: "1px solid #334155",
             display: "flex",
-            flexDirection: "column",
-            padding: "16px",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "8px 24px",
+            backgroundColor: "#0f172a",
+            borderBottom: "1px solid #1e293b",
+            fontSize: "13px",
           }}
         >
-          <div style={{ marginBottom: "16px" }}>
-            <h2 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "8px" }}>FOTOS</h2>
-            <button
-              className="btn-primary"
-              style={{ width: "100%" }}
-              onClick={handleAddPhotos}
-            >
-              + Adicionar fotos
-            </button>
-          </div>
-
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-              gap: "10px",
-            }}
-          >
-            {sources.length === 0 ? (
-              <div
-                style={{
-                  padding: "24px 12px",
-                  textAlign: "center",
-                  color: "#64748b",
-                  fontSize: "13px",
-                  border: "2px dashed #334155",
-                  borderRadius: "8px",
-                }}
-              >
-                Nenhuma foto carregada.
-                <br />
-                Clique em <strong>+ Adicionar fotos</strong> para começar.
-              </div>
-            ) : (
-              sources.map((src) => {
-                const isSelected = currentSlotEdit?.source_id === src.id;
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", overflowX: "auto", flex: 1 }}>
+            <span style={{ color: "#94a3b8", fontWeight: "600" }}>
+              Slots ({filledSlotsCount}/{template.slots.length}):
+            </span>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap" }}>
+              {template.slots.map((s) => {
+                const isActive = s.id === activeSlotId;
+                const hasPhoto = !!editState?.slot_edits[s.id];
                 return (
-                  <div
-                    key={src.id}
-                    onClick={() => handleSelectSource(src)}
+                  <button
+                    key={s.id}
+                    onClick={() => setActiveSlotId(s.id)}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      padding: "8px",
-                      borderRadius: "6px",
+                      padding: "4px 10px",
+                      borderRadius: "4px",
+                      border: isActive ? "2px solid #3b82f6" : "1px solid #334155",
+                      backgroundColor: isActive ? "#1e3a8a" : hasPhoto ? "#1e293b" : "#0f172a",
+                      color: isActive ? "#ffffff" : hasPhoto ? "#e2e8f0" : "#64748b",
+                      fontSize: "12px",
                       cursor: "pointer",
-                      backgroundColor: isSelected ? "#1e293b" : "#182234",
-                      border: isSelected ? "2px solid #3b82f6" : "1px solid #334155",
-                      transition: "border-color 0.15s ease",
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    <div
-                      style={{
-                        width: "60px",
-                        height: "60px",
-                        backgroundColor: "#0f172a",
-                        borderRadius: "4px",
-                        overflow: "hidden",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {src.preview.status === "ready" && src.preview.url ? (
-                        <img
-                          src={src.preview.url}
-                          alt={src.display_name}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      ) : src.preview.status === "loading" ? (
-                        <span style={{ fontSize: "11px", color: "#94a3b8" }}>Carregando...</span>
-                      ) : (
-                        <span style={{ fontSize: "11px", color: "#ef4444" }}>Erro</span>
-                      )}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: "500",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {src.display_name}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#64748b" }}>
-                        {src.probe.oriented_width} × {src.probe.oriented_height} px
-                      </div>
-                    </div>
-                  </div>
+                    {hasPhoto ? "✓ " : ""}{s.id.replace("slot_", "#").replace("foto_", "Foto ")}
+                  </button>
                 );
-              })
+              })}
+            </div>
+          </div>
+
+          {/* Quick Batch Actions */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "16px" }}>
+            {template.id === "globo-neve" && (
+              <button
+                className="btn-secondary"
+                onClick={handleDuplicateGloboSlot}
+                style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
+                title="Copiar a mesma foto para ambos os slots"
+              >
+                ✨ Usar mesma foto nos dois
+              </button>
+            )}
+
+            {template.id === "chaveiro-3x4" && (
+              <button
+                className="btn-secondary"
+                onClick={handleFillAllSlots}
+                style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
+                title="Preencher toda a folha com a foto do slot ativo"
+              >
+                ⚡ Preencher todos os 18 slots
+              </button>
+            )}
+
+            {currentSlotEdit && (
+              <button
+                className="btn-secondary"
+                onClick={handleClearSlot}
+                style={{ fontSize: "12px", padding: "5px 10px", color: "#f87171" }}
+                title="Remover foto do slot selecionado"
+              >
+                Remover foto
+              </button>
             )}
           </div>
-        </aside>
+        </div>
+      )}
 
-        {/* Center: Interactive Canvas */}
+      {/* Main Work Area */}
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        {/* Left / Center: Interactive Canvas */}
         <main
           ref={canvasContainerRef}
           style={{
             flex: 1,
-            position: "relative",
-            backgroundColor: "#1e293b",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
+            backgroundColor: "#0b0f19",
+            position: "relative",
+            overflow: "hidden",
+            padding: "20px",
           }}
         >
-          {template && activeSlot ? (
-            <CalendarCanvas
+          {template ? (
+            <ProductCanvas
               template={template}
-              slot={activeSlot}
-              asset={activeAsset}
-              transform={currentTransform}
+              activeSlotId={activeSlotId}
+              onSelectSlot={setActiveSlotId}
+              slotEdits={editState?.slot_edits || {}}
+              sources={sources}
               onTransformChange={handleTransformChange}
               scaleViewport={viewportScale}
             />
           ) : (
-            <div>Carregando editor...</div>
+            <div style={{ color: "#64748b" }}>Carregando produto...</div>
           )}
         </main>
 
-        {/* Right Sidebar: Adjust Controls (Operador) */}
+        {/* Right Sidebar: Slot Controls & Photo Tray */}
         <aside
           style={{
-            width: "280px",
+            width: "360px",
             backgroundColor: "#0f172a",
             borderLeft: "1px solid #334155",
             display: "flex",
             flexDirection: "column",
+            overflowY: "auto",
             padding: "20px",
             gap: "24px",
           }}
         >
-          <div>
-            <h2 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "16px" }}>
-              AJUSTAR FOTO
-            </h2>
+          {/* Active Slot Header */}
+          <div
+            style={{
+              padding: "12px",
+              backgroundColor: "#1e293b",
+              borderRadius: "6px",
+              border: "1px solid #334155",
+            }}
+          >
+            <div style={{ fontSize: "12px", color: "#94a3b8", textTransform: "uppercase", fontWeight: "600" }}>
+              Slot Selecionado
+            </div>
+            <div style={{ fontSize: "16px", fontWeight: "700", marginTop: "2px", color: "#60a5fa" }}>
+              {activeSlot?.id || "Nenhum"}
+            </div>
+            <div style={{ fontSize: "12px", color: "#cbd5e1", marginTop: "4px" }}>
+              {activeAsset ? `Foto: ${activeAsset.display_name}` : "Clique em uma foto abaixo para atribuir"}
+            </div>
+          </div>
 
-            {/* Zoom Control */}
+          {/* Photo Adjustment Controls */}
+          <div
+            style={{
+              padding: "16px",
+              backgroundColor: "#1e293b",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+            }}
+          >
+            <h3 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "16px" }}>
+              Ajuste de Enquadramento
+            </h3>
+
+            {/* Zoom Slider */}
             <div style={{ marginBottom: "20px" }}>
               <div
                 style={{
@@ -478,7 +619,7 @@ export const App: React.FC = () => {
                 <span>Zoom</span>
                 <span style={{ color: "#94a3b8" }}>{currentTransform.scale.toFixed(2)}x</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <button
                   className="btn-secondary"
                   style={{ width: "32px", height: "32px", padding: 0 }}
@@ -495,7 +636,7 @@ export const App: React.FC = () => {
                   value={currentTransform.scale}
                   onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
                   disabled={!activeAsset}
-                  style={{ flex: 1, cursor: "pointer" }}
+                  style={{ flex: 1, accentColor: "#3b82f6" }}
                 />
                 <button
                   className="btn-secondary"
@@ -544,7 +685,7 @@ export const App: React.FC = () => {
             {/* Reset Button */}
             <button
               className="btn-secondary"
-              style={{ width: "100%", marginTop: "8px" }}
+              style={{ width: "100%", marginTop: "4px" }}
               onClick={handleResetTransform}
               disabled={!activeAsset}
             >
@@ -552,20 +693,98 @@ export const App: React.FC = () => {
             </button>
           </div>
 
-          <div
-            style={{
-              padding: "12px",
-              backgroundColor: "#182234",
-              borderRadius: "6px",
-              fontSize: "12px",
-              color: "#94a3b8",
-              lineHeight: "1.5",
-            }}
-          >
-            💡 <strong>Dica Operador:</strong>
-            <br />
-            • Arraste a foto diretamente no calendário para mover o enquadramento.
-            <br />• Use a rodinha do mouse sobre a foto para aumentar ou diminuir o zoom.
+          {/* Source Tray */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <h3 style={{ fontSize: "14px", fontWeight: "600", margin: 0 }}>
+                Fotos do Cliente ({sources.length})
+              </h3>
+              <button
+                className="btn-primary"
+                onClick={handleAddPhotos}
+                style={{ fontSize: "12px", padding: "6px 12px" }}
+              >
+                + Adicionar Fotos
+              </button>
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: "10px",
+                alignContent: "start",
+                padding: "4px",
+              }}
+            >
+              {sources.map((s) => {
+                const isSelected = activeAsset?.id === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => handleSelectSource(s)}
+                    style={{
+                      cursor: "pointer",
+                      border: isSelected ? "2px solid #3b82f6" : "1px solid #334155",
+                      borderRadius: "6px",
+                      overflow: "hidden",
+                      backgroundColor: "#1e293b",
+                      position: "relative",
+                      transition: "transform 0.1s ease, border-color 0.1s ease",
+                    }}
+                  >
+                    {s.preview.url ? (
+                      <img
+                        src={s.preview.url}
+                        alt={s.display_name}
+                        style={{
+                          width: "100%",
+                          height: "100px",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#64748b",
+                          fontSize: "12px",
+                        }}
+                      >
+                        Carregando...
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        padding: "4px 6px",
+                        fontSize: "11px",
+                        color: "#cbd5e1",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        backgroundColor: "#0f172a",
+                      }}
+                    >
+                      {s.display_name}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </aside>
       </div>
@@ -606,7 +825,8 @@ export const App: React.FC = () => {
         <button
           className="btn-success"
           onClick={handleRender}
-          disabled={rendering || !activeAsset}
+          disabled={rendering || !allSlotsFilled}
+          title={!allSlotsFilled ? "Preencha todos os slots para gerar" : "Gerar impressão final"}
         >
           {rendering ? "GERANDO ARQUIVO ORIGINAL..." : "GERAR ARQUIVO DE PRODUÇÃO"}
         </button>
