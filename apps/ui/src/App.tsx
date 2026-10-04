@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { bridge } from "./bridge/api";
 import { ProductCanvas } from "./components/ProductCanvas";
+import { ManagerInspector } from "./components/ManagerInspector";
 import { createHistoryManager } from "./domain/history";
 import { duplicateSlot } from "./domain/duplication";
 import type { PreviewLayout } from "./domain/layout";
@@ -13,6 +14,8 @@ import type {
   SourceAssetModel,
   TemplateModel,
 } from "./domain/types";
+import type { DraftSlot, TemplateDraft } from "./domain/draft";
+import { createDraftFromTemplate, updateSlotMm } from "./domain/draft";
 
 const DEFAULT_TRANSFORM: SlotTransform = {
   pan_x_norm: 0.0,
@@ -22,8 +25,10 @@ const DEFAULT_TRANSFORM: SlotTransform = {
 };
 
 export const App: React.FC = () => {
+  const [mode, setMode] = useState<"operator" | "manager">("operator");
   const [templates, setTemplates] = useState<TemplateModel[]>([]);
   const [template, setTemplate] = useState<TemplateModel | null>(null);
+  const [draft, setDraft] = useState<TemplateDraft | null>(null);
   const [sources, setSources] = useState<SourceAssetModel[]>([]);
   const [activeSlotId, setActiveSlotId] = useState<string>("");
   const [editState, setEditState] = useState<EditStateModel | null>(null);
@@ -54,6 +59,7 @@ export const App: React.FC = () => {
         if (availableTemplates.length > 0) {
           const tpl = availableTemplates[0];
           setTemplate(tpl);
+          setDraft(createDraftFromTemplate(tpl));
           const firstSlotId = tpl.slots[0]?.id || "";
           setActiveSlotId(firstSlotId);
 
@@ -130,6 +136,7 @@ export const App: React.FC = () => {
   const handleSwitchTemplate = (tpl: TemplateModel) => {
     if (tpl.id === template?.id) return;
     setTemplate(tpl);
+    setDraft(createDraftFromTemplate(tpl));
     const firstSlot = tpl.slots[0]?.id || "";
     setActiveSlotId(firstSlot);
 
@@ -157,15 +164,39 @@ export const App: React.FC = () => {
     setErrorMessage(null);
   };
 
+  // Draft slot change handler (Manager mode)
+  const handleDraftSlotChange = useCallback(
+    (slotId: string, updatedSlot: DraftSlot) => {
+      setDraft((prevDraft) => {
+        if (!prevDraft) return prevDraft;
+        return updateSlotMm(prevDraft, slotId, {
+          x_mm: updatedSlot.x_mm,
+          y_mm: updatedSlot.y_mm,
+          width_mm: updatedSlot.width_mm,
+          height_mm: updatedSlot.height_mm,
+        });
+      });
+    },
+    []
+  );
+
   // Compute fitted display dimensions preserving physical aspect ratio
   useEffect(() => {
     function updateLayout() {
       if (!canvasContainerRef.current || !template) return;
       const { clientWidth, clientHeight } = canvasContainerRef.current;
       if (clientWidth <= 0 || clientHeight <= 0) return;
+      const wPx =
+        mode === "manager" && draft
+          ? draft.canvas_px.width
+          : template.canvas_px.width;
+      const hPx =
+        mode === "manager" && draft
+          ? draft.canvas_px.height
+          : template.canvas_px.height;
       const l = computePreviewLayout(
-        template.canvas_px.width,
-        template.canvas_px.height,
+        wPx,
+        hPx,
         clientWidth,
         clientHeight,
         48
@@ -183,13 +214,16 @@ export const App: React.FC = () => {
       window.removeEventListener("resize", updateLayout);
       if (observer) observer.disconnect();
     };
-  }, [template]);
+  }, [template, draft, mode]);
 
   // Current active slot & transform
   const activeSlot = useMemo(() => {
+    if (mode === "manager" && draft) {
+      return draft.slots.find((s) => s.id === activeSlotId) || draft.slots[0] || null;
+    }
     if (!template) return null;
     return template.slots.find((s) => s.id === activeSlotId) || template.slots[0] || null;
-  }, [template, activeSlotId]);
+  }, [template, activeSlotId, mode, draft]);
 
   const currentSlotEdit = useMemo(() => {
     if (!editState || !activeSlotId) return null;
@@ -489,10 +523,60 @@ export const App: React.FC = () => {
           borderBottom: "1px solid #334155",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
           <h1 style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "0.5px", margin: 0 }}>
             EVYDÊNCIA
           </h1>
+
+          {/* Mode Switcher */}
+          <div
+            style={{
+              display: "flex",
+              backgroundColor: "#0f172a",
+              borderRadius: "6px",
+              padding: "3px",
+              gap: "2px",
+              border: "1px solid #334155",
+            }}
+          >
+            <button
+              onClick={() => setMode("operator")}
+              style={{
+                backgroundColor: mode === "operator" ? "#2563eb" : "transparent",
+                color: mode === "operator" ? "#ffffff" : "#94a3b8",
+                border: "none",
+                borderRadius: "4px",
+                padding: "5px 12px",
+                fontSize: "12px",
+                fontWeight: mode === "operator" ? "600" : "500",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              👤 Operador
+            </button>
+            <button
+              onClick={() => {
+                setMode("manager");
+                if (!draft && template) {
+                  setDraft(createDraftFromTemplate(template));
+                }
+              }}
+              style={{
+                backgroundColor: mode === "manager" ? "#0284c7" : "transparent",
+                color: mode === "manager" ? "#ffffff" : "#94a3b8",
+                border: "none",
+                borderRadius: "4px",
+                padding: "5px 12px",
+                fontSize: "12px",
+                fontWeight: mode === "manager" ? "600" : "500",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              ⚙️ Gestor
+            </button>
+          </div>
 
           {/* Product Switcher Tabs */}
           <div
@@ -531,24 +615,28 @@ export const App: React.FC = () => {
 
         {/* Undo / Redo & Status */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <button
-            className="btn-secondary"
-            onClick={handleUndo}
-            disabled={!historyRef.current?.canUndo}
-            title="Desfazer (Ctrl+Z)"
-            style={{ fontSize: "13px", padding: "6px 12px" }}
-          >
-            ↶ Desfazer
-          </button>
-          <button
-            className="btn-secondary"
-            onClick={handleRedo}
-            disabled={!historyRef.current?.canRedo}
-            title="Refazer (Ctrl+Y)"
-            style={{ fontSize: "13px", padding: "6px 12px" }}
-          >
-            ↷ Refazer
-          </button>
+          {mode === "operator" && (
+            <>
+              <button
+                className="btn-secondary"
+                onClick={handleUndo}
+                disabled={!historyRef.current?.canUndo}
+                title="Desfazer (Ctrl+Z)"
+                style={{ fontSize: "13px", padding: "6px 12px" }}
+              >
+                ↶ Desfazer
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={handleRedo}
+                disabled={!historyRef.current?.canRedo}
+                title="Refazer (Ctrl+Y)"
+                style={{ fontSize: "13px", padding: "6px 12px" }}
+              >
+                ↷ Refazer
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -566,11 +654,13 @@ export const App: React.FC = () => {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px", overflowX: "auto", flex: 1 }}>
-            <span style={{ color: "#94a3b8", fontWeight: "600" }}>
-              Slots ({filledSlotsCount}/{template.slots.length}):
+            <span style={{ color: mode === "manager" ? "#38bdf8" : "#94a3b8", fontWeight: "600" }}>
+              {mode === "manager"
+                ? `Slots do Draft (${draft?.slots.length || 0}):`
+                : `Slots (${filledSlotsCount}/${template.slots.length}):`}
             </span>
             <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap" }}>
-              {template.slots.map((s) => {
+              {(mode === "manager" && draft ? draft.slots : template.slots).map((s) => {
                 const isActive = s.id === activeSlotId;
                 const hasPhoto = !!editState?.slot_edits[s.id];
                 return (
@@ -580,67 +670,80 @@ export const App: React.FC = () => {
                     style={{
                       padding: "4px 10px",
                       borderRadius: "4px",
-                      border: isActive ? "2px solid #3b82f6" : "1px solid #334155",
-                      backgroundColor: isActive ? "#1e3a8a" : hasPhoto ? "#1e293b" : "#0f172a",
+                      border: isActive
+                        ? mode === "manager"
+                          ? "2px solid #38bdf8"
+                          : "2px solid #3b82f6"
+                        : "1px solid #334155",
+                      backgroundColor: isActive
+                        ? mode === "manager"
+                          ? "#0369a1"
+                          : "#1e3a8a"
+                        : hasPhoto
+                        ? "#1e293b"
+                        : "#0f172a",
                       color: isActive ? "#ffffff" : hasPhoto ? "#e2e8f0" : "#64748b",
                       fontSize: "12px",
                       cursor: "pointer",
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {hasPhoto ? "✓ " : ""}{s.id.replace("slot_", "#").replace("foto_", "Foto ")}
+                    {mode !== "manager" && hasPhoto ? "✓ " : ""}
+                    {s.id.replace("slot_", "#").replace("foto_", "Foto ")}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Quick Batch Actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "16px" }}>
-            {template.id === "globo-neve" && (
-              <button
-                className="btn-secondary"
-                onClick={handleDuplicateGloboSlot}
-                style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
-                title="Copiar a mesma foto para ambos os slots"
-              >
-                ✨ Usar mesma foto nos dois
-              </button>
-            )}
-
-            {template.id === "chaveiro-3x4" && (
-              <>
+          {/* Quick Batch Actions (Operator mode only) */}
+          {mode === "operator" && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "16px" }}>
+              {template.id === "globo-neve" && (
                 <button
                   className="btn-secondary"
-                  onClick={handleDuplicateToNextSlot}
-                  disabled={!currentSlotEdit}
+                  onClick={handleDuplicateGloboSlot}
                   style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
-                  title="Duplicar enquadramento para o próximo slot (ou dê duplo clique no slot)"
+                  title="Copiar a mesma foto para ambos os slots"
                 >
-                  ⏩ Duplicar para próximo
+                  ✨ Usar mesma foto nos dois
                 </button>
+              )}
+
+              {template.id === "chaveiro-3x4" && (
+                <>
+                  <button
+                    className="btn-secondary"
+                    onClick={handleDuplicateToNextSlot}
+                    disabled={!currentSlotEdit}
+                    style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
+                    title="Duplicar enquadramento para o próximo slot (ou dê duplo clique no slot)"
+                  >
+                    ⏩ Duplicar para próximo
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={handleFillAllSlots}
+                    style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
+                    title="Preencher toda a folha com a foto do slot ativo"
+                  >
+                    ⚡ Preencher todos os 18 slots
+                  </button>
+                </>
+              )}
+
+              {currentSlotEdit && (
                 <button
                   className="btn-secondary"
-                  onClick={handleFillAllSlots}
-                  style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
-                  title="Preencher toda a folha com a foto do slot ativo"
+                  onClick={handleClearSlot}
+                  style={{ fontSize: "12px", padding: "5px 10px", color: "#f87171" }}
+                  title="Remover foto do slot selecionado"
                 >
-                  ⚡ Preencher todos os 18 slots
+                  Remover foto
                 </button>
-              </>
-            )}
-
-            {currentSlotEdit && (
-              <button
-                className="btn-secondary"
-                onClick={handleClearSlot}
-                style={{ fontSize: "12px", padding: "5px 10px", color: "#f87171" }}
-                title="Remover foto do slot selecionado"
-              >
-                Remover foto
-              </button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -671,25 +774,36 @@ export const App: React.FC = () => {
               onTransformChange={handleTransformChange}
               layout={previewLayout}
               onDoubleClickSlot={handleDoubleClickSlot}
+              mode={mode}
+              draft={draft}
+              onDraftSlotChange={handleDraftSlotChange}
             />
           ) : (
             <div style={{ color: "#64748b" }}>Carregando produto...</div>
           )}
         </main>
 
-        {/* Right Sidebar: Slot Controls & Photo Tray */}
-        <aside
-          style={{
-            width: "360px",
-            backgroundColor: "#0f172a",
-            borderLeft: "1px solid #334155",
-            display: "flex",
-            flexDirection: "column",
-            overflowY: "auto",
-            padding: "20px",
-            gap: "24px",
-          }}
-        >
+        {/* Right Sidebar: Manager Inspector OR Operator Controls */}
+        {mode === "manager" && draft ? (
+          <ManagerInspector
+            draft={draft}
+            activeSlotId={activeSlotId}
+            onSelectSlot={setActiveSlotId}
+            onUpdateDraft={setDraft}
+          />
+        ) : (
+          <aside
+            style={{
+              width: "360px",
+              backgroundColor: "#0f172a",
+              borderLeft: "1px solid #334155",
+              display: "flex",
+              flexDirection: "column",
+              overflowY: "auto",
+              padding: "20px",
+              gap: "24px",
+            }}
+          >
           {/* Active Slot Header */}
           <div
             style={{
@@ -906,50 +1020,119 @@ export const App: React.FC = () => {
             </div>
           </div>
         </aside>
+      )}
       </div>
 
       {/* Bottom Bar: Action & Messages */}
-      <footer
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "16px 24px",
-          backgroundColor: "#1e293b",
-          borderTop: "1px solid #334155",
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0, marginRight: "20px" }}>
-          {errorMessage && (
-            <div style={{ color: "#f87171", fontSize: "14px", fontWeight: "500" }}>
-              ⚠️ {errorMessage}
-            </div>
-          )}
-          {renderResult && (
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ color: "#4ade80", fontSize: "14px", fontWeight: "500" }}>
-                ✓ Arquivo gerado em {renderResult.render_time_ms.toFixed(0)} ms!
-              </span>
-              <button
-                className="btn-secondary"
-                style={{ fontSize: "12px", padding: "4px 10px" }}
-                onClick={() => bridge.openOutputFolder(renderResult.output_path)}
-              >
-                Abrir pasta
-              </button>
-            </div>
-          )}
-        </div>
-
-        <button
-          className="btn-success"
-          onClick={handleRender}
-          disabled={rendering || !allSlotsFilled}
-          title={!allSlotsFilled ? "Preencha todos os slots para gerar" : "Gerar impressão final"}
+      {mode === "manager" ? (
+        <footer
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "14px 24px",
+            backgroundColor: "#1e293b",
+            borderTop: "1px solid #334155",
+          }}
         >
-          {rendering ? "GERANDO ARQUIVO ORIGINAL..." : "GERAR ARQUIVO DE PRODUÇÃO"}
-        </button>
-      </footer>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "16px",
+              fontSize: "13px",
+              color: "#94a3b8",
+            }}
+          >
+            <span>
+              Modo: <strong style={{ color: "#38bdf8" }}>Gestão de Template</strong>
+            </span>
+            <span>•</span>
+            <span>
+              Folha:{" "}
+              <strong style={{ color: "#f8fafc" }}>
+                {draft?.canvas.width_mm} × {draft?.canvas.height_mm} mm
+              </strong>{" "}
+              ({draft?.canvas.dpi} DPI)
+            </span>
+            <span>•</span>
+            <span>
+              Slots:{" "}
+              <strong style={{ color: "#f8fafc" }}>
+                {draft?.slots.length}
+              </strong>
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                if (template) setDraft(createDraftFromTemplate(template));
+              }}
+              disabled={!draft?.dirty}
+              style={{ fontSize: "13px" }}
+              title="Restaurar valores do template oficial em disco"
+            >
+              Descartar Alterações
+            </button>
+            <div
+              style={{
+                fontSize: "12px",
+                padding: "6px 14px",
+                backgroundColor: "#0369a1",
+                color: "#ffffff",
+                borderRadius: "6px",
+                fontWeight: "600",
+              }}
+            >
+              Publicação em Disco (Marco M5-B)
+            </div>
+          </div>
+        </footer>
+      ) : (
+        <footer
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "16px 24px",
+            backgroundColor: "#1e293b",
+            borderTop: "1px solid #334155",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0, marginRight: "20px" }}>
+            {errorMessage && (
+              <div style={{ color: "#f87171", fontSize: "14px", fontWeight: "500" }}>
+                ⚠️ {errorMessage}
+              </div>
+            )}
+            {renderResult && (
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ color: "#4ade80", fontSize: "14px", fontWeight: "500" }}>
+                  ✓ Arquivo gerado em {renderResult.render_time_ms.toFixed(0)} ms!
+                </span>
+                <button
+                  className="btn-secondary"
+                  style={{ fontSize: "12px", padding: "4px 10px" }}
+                  onClick={() => bridge.openOutputFolder(renderResult.output_path)}
+                >
+                  Abrir pasta
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="btn-success"
+            onClick={handleRender}
+            disabled={rendering || !allSlotsFilled}
+            title={!allSlotsFilled ? "Preencha todos os slots para gerar" : "Gerar impressão final"}
+          >
+            {rendering ? "GERANDO ARQUIVO ORIGINAL..." : "GERAR ARQUIVO DE PRODUÇÃO"}
+          </button>
+        </footer>
+      )}
     </div>
   );
 };
