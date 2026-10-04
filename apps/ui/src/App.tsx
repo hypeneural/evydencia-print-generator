@@ -2,6 +2,9 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { bridge } from "./bridge/api";
 import { ProductCanvas } from "./components/ProductCanvas";
 import { createHistoryManager } from "./domain/history";
+import { duplicateSlot } from "./domain/duplication";
+import type { PreviewLayout } from "./domain/layout";
+import { computePreviewLayout } from "./domain/layout";
 import type { SlotTransform } from "./domain/transform";
 import { clampTransform } from "./domain/transform";
 import type {
@@ -28,7 +31,11 @@ export const App: React.FC = () => {
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
-  const [viewportScale, setViewportScale] = useState<number>(0.7);
+  const [previewLayout, setPreviewLayout] = useState<PreviewLayout>({
+    fitScale: 1.0,
+    displayWidth: 1067,
+    displayHeight: 1474,
+  });
 
   // History manager ref
   const historyRef = useRef<ReturnType<typeof createHistoryManager> | null>(null);
@@ -76,6 +83,49 @@ export const App: React.FC = () => {
     init();
   }, []);
 
+  // Poll bridge for preview readiness if any asset is pending (Gate 1 & 4)
+  useEffect(() => {
+    const hasPending = sources.some(
+      (s) => (s.preview.status !== "ready" && s.preview.status !== "error") || !s.preview.url
+    );
+    if (!hasPending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const updated = await bridge.getSources();
+        setSources(updated);
+
+        // Auto-assign first source to active slot if empty
+        setEditState((prevEdit) => {
+          if (!prevEdit || Object.keys(prevEdit.slot_edits).length > 0) return prevEdit;
+          if (updated.length > 0 && activeSlotId) {
+            const nextEdit: EditStateModel = {
+              ...prevEdit,
+              slot_edits: {
+                [activeSlotId]: {
+                  source_id: updated[0].id,
+                  pan_x_norm: 0.0,
+                  pan_y_norm: 0.0,
+                  scale: 1.0,
+                  rotation_deg: 0.0,
+                },
+              },
+            };
+            if (historyRef.current) {
+              historyRef.current = createHistoryManager(nextEdit);
+            }
+            return nextEdit;
+          }
+          return prevEdit;
+        });
+      } catch (e) {
+        console.warn("Failed to poll sources:", e);
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [sources, activeSlotId]);
+
   // Switch template
   const handleSwitchTemplate = (tpl: TemplateModel) => {
     if (tpl.id === template?.id) return;
@@ -107,22 +157,32 @@ export const App: React.FC = () => {
     setErrorMessage(null);
   };
 
-  // Compute scale to fit product canvas inside center area
+  // Compute fitted display dimensions preserving physical aspect ratio
   useEffect(() => {
-    function updateScale() {
+    function updateLayout() {
       if (!canvasContainerRef.current || !template) return;
       const { clientWidth, clientHeight } = canvasContainerRef.current;
-      const targetW = template.canvas_px.width;
-      const targetH = template.canvas_px.height;
-      const pad = 48;
-      const scaleX = (clientWidth - pad) / targetW;
-      const scaleY = (clientHeight - pad) / targetH;
-      const s = Math.min(scaleX, scaleY, 1.0);
-      setViewportScale(Math.max(0.15, s));
+      if (clientWidth <= 0 || clientHeight <= 0) return;
+      const l = computePreviewLayout(
+        template.canvas_px.width,
+        template.canvas_px.height,
+        clientWidth,
+        clientHeight,
+        48
+      );
+      setPreviewLayout(l);
     }
-    updateScale();
-    window.addEventListener("resize", updateScale);
-    return () => window.removeEventListener("resize", updateScale);
+    updateLayout();
+    window.addEventListener("resize", updateLayout);
+    let observer: ResizeObserver | null = null;
+    if (canvasContainerRef.current) {
+      observer = new ResizeObserver(updateLayout);
+      observer.observe(canvasContainerRef.current);
+    }
+    return () => {
+      window.removeEventListener("resize", updateLayout);
+      if (observer) observer.disconnect();
+    };
   }, [template]);
 
   // Current active slot & transform
@@ -261,6 +321,37 @@ export const App: React.FC = () => {
     }
   };
 
+  // Double-click handler per product (M4-D, M4-E)
+  const handleDoubleClickSlot = useCallback(
+    (slotId: string) => {
+      if (!editState || !template) return;
+
+      const slotIds = template.slots.map((s) => s.id);
+      const res = duplicateSlot(template.id, slotIds, slotId, editState.slot_edits);
+      if (res) {
+        const nextState: EditStateModel = {
+          ...editState,
+          slot_edits: res.nextSlotEdits,
+        };
+        setEditState(nextState);
+        setActiveSlotId(res.targetSlotId);
+        if (historyRef.current) {
+          historyRef.current.push(nextState);
+        }
+      } else {
+        // Calendário or generic: focus slot
+        setActiveSlotId(slotId);
+      }
+    },
+    [editState, template]
+  );
+
+  // Batch action: Duplicate active slot to next slot in Chaveiro
+  const handleDuplicateToNextSlot = useCallback(() => {
+    if (!activeSlotId) return;
+    handleDoubleClickSlot(activeSlotId);
+  }, [activeSlotId, handleDoubleClickSlot]);
+
   // Batch action: Fill all slots in Chaveiro
   const handleFillAllSlots = () => {
     if (!editState || !template) return;
@@ -337,13 +428,13 @@ export const App: React.FC = () => {
   };
 
   // Zoom slider / buttons
-  const handleZoomChange = (newScale: number) => {
+  const handleZoomChange = (newScale: number, commitToHistory: boolean = true) => {
     if (!activeSlotId) return;
     const clamped = clampTransform({
       ...currentTransform,
       scale: newScale,
     });
-    handleTransformChange(activeSlotId, clamped, true);
+    handleTransformChange(activeSlotId, clamped, commitToHistory);
   };
 
   // Reset button
@@ -518,14 +609,25 @@ export const App: React.FC = () => {
             )}
 
             {template.id === "chaveiro-3x4" && (
-              <button
-                className="btn-secondary"
-                onClick={handleFillAllSlots}
-                style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
-                title="Preencher toda a folha com a foto do slot ativo"
-              >
-                ⚡ Preencher todos os 18 slots
-              </button>
+              <>
+                <button
+                  className="btn-secondary"
+                  onClick={handleDuplicateToNextSlot}
+                  disabled={!currentSlotEdit}
+                  style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
+                  title="Duplicar enquadramento para o próximo slot (ou dê duplo clique no slot)"
+                >
+                  ⏩ Duplicar para próximo
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={handleFillAllSlots}
+                  style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
+                  title="Preencher toda a folha com a foto do slot ativo"
+                >
+                  ⚡ Preencher todos os 18 slots
+                </button>
+              </>
             )}
 
             {currentSlotEdit && (
@@ -567,7 +669,8 @@ export const App: React.FC = () => {
               slotEdits={editState?.slot_edits || {}}
               sources={sources}
               onTransformChange={handleTransformChange}
-              scaleViewport={viewportScale}
+              layout={previewLayout}
+              onDoubleClickSlot={handleDoubleClickSlot}
             />
           ) : (
             <div style={{ color: "#64748b" }}>Carregando produto...</div>
@@ -648,7 +751,9 @@ export const App: React.FC = () => {
                   max="8.0"
                   step="0.05"
                   value={currentTransform.scale}
-                  onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                  onChange={(e) => handleZoomChange(parseFloat(e.target.value), false)}
+                  onPointerUp={() => handleZoomChange(currentTransform.scale, true)}
+                  onKeyUp={() => handleZoomChange(currentTransform.scale, true)}
                   disabled={!activeAsset}
                   style={{ flex: 1, accentColor: "#3b82f6" }}
                 />
