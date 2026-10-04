@@ -40,7 +40,12 @@ def render(
     t0 = time.perf_counter()
 
     # Compose full resolution canvas and extract ICC profile
-    composed_image, icc = compose_canvas(template, snapshot, resample=opts.resample)
+    composed_image, icc = compose_canvas(
+        template,
+        snapshot,
+        resample=opts.resample,
+        draw_cut_guidelines=opts.draw_cut_guidelines,
+    )
 
     # Determine primary source path for output naming
     primary_slot = template.slots[0]

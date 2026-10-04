@@ -11,7 +11,7 @@ from ..domain.job import EditState, build_job_snapshot
 from ..domain.template import Template, load_template
 from ..ingest import IngestService, PreviewService, SourceRegistry
 from ..paths import templates_dir
-from ..render import RenderResult, render
+from ..render import RenderOptions, RenderResult, render
 
 
 class DesktopBridge:
@@ -220,7 +220,7 @@ class DesktopBridge:
 
         template = load_template(tpl_path)
         snapshot = build_job_snapshot(template, edit_state, self.registry.get)
-        result: RenderResult = render(template, snapshot)
+        result: RenderResult = render(template, snapshot, RenderOptions(draw_cut_guidelines=True))
 
         return {
             "output_path": str(result.output_path),

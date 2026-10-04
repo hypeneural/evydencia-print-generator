@@ -16,6 +16,7 @@ class RenderOptions:
     overwrite: bool = False  # False -> collision-safe numeric suffixes (_002, _003)
     resample: Image.Resampling = Image.Resampling.BICUBIC
     subsampling: int | str = 0  # 0 = 4:4:4 (no chroma subsampling)
+    draw_cut_guidelines: bool = False  # True -> 1px hairline cut marks around slots
 
 
 @dataclass(frozen=True)

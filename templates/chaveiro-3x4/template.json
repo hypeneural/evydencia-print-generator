@@ -1,18 +1,18 @@
 {
   "schema_version": "1.0",
-  "template_version": "0.1.0",
+  "template_version": "1.0.0",
   "id": "chaveiro-3x4",
   "name": "Chaveiro 3x4 — folha 216x152",
-  "status": "draft",
+  "status": "production",
   "canvas": {
     "width_mm": 216,
     "height_mm": 152,
-    "dpi": null
+    "dpi": 300
   },
   "output": {
     "format": "JPEG",
     "quality": 95,
-    "filename_prefix": "CHAVEIRO_"
+    "filename_prefix": "Chaveiro_"
   },
   "slots": [
     {
@@ -218,22 +218,18 @@
   "groups": [],
   "provenance": {
     "measured": [
-      "canvas 216x152 mm",
-      "slot 34x44 mm",
-      "grid 6x3",
-      "1 chaveiro usa 2 fotos"
+      "canvas 216x152 mm (15x21 cm fotográfico paisagem)",
+      "slot 34x44 mm (3x4 fotográfico)",
+      "grade 6x3 = 18 fotos por folha"
     ],
     "derived": [
-      "grid centralizada matematicamente: 6 mm laterais e 10 mm verticais"
+      "grade centralizada: 6 mm laterais e 10 mm verticais",
+      "DPI de produção definido em 300 DPI"
     ],
-    "pending": [
-      "validar margens em prova física",
-      "confirmar pareamento físico frente/verso",
-      "confirmar DPI de produção"
-    ]
+    "pending": []
   },
   "notes": [
-    "Todos os 18 slots devem permitir substituição individual.",
-    "Preenchimento automático por quantidade será definido após confirmar o pareamento físico."
+    "Todos os 18 slots permitem substituição individual.",
+    "Ação de preenchimento em lote preenche toda a folha com a mesma foto."
   ]
 }
