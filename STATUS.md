@@ -1,51 +1,35 @@
 # Status
 
-**Estado:** M1 (Calendário), M2 (Globo de Neve & Chaveiro 3x4) e M3 (Integração Shell Windows 11 com IExplorerCommand + Sparse MSIX + Fallback) 100% concluídos e validados.
+**Estado em 2026-10-04:** renderer/geometria multi-produto estão avançados; menu moderno do Windows foi validado visualmente; a UI do Operador está em hardening de viewport/interação e a main atual não está com CI remoto totalmente verde.
 
-## Infra concluída
-- AntiGravity 2.19.1 auditado contra documentação oficial.
-- `evydencia-builder` + especialistas de produto, UX, Fabric, render, Windows e QA.
-- Rules/Skills/Hooks com validação mecânica.
-- Repository Map para reduzir exploração desnecessária.
-- Schemas Template/Job v1.
-- Templates produção: Chaveiro (18 slots, 300 DPI), Globo (2 slots, 300 DPI); Template draft: Calendário.
-- Python package mínimo + mm→px.
-- CI Linux + Windows verde.
-- PR/Issue templates adicionados.
+## Evidência atual
+- main auditada: `f0e2d1280f1ad347816bdcfb5b7c2446a74048bb`.
+- GitHub Actions #49: verify_repo PASS, pytest Linux PASS (122 passed, 7 skipped), Ruff FAIL; workflow geral FAILURE.
+- Windows contract PASS, porém o workflow atual ainda não executa pytest completo no Windows.
+- Frontend ainda não possui job remoto próprio de test/build na main auditada.
+- Captura real do Windows 11 Home 25H2 confirma “Gerar com EVYDÊNCIA” no menu moderno com ícone.
 
-## M1 — Calendário Concluído
-- E1: SourceRegistry + Ingest único para CLI/dialog/drop com fingerprint V1.
-- E2: Preview pipeline com decode proporcional (draft), cache LRU e retenção.
-- E3: Renderer determinístico via Pillow (transformada afim ADR-011, overlay RGBA, ICC, DPI e proteção contra sobrescrita).
-- E4: Editor do Operador em React 19 + Fabric 7.4.0 + pywebview com bridge assíncrono e servidor de assets efêmero.
-- E5: Paridade de crop 100% comprovada (0px de divergência), baseline de performance documentado (`docs/benchmarks/M1_BASELINE.md`), validação real em fotos de 24 MP com render em ~290ms.
+## Renderer / geometria
+- Calendário: asset 1067×1474 e slot transparente medido correspondem ao template atual.
+- Globo: output 1795×1205.
+- Chaveiro: output 2551×1795.
+- Render final e preview visual são contratos diferentes; UI não é considerada validada apenas pelos testes de output.
 
-## M2 — Multi-Produto (Globo de Neve & Chaveiro 3x4) Concluído
-- Globo de Neve: 2 slots de 50x80 mm centralizados em folha 152x102 mm (10x15 cm) com gap de 7 mm e marcas de corte de 1px (render em ~450ms).
-- Chaveiro 3x4: 18 slots de 34x44 mm em folha 216x152 mm (15x21 cm paisagem) com grade 6x3 e marcas de corte para guilhotina (render otimizado em ~940ms com cache de decode).
-- Editor Operador: Seletor de produtos, seleção visual de slot ativo no canvas Fabric.js, destaque em azul, ações em lote ("Usar mesma foto nos dois", "Preencher todos os 18 slots").
-- Suíte de testes automatizada `tests/test_multi_product.py` e validação E2E `scripts/test_production_e2e.py --template all`.
+## UI Operador — HARDENING
+Pendências prioritárias:
+- PreviewLayout separado de canvas físico;
+- corrigir aspect ratio visual de Globo/Chaveiro;
+- overlay do Calendário ocupar 100% do preview;
+- cena Fabric persistente sem reload no hot path;
+- startup sem bloquear por thumbnail;
+- double-click de duplicação por produto;
+- testes visuais/E2E e frontend CI.
 
-## M3 — Integração Shell Windows 11 Concluída (Issue #5)
-- Shell C++20 x64 nativo (`native/windows-shell`): implementação pura de `IExplorerCommand` e `IObjectWithSite` compilada com MSVC e verificada via testes de contrato COM (`test_shell_extension.exe`).
-- Zero-jank Explorer: `GetState` realiza apenas verificação de extensão em memória (`.jpg`, `.jpeg`, `.png`), retornando `ECS_HIDDEN` para outros formatos. Sem Pillow, sem Python, sem I/O pesado de disco.
-- Protocolo escalável de seleção: CLI estendida com `--shell-request <manifest>` para suportar qualquer quantidade de fotos sem estourar limites de linha de comando.
-- Pacote Sparse MSIX assinado: `AppxManifest.xml` declarando `windows.fileExplorerContextMenus` e `windows.comServer` com pipeline automatizado via `makeappx.exe` e `signtool.exe`.
-- Fallback clássico per-user: `installer/shell_fallback.py` com registro em HKCU e proteção contra duplicação de menu quando o pacote moderno estiver ativo.
-- Gerenciador unificado: `scripts/manage_shell_extension.py` (status, build, install --auto, uninstall).
+## Windows
+- menu moderno: VISUAL PASS;
+- ícone: VISUAL PASS;
+- posição absoluta como primeira entrada: não controlável pela API moderna; Explorer decide agrupamento;
+- lifecycle/install/uninstall/release signing continuam sujeitos aos gates da entrega correspondente.
 
-## Windows alvo real
-- Windows 11 Home Single Language 25H2 x64.
-- i7-11800H / 32 GB RAM / RTX 3060 Laptop 6 GB.
-- Produção: IExplorerCommand C++ + sparse MSIX assinado.
-- Fallback/dev: classic shell verb per-user.
-- Processamento de imagem permanece fora do Explorer.
-
-## Bloqueios físicos resolvidos
-- [x] Calendário: geometria e overlay PNG validados com `moldura.png` real.
-- [x] Globo: 2 slots simétricos 50x80mm em papel 10x15cm com linhas de corte de 1px a 300 DPI.
-- [x] Chaveiro: 18 slots 34x44mm em folha 15x21cm com grade 6x3 a 300 DPI.
-- [x] Windows 11 Context Menu: comando "Gerar com EVYDÊNCIA" integrado ao menu de contexto.
-
-## Próximos marcos
-1. Modo Gestor completo.
+## Regra
+Não usar “100% concluído” sem listar os gates de docs/QUALITY_GATES.md.

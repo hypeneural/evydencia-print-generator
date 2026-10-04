@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Unified CLI manager for EVYDÊNCIA Windows Context Menu Integration.
 
-Usage:
+Examples:
     python scripts/manage_shell_extension.py status
     python scripts/manage_shell_extension.py build
     python scripts/manage_shell_extension.py stage
-    python scripts/manage_shell_extension.py install [--modern | --classic | --auto] [--restart-explorer]
-    python scripts/manage_shell_extension.py validate-ui {pass|fail|reset}
+    python scripts/manage_shell_extension.py install --modern
+    python scripts/manage_shell_extension.py install --auto --restart-explorer
+    python scripts/manage_shell_extension.py validate-ui pass
     python scripts/manage_shell_extension.py clean-classic
-    python scripts/manage_shell_extension.py uninstall [--restart-explorer]
+    python scripts/manage_shell_extension.py uninstall
 """
 
 from __future__ import annotations
@@ -55,16 +56,26 @@ def run_ps1(script_name: str, *args: str) -> subprocess.CompletedProcess[str]:
 def check_localmachine_cert() -> bool:
     if not CER_PATH.exists():
         return False
+    cert_expr = (
+        "$cert = New-Object "
+        "System.Security.Cryptography.X509Certificates.X509Certificate2 "
+        f"'{CER_PATH}'; "
+    )
+    store_expr = (
+        "$store = New-Object "
+        "System.Security.Cryptography.X509Certificates.X509Store "
+        "'TrustedPeople', 'LocalMachine'; "
+    )
     check_cmd = [
         "powershell",
         "-NoProfile",
         "-Command",
-        f"$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 '{CER_PATH}'; "
-        "$store = New-Object System.Security.Cryptography.X509Certificates.X509Store 'TrustedPeople', 'LocalMachine'; "
-        "$store.Open('ReadOnly'); "
-        "$m = $store.Certificates.Find('FindByThumbprint', $cert.Thumbprint, $false); "
-        "$found = ($m.Count -gt 0); $store.Close(); "
-        "if ($found) { exit 0 } else { exit 1 }",
+        cert_expr
+        + store_expr
+        + "$store.Open('ReadOnly'); "
+        + "$m = $store.Certificates.Find('FindByThumbprint', $cert.Thumbprint, $false); "
+        + "$found = ($m.Count -gt 0); $store.Close(); "
+        + "if ($found) { exit 0 } else { exit 1 }",
     ]
     res = subprocess.run(check_cmd, capture_output=True)
     return res.returncode == 0
@@ -89,17 +100,17 @@ def cmd_status() -> int:
     classic_registered = shell_stat["classic_active"]
 
     print("=== EVYDÊNCIA Windows Shell Status Diagnostics ===")
-    print(f"MODERN_PACKAGE_REGISTERED: { 'YES' if mod_registered else 'NO' }")
-    print(f"MODERN_RUNTIME_LAYOUT_OK:  { 'YES' if runtime_layout_ok else 'NO' }")
-    print(f"MODERN_TRUST_OK:           { 'YES' if lm_cert_trusted else 'NO' }")
-    print(f"MODERN_UI_VALIDATION:      { ui_validation }")
-    print(f"CLASSIC_REGISTERED:        { 'YES' if classic_registered else 'NO' }")
+    print(f"MODERN_PACKAGE_REGISTERED: {'YES' if mod_registered else 'NO'}")
+    print(f"MODERN_RUNTIME_LAYOUT_OK:  {'YES' if runtime_layout_ok else 'NO'}")
+    print(f"MODERN_TRUST_OK:           {'YES' if lm_cert_trusted else 'NO'}")
+    print(f"MODERN_UI_VALIDATION:      {ui_validation}")
+    print(f"CLASSIC_REGISTERED:        {'YES' if classic_registered else 'NO'}")
     print("--------------------------------------------------")
-    print(f"Native DLL built:           { 'YES' if DLL_PATH.exists() else 'NO' } ({DLL_PATH})")
-    print(f"Launcher EXE built:         { 'YES' if EXE_PATH.exists() else 'NO' } ({EXE_PATH})")
-    print(f"Staged Layout:              { 'YES' if STAGE_DIR.exists() else 'NO' } ({STAGE_DIR})")
-    print(f"Sparse MSIX packaged:       { 'YES' if MSIX_PATH.exists() else 'NO' }")
-    print(f"Cert in LocalMachine Trust: { 'YES' if lm_cert_trusted else 'NO' }")
+    print(f"Native DLL built:           {'YES' if DLL_PATH.exists() else 'NO'} ({DLL_PATH})")
+    print(f"Launcher EXE built:         {'YES' if EXE_PATH.exists() else 'NO'} ({EXE_PATH})")
+    print(f"Staged Layout:              {'YES' if STAGE_DIR.exists() else 'NO'} ({STAGE_DIR})")
+    print(f"Sparse MSIX packaged:       {'YES' if MSIX_PATH.exists() else 'NO'}")
+    print(f"Cert in LocalMachine Trust: {'YES' if lm_cert_trusted else 'NO'}")
 
     if classic_registered:
         print(f"Classic Command Verb:       {shell_stat['command']}")
@@ -195,7 +206,6 @@ def cmd_install(mode: str, restart_explorer: bool = False) -> int:
             print(proc.stderr, file=sys.stderr)
         return proc.returncode
 
-    # mode == 'auto'
     print("Attempting Modern Windows 11 Shell Extension registration...")
     proc = run_ps1("register_modern_shell.ps1", *ps_args)
     print(proc.stdout)
@@ -269,18 +279,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.action == "status":
         return cmd_status()
-    elif args.action == "build":
+    if args.action == "build":
         return cmd_build()
-    elif args.action == "stage":
+    if args.action == "stage":
         return cmd_stage()
-    elif args.action == "validate-ui":
+    if args.action == "validate-ui":
         return cmd_validate_ui(args.state)
-    elif args.action == "clean-classic":
+    if args.action == "clean-classic":
         return cmd_clean_classic(force=getattr(args, "force", False))
-    elif args.action == "install":
+    if args.action == "install":
         mode = "modern" if args.modern else ("classic" if args.classic else "auto")
         return cmd_install(mode, restart_explorer=args.restart_explorer)
-    elif args.action == "uninstall":
+    if args.action == "uninstall":
         return cmd_uninstall(restart_explorer=args.restart_explorer)
     return 0
 

@@ -1,43 +1,45 @@
 ---
 name: fabric-canvas
-description: "Implementa o runtime React/Fabric.js de slots, clipping, transforms, history e layers sem acoplar o contrato ao Fabric. Use ao alterar o canvas ou interação direta da foto."
+description: "Implementa runtime React/Fabric.js de PreviewLayout, slots, clipping, transforms, history e overlays sem acoplar o contrato ao Fabric. Use ao alterar canvas/interação."
 ---
 # Fabric Slot Runtime
 
-Leia `apps/ui/AGENTS.md`, `docs/EDITOR_UX.md` e use /editor-performance em interação de alta frequência.
+Leia apps/ui/AGENTS.md e docs/UI_RUNTIME_ARCHITECTURE.md.
 
 ## Modelo
-- Template define geometria/layers.
-- Job define source + pan/zoom/rotação por slot.
-- SourceRegistry fornece preview decodificado.
-- FabricObject é apenas projeção desses três estados.
+- Template = geometria de produção.
+- PreviewLayout = geometria de tela.
+- Job = source + transform normalizado.
+- FabricObject = projeção efêmera.
 
-## Transformação persistida
-Por slot:
-- `pan_x_norm`
-- `pan_y_norm`
-- `scale` relativo ao cover mínimo
-- `rotation_deg`
-- `source_id`
+## Viewport
+Preserve aspect ratio. Não use resolução de produção gigante no layout DOM + CSS transform como única solução.
+Fabric `setDimensions(..., { cssOnly: true })` existe como opção oficial; qualquer abordagem precisa manter hit-testing e Job independentes do viewport.
 
-Nunca persistir left/top/scaleX/angle bruto do Fabric como contrato.
+## Cena persistente
+Reconcilie objetos por template/source; não destrua cena por pan/zoom.
 
-## Crop/adjust
-1. compute cover mínimo;
-2. `scale=1` = cover;
-3. aplicar pan em coordenada normalizada;
-4. clamp para não revelar vazio quando cover_required;
-5. rotação recalcula limites/clamp;
-6. commit Job ao fim do gesto.
+Hot path:
+1. obter FabricImage existente;
+2. calcular placement;
+3. set left/top/scale/angle;
+4. requestRenderAll coalescido;
+5. commit no domínio ao fim do gesto.
+
+Proibido no hot path:
+- fabric.clear();
+- FabricImage.fromURL();
+- decode;
+- criação repetida de overlay/clipPath.
+
+## Transform
+scale=1 = cover; pan normalizado; rotação/clamp; nunca persistir propriedades brutas do Fabric.
+
+## Events
+Fabric fornece mouse:dblclick oficialmente. Semântica é do produto, conforme docs/EDITOR_UX.md.
 
 ## History
-- uma interação contínua = uma entrada;
-- snapshot apenas de state pequeno, nunca pixels;
-- undo/redo precisa restaurar source/transform/layer action de forma determinística.
-
-## Layers
-Operador: slot/background/overlay seguem Template, sem reordenação estrutural.
-Gestor: reordenação/lock/visibility permitidos dentro das regras do template.
+Um gesto/duplicação = uma entrada; nunca pixels.
 
 ## Testes
-round-trip, resize sem drift, cover/clamp, rotação, history, source reuse, seleção e layer lock.
+round-trip, resize sem drift, aspect ratio, cover/clamp, history, source reuse, switching e overlay lock.

@@ -1,48 +1,36 @@
 # UI / Fabric.js Rules
 
-## Papel da UI
-A UI projeta Template + Job para interação. Ela não define a verdade física e não exporta o bitmap final de produção.
+## Papel
+A UI projeta Template + Job para interação. Não define geometria física nem export final.
 
-## Performance e memória
-- Nunca carregar o JPEG original de câmera no Fabric no fluxo normal.
-- Usar apenas previews/proxies gerados/deduplicados pelo ingest pipeline.
-- Uma mesma source deve reutilizar o mesmo preview decodificado sempre que possível.
-- Evitar zoom contínuo do viewport; o zoom principal é da foto dentro do slot.
-- Coalescer eventos de drag/wheel/slider por animation frame e criar uma única entrada de histórico ao fim da interação.
-- Construções em lote devem evitar render a cada objeto; renderizar uma vez após o batch.
-- Medir antes de alterar configurações globais de cache do Fabric.
+Leia também:
+- docs/UI_RUNTIME_ARCHITECTURE.md
+- docs/EDITOR_UX.md
+- docs/PERFORMANCE_BUDGETS.md
 
-## Estado
-- Template/Job são a fonte persistente.
-- Nunca salvar JSON bruto do Fabric como contrato público.
-- Transformações persistidas são normalizadas e independentes do tamanho da janela.
-- History/undo-redo opera sobre comandos de domínio, não sobre pixels/snapshots grandes.
+## Coordenadas
+- Template/produção, PreviewLayout e Job são sistemas distintos.
+- Resize altera somente PreviewLayout.
+- Nunca persistir left/top/scaleX/angle bruto do Fabric.
+- Aspect ratio visual deve ser igual ao canvas de produção.
+
+## Runtime Fabric
+- Cena persistente: não limpar/recriar toda a cena por mudança de pan/zoom.
+- Nenhum `fabric.clear()`, `FabricImage.fromURL()` ou decode no hot path de pointermove/wheel.
+- Reutilizar FabricImage, clipPath, overlay e preview por source.
+- Atualização de alta frequência por refs/requestAnimationFrame.
+- React/domain state recebe commit no fim do gesto.
+- Um gesto contínuo = uma entrada no history.
+
+## Imagem
+- Nunca carregar original full-resolution no Fabric.
+- Preview/proxy é deduplicado.
+- scale=1 significa cover mínimo.
+- overlay protegido é non-selectable/non-evented.
 
 ## Operador
-Expor somente:
-- adicionar/substituir foto;
-- clicar slot;
-- arrastar foto dentro do slot;
-- zoom;
-- rotação/alinhar;
-- reset;
-- duplicar/aplicar a par quando o produto permitir;
-- undo/redo;
-- gerar.
+Somente intenção operacional: adicionar/trocar, selecionar slot, mover foto, zoom, rotação, reset, ações do produto, undo/redo, gerar.
 
-Não expor painel genérico de layers, coordenadas, DPI ou propriedades Fabric.
-
-## Gestor
-Pode editar:
-- canvas físico;
-- slots;
-- groups;
-- overlays/assets;
-- ordem/lock/visibilidade de layers;
-- permissões;
-- naming/output;
-- publish/version.
-
-Objetos de sistema/overlay protegido permanecem bloqueados até ação explícita.
-
-Use /editor-ux, /fabric-canvas e /editor-performance.
+## Validação
+Mudança visual precisa de evidência visual; testes de renderer não substituem UI.
+Use /ui-visual-validation, /fabric-canvas e /editor-performance.

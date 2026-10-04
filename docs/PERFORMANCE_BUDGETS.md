@@ -1,46 +1,56 @@
 # Performance Budgets
 
-Estes são **targets de engenharia**, não promessas. A primeira implementação deve medir baseline numa máquina Windows do estúdio e ajustar budgets com evidência.
+Targets de engenharia; medir antes/depois.
 
-## Cenário de referência
-- Windows 11;
-- JPEGs ~8 MB;
-- até 18 slots no Chaveiro;
-- 1–9 sources comuns;
-- viewport 1366×768 e 1920×1080.
+## Máquina de referência
+Ver docs/DEV_MACHINE_PROFILE.md.
 
 ## Targets
 | Operação | Target inicial |
 |---|---:|
 | janela utilizável após launch | <= 2.5 s cold |
-| source aceita → thumbnail/preview | p95 <= 1.0 s por source comum |
+| source aceita -> preview ready | p95 <= 1.0 s |
 | click/toolbar feedback | < 100 ms |
-| drag/zoom | 60 fps ideal; não sustentar < 30 fps |
+| hot frame de drag/zoom | ideal <= 16.7 ms; não sustentar < 30 fps |
 | undo/redo | perceptivelmente imediato |
-| trocar source já em cache | < 150 ms visual |
-| UI durante render final | responsiva, sem freeze |
+| source em cache -> slot | < 150 ms visual |
+| UI durante render | sem freeze |
 
-## Guardrails
-- Fabric recebe preview, não original.
-- Preview padrão: longest side 2048 px.
-- Source repetida reutiliza preview/decode.
-- Não gerar preview por slot.
-- Não persistir pixels no history.
-- Events de alta frequência usam requestAnimationFrame/coalescing.
-- React não recebe setState global por pointermove.
-- Viewport zoom contínuo não é requisito do MVP.
-- Canvas/Fabric cache global não é alterado sem profile.
+## Hot path proibido
+Durante pointermove/wheel/slider contínuo:
+- não decodificar imagem;
+- não FabricImage.fromURL();
+- não fabric.clear();
+- não reconstruir a cena inteira;
+- não criar preview por slot;
+- não persistir pixels;
+- não fazer setState global React a cada frame.
 
-## Benchmark obrigatório
-Guardar em relatório:
-- CPU/RAM;
-- display scale/DPR;
-- arquivos e dimensões;
-- slots/sources;
+Use estado efêmero próximo ao canvas, refs e requestAnimationFrame/coalescing. Commit no domínio/history ao final do gesto.
+
+## Viewport
+- geometria de produção e geometria de exibição são separadas;
+- resize recalcula somente PreviewLayout;
+- aspect ratio deve permanecer exato;
+- não usar canvas de produção gigante + CSS scale como única estratégia de fit.
+
+## Startup
+Preview é assíncrono. Não atrasar a criação da janela esperando thumbnails.
+
+## Fabric cache
+Object caching possui tradeoffs de memória/qualidade. Alterar objectCaching/noScaleCache/limites globais somente com profile antes/depois.
+
+Fonte:
+https://www.fabricjs.com/docs/fabric-object-caching/
+
+## Evidência
+Registrar:
+- CPU/RAM/GPU e display scale/DPR;
+- janela;
+- quantidade de sources/slots;
 - cold/warm cache;
 - p50/p95;
-- heap/process memory antes/depois;
-- flamegraph/Performance recording quando houver jank.
+- memória;
+- Performance recording/flamegraph quando houver jank.
 
-## Gate
-Uma feature que piora drag/zoom ou source load de forma relevante precisa explicar o custo e ter alternativa antes do merge.
+Mudança que piora interação/source load precisa justificar custo antes do merge.

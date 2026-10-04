@@ -1,95 +1,76 @@
 # Editor UX — Operador e Gestor
 
 ## Objetivo
-Ser mais simples que um editor genérico e mais seguro para produção fotográfica. A tela deve ensinar o fluxo sem treinamento técnico.
+Ser mais simples que um editor genérico e seguro para produção fotográfica.
 
-## Modo Operador
-
-### Layout
+## Operador
+Fluxo principal:
 ```text
-┌ Produto / quantidade ───────────────────── Undo Redo ┐
-│                                                     │
-│ FOTOS        CANVAS / PRODUTO          AJUSTAR      │
-│ [+ fotos]    ┌──────────────────┐       Trocar       │
-│ thumb A      │                  │       Zoom  ─●+    │
-│ thumb B      │   slot ativo     │       Girar -  +   │
-│ thumb C      │                  │       Reset        │
-│              └──────────────────┘                    │
-│                                                     │
-│                         [ GERAR ARQUIVO ]            │
-└─────────────────────────────────────────────────────┘
+abrir/adicionar foto -> escolher produto -> ajustar -> gerar
 ```
 
-### Interação
-- abrir pelo menu de contexto já adiciona a(s) source(s);
-- botão **Adicionar fotos** abre multi-select;
-- drag-and-drop no app adiciona sources;
-- arrastar thumbnail para slot substitui/preenche;
-- click no slot seleciona;
-- drag no slot move a foto sob a máscara;
-- wheel sobre slot ativo controla zoom;
-- double click/Enter entra em **Ajustar foto**;
-- Escape encerra ajuste;
-- Ctrl+Z/Ctrl+Y sempre disponíveis.
+A superfície mínima contém:
+- fotos do cliente;
+- canvas;
+- slot ativo;
+- trocar/remover;
+- zoom;
+- rotação;
+- reset;
+- undo/redo;
+- ações específicas do produto;
+- gerar.
 
-### Sem painel de layers
-O Operador não deve mover overlay para trás nem apagar slot. "Frente/verso", duplicação e preenchimento são comandos de produto.
-
-## Chaveiro
-Ações primárias:
-- quantidade de chaveiros 1–9;
-- **Preencher quantidade** com source ativa;
-- **Preencher folha**;
-- click em qualquer slot → substituir individualmente;
-- comando de par frente/verso após o pareamento ser fisicamente confirmado.
+### Interação comum
+- click no slot: selecionar;
+- drag no slot preenchido: mover somente a foto;
+- wheel no slot ativo: zoom;
+- Escape: sair de modo de ajuste;
+- Ctrl+Z/Ctrl+Y: history;
+- overlay/slot estrutural nunca se move no Operador.
 
 ## Calendário
-- uma foto;
-- overlay sempre visível/bloqueado;
-- pan/zoom/rotação;
-- botão Reset.
+- canvas retrato 1067×1474;
+- overlay ocupa 100% da visualização e fica bloqueado;
+- foto inicia em cover centralizado;
+- nenhuma área branca deve aparecer dentro da abertura;
+- pan/zoom/rotação afetam apenas a foto;
+- double-click/Enter pode focar/alternar modo Ajustar.
+
+## Chaveiro
+- canvas paisagem 216×152 mm;
+- 18 slots em 6×3;
+- cada slot mantém source + transform independente;
+- **Preencher folha** continua disponível;
+- double-click em slot preenchido duplica o SlotEditState inteiro para o próximo slot, preservando enquadramento e tornando o destino ativo;
+- uma duplicação = uma entrada de undo;
+- deve existir alternativa visível ao gesto para acessibilidade.
 
 ## Globo
-- dois slots;
-- sources independentes;
-- ação **Usar mesma foto nos dois**;
-- ajuste independente depois.
+- canvas paisagem 152×102 mm;
+- dois slots 50×80 mm lado a lado;
+- **Usar mesma foto nos dois** continua disponível;
+- double-click em slot preenchido copia o SlotEditState inteiro para o outro slot;
+- depois da cópia, cada slot pode ser ajustado independentemente.
 
-## Modo Gestor
-Ativado explicitamente; não mistura ferramentas com o Operador.
-
-### Ferramentas
-- canvas em mm;
-- criar/duplicar/excluir slot;
-- medidas e posição;
-- snap/guias/alinhamento;
-- add overlay/background/decorative asset;
-- layer list com drag reorder;
-- Bring Forward / Send Backward;
-- lock/unlock;
-- visibility;
-- groups e regras de duplicate/fill;
-- permissões por slot;
-- output/naming;
-- validar e publicar versão.
-
-### Segurança
-- assets/overlays podem ser protegidos;
-- publish falha se houver dimensão/posição necessária pendente;
-- toda alteração é undoable;
-- produção publicada não é editada in-place: cria nova template_version.
+## Viewport
+Preview deve manter a proporção física em qualquer janela. Ver docs/UI_RUNTIME_ARCHITECTURE.md.
+Resize não altera Job.
 
 ## Estados obrigatórios
-- empty: instrução curta + Adicionar fotos;
-- loading preview: thumbnail skeleton/progress, canvas continua utilizável;
-- source error: card local com retry/remove;
-- rendering: progresso não bloqueia leitura/ajuste até o snapshot do Job ser enviado;
-- success: caminho do arquivo + Abrir pasta;
-- collision: naming automático, sem overwrite silencioso.
+- empty;
+- loading preview sem bloquear janela;
+- source error com retry/remove;
+- rendering sem congelar UI;
+- success com caminho + Abrir pasta;
+- collision-safe, sem overwrite silencioso.
 
-## Acessibilidade/ergonomia
-- alvos de clique confortáveis;
+## Gestor
+Separado do Operador. Pode editar canvas físico, slots, groups, layers, lock/visibility, overlays/assets, medidas, output e publish/version.
+
+## Acessibilidade
 - foco visível;
-- atalhos não dependem apenas de mouse;
+- alvos confortáveis;
+- gesto sempre tem alternativa por botão/teclado quando essencial;
 - labels em português operacional;
-- 1366×768 continua utilizável sem esconder Gerar.
+- 1024×680 continua funcional e Gerar não desaparece.

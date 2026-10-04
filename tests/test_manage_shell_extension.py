@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.manage_shell_extension import (
+from scripts.manage_shell_extension import (  # noqa: E402
     cmd_clean_classic,
     cmd_status,
     cmd_validate_ui,
@@ -22,39 +22,38 @@ from scripts.manage_shell_extension import (
 )
 
 
-def test_ui_validation_state_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ui_validation_state_lifecycle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     marker = tmp_path / ".test_ui_validation"
     monkeypatch.setattr("scripts.manage_shell_extension.VALIDATION_MARKER", marker)
 
-    # Initial state: PENDING
     assert get_ui_validation_state() == "PENDING"
 
-    # Pass
     cmd_validate_ui("pass")
     assert get_ui_validation_state() == "PASSED"
 
-    # Fail
     cmd_validate_ui("fail")
     assert get_ui_validation_state() == "FAILED"
 
-    # Reset
     cmd_validate_ui("reset")
     assert get_ui_validation_state() == "PENDING"
 
 
-def test_clean_classic_requires_passed_validation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_clean_classic_requires_passed_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     marker = tmp_path / ".test_ui_validation"
     monkeypatch.setattr("scripts.manage_shell_extension.VALIDATION_MARKER", marker)
 
-    # PENDING state should block clean-classic without force
     assert get_ui_validation_state() == "PENDING"
     assert cmd_clean_classic(force=False) == 1
 
-    # With force=True, it proceeds
     with patch("scripts.manage_shell_extension.unregister_classic_fallback", return_value=True):
         assert cmd_clean_classic(force=True) == 0
 
-    # With PASSED validation, it proceeds without force
     cmd_validate_ui("pass")
     assert get_ui_validation_state() == "PASSED"
     with patch("scripts.manage_shell_extension.unregister_classic_fallback", return_value=True):
