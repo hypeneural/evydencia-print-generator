@@ -31,6 +31,12 @@ Leia também:
 ## Operador
 Somente intenção operacional: adicionar/trocar, selecionar slot, mover foto, zoom, rotação, reset, ações do produto, undo/redo, gerar.
 
+## Gestor (M5)
+- Shared Editor Runtime: reutiliza `ProductCanvas.tsx` alternando capabilities pelo prop `mode="manager"`.
+- Nunca duplicar o canvas criando `ManagerCanvas.tsx`.
+- Manipulação de slots no Gestor opera em milímetros (`draft.ts`), refletida em `rect_px` por `mm_to_px(mm, dpi)`.
+- Edição opera sobre `TemplateDraft` efêmero; publicação em disco é atômica e versionada.
+
 ## Validação
 Mudança visual precisa de evidência visual; testes de renderer não substituem UI.
 Use /ui-visual-validation, /fabric-canvas e /editor-performance.
