@@ -1,82 +1,70 @@
-# AntiGravity 2.19.1 — Operating Guide
+# AntiGravity — Operating Guide
 
-Auditado em 2026-10-03 contra a documentação oficial.
+Auditado em 2026-10-04 contra documentação oficial.
 
-## Baseline
-O changelog oficial marca **v2.19.1 — 2026-09-30 — Latest**. A versão permite mensagens diretas a subagentes e corrige custom agents que ignoravam regras globais/de projeto.
+## Versão alvo
+A página oficial de download lista **Antigravity 2.0 v2.19.1** para Windows/macOS/Linux.
 
-Fontes:
+Importante: o changelog público consultado em 2026-10-04 ainda marca **v2.18.1** como Latest. Portanto, este repositório não atribui mudanças específicas à v2.19.1 sem release notes oficiais correspondentes.
+
+Fontes oficiais:
+- https://www.antigravity.google/download
 - https://www.antigravity.google/docs/changelog
 - https://www.antigravity.google/docs/rules/
 - https://www.antigravity.google/docs/skills
 - https://www.antigravity.google/docs/subagents
 - https://www.antigravity.google/docs/slash-commands/
+- https://www.antigravity.google/docs/artifact-review
 - https://www.antigravity.google/docs/hooks
+- https://www.antigravity.google/docs/migration/workflows-to-skills
 
-## Estratégia de contexto
-- `AGENTS.md`/GEMINI não usam frontmatter e são always-on.
-- Rules modulares usam triggers e só guardam constraints/invariantes.
-- Skills guardam procedimentos multi-etapa.
-- Skills seguem progressive disclosure: name+description primeiro, corpo sob demanda.
-- Skills complexas devem ter decision tree.
-- Scripts/resources/examples ficam no bundle da skill.
-- Scripts de skill devem ser usados como black box quando possível; rode `--help` antes de ler fonte grande.
-
-## Slash commands do projeto
-- `/plan`: feature transversal, refactor, contrato ou risco alto.
-- `/grill-me`: UX/medidas/requisito ainda ambíguo.
-- `/boost`: bugs difíceis de geometria/performance quando disponível.
-- `/browser`: validar UI do Vite, fluxos e screenshots sintéticas.
-- `/learn`: transformar correções recorrentes em Rule/Skill depois de revisar o diff.
-
-## Agents
-
-### Principal
-`evydencia-builder`
-Coordena vertical slices, contexto mínimo e gates.
-
-### Subagentes
-1. `product-architect` — Template/Job/geometria/ADR.
-2. `editor-ux-engineer` — Operador/Gestor, fluxo e ergonomia.
-3. `canvas-engineer` — React/Fabric/history/performance.
-4. `render-engineer` — Pillow/EXIF/ICC/DPI/pixels.
-5. `windows-engineer` — pywebview/shell/installer.
-6. `quality-auditor` — auditor independente read-only na primeira passagem.
-
-Pesquisa/benchmark pode paralelizar. Dois agentes não editam os mesmos arquivos simultaneamente.
+## Contexto e Rules
+- AGENTS.md/GEMINI.md não usam frontmatter e ficam always-on no escopo do diretório.
+- Rules em .agents/rules/*.md precisam de frontmatter válido e trigger documentado.
+- Rules são cumulativas; regra mais específica de diretório prevalece em conflito.
+- Rules aninhadas em subpastas não são descobertas automaticamente sem registro explícito.
+- Root AGENTS deve conter apenas invariantes estáveis e roteamento de contexto.
 
 ## Skills
-Workspace: `.agents/skills/<skill>/SKILL.md`.
+- Skills ficam em .agents/skills/<name>/SKILL.md.
+- Antigravity indexa name + description e carrega o corpo sob demanda.
+- Uma Skill deve resolver uma responsabilidade específica.
+- Skills complexas devem conter decision tree.
+- Scripts/resources/examples devem ficar no bundle da Skill para evitar prompt bloat.
+- Quando uma Skill oferecer script auxiliar, prefira executar --help/uso documentado antes de ler implementação inteira.
 
-Skills atuais:
-- antigravity-maintenance
-- editor-performance
-- editor-ux
-- fabric-canvas
-- image-ingest-preview
-- image-quality
-- print-geometry
-- product-onboarding
-- render-golden-tests
-- repo-audit
-- template-authoring
-- windows-shell-integration
+## Subagentes
+- Custom agents ficam em .agents/agents/<name>/agent.md ou .agents/agents/<name>.md.
+- Subagentes iniciam com contexto isolado da conversa do pai.
+- Para paralelismo com escrita, prefira workspace isolado/worktree (branch) por subagente.
+- Pesquisa e auditoria podem paralelizar; dois agentes não editam o mesmo arquivo ao mesmo tempo.
+- Nome de tool inválido pode travar um subagente; mantenha validação mecânica.
+
+## Planejamento e revisão
+Política recomendada neste projeto: **Request Review**.
+
+- /plan: mudanças multi-arquivo, arquitetura, contratos ou risco alto.
+- /grill-me: requisito de UX/produto ainda ambíguo.
+- /boost: bugs/algoritmos/performance difíceis quando disponível.
+- /browser: inspeção de UI real e navegação.
+- /learn: transformar correções recorrentes em Rule/Skill após revisar o diff.
+- /teamwork-preview: migrações ou campanhas repo-scale; não usar como padrão para feature localizada.
+- /goal: só quando execução autônoma contínua for realmente desejada; não usar em mudanças que exigem gates humanos.
+- /btw: pergunta lateral sem interromper o fluxo principal.
+
+Um Implementation Plan não é aprovação de código. O agente deve parar para review quando o gate exigir validação humana ou visual.
 
 ## Hooks
-`.agents/hooks.json` usa PostToolUse leve para validar customizações após escrita. O hook não deve virar um build global a cada arquivo.
+Hooks devem ser rápidos e específicos. O projeto usa PostToolUse para validar customizações; não transformar hook em build global a cada edição.
 
 ## Workflows
-Não criar novos workflows. Estão deprecated e serão retirados em 2026-11-01; usar Skills.
+Workflows legados serão retirados em **2026-11-01**. Não criar novos workflows; use Agent Skills.
 
-## Configuração
-Configuração por projeto pertence a `/.gemini/config.json` quando necessária. Não criar arquivo vazio.
-
-## Sequência recomendada no issue #4
-1. `/plan M1 SourceRegistry + Preview Pipeline + Renderer do Calendário`
-2. revisar artifact;
-3. se surgirem decisões de interação/medida, `/grill-me`;
-4. implementar E1/E2 em incrementos;
-5. canvas-engineer + editor-ux-engineer implementam E3;
-6. `/browser` contra Vite para validar UX;
-7. quality-auditor roda auditoria independente;
-8. CI verde + benchmark registrado.
+## Política de conclusão
+Nunca declarar "100%", "concluído", "validado" ou "produção" apenas porque testes locais passaram.
+Aplique docs/QUALITY_GATES.md e diferencie:
+- unit/contract evidence;
+- CI remoto;
+- visual/UI evidence;
+- Windows/manual evidence;
+- impressão física quando aplicável.

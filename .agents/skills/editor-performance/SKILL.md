@@ -1,25 +1,30 @@
 ---
 name: editor-performance
-description: "Perfila e otimiza responsividade, Fabric.js, image previews, history e memória do editor. Use quando adicionar interação de alta frequência, muitos slots, zoom/drag, resize de janela ou investigar jank."
+description: "Perfila e otimiza Fabric.js, React, previews, history, startup e memória. Use em drag/zoom/resize, muitos slots, loading ou qualquer jank."
 ---
 # Editor Performance
 
-Leia `docs/PERFORMANCE_BUDGETS.md`. Para detalhes Fabric, consulte `resources/fabric-performance.md`.
+Leia docs/PERFORMANCE_BUDGETS.md.
 
 ## Decision tree
-- Jank durante pointermove/wheel? → profile primeiro; elimine alocação/decode/state global; agrupe por requestAnimationFrame.
-- Jank ao abrir produto? → medir ingest/preview e construção do canvas separadamente.
-- Memória alta? → confirme se original ou previews duplicados estão no JS heap.
-- Zoom da foto lento? → não usar viewport zoom como substituto; revisar cache e frequência de render.
-- Muitos updates React? → estado efêmero de gesture fica perto do canvas; commit ao domínio no fim do gesto.
+- jank pointermove/wheel? -> procure rebuild/decode/setState global antes de mexer em cache;
+- produto troca deformado? -> audite PreviewLayout/aspect ratio, não Template físico;
+- abertura lenta? -> separar window creation de preview generation;
+- memória alta? -> confirmar duplicação de preview/original;
+- cache Fabric? -> profile antes/depois.
 
-## Guardrails
-- Um preview decodificado por source, não por slot.
-- Não recriar clipPath/objects em pointermove.
-- Coalescer wheel/slider/history.
-- Evitar setState global a cada frame.
-- Batch add/remove/update e uma render request ao final.
-- Configuração Fabric de cache só muda com benchmark antes/depois.
+## Hot path
+- cena persistente;
+- refs locais para objetos;
+- requestAnimationFrame/coalescing;
+- commit React/domain no fim do gesto;
+- uma source -> um preview reutilizável.
+
+Não aceitar:
+- FabricImage.fromURL no gesto;
+- fabric.clear no gesto;
+- preview por slot;
+- bloqueio da janela aguardando thumbnail.
 
 ## Evidência
-Registre máquina, foto(s), número de slots, resolução da janela, cenário e p50/p95. Não aceite "parece rápido" como benchmark.
+Máquina, janela, slots/sources, cold/warm, p50/p95 e Performance recording quando houver jank.

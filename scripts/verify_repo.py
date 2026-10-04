@@ -19,6 +19,8 @@ REQUIRED = [
     "docs/PRODUCT_SPECS.md",
     "docs/ANTIGRAVITY.md",
     "docs/EDITOR_UX.md",
+    "docs/UI_RUNTIME_ARCHITECTURE.md",
+    "docs/QUALITY_GATES.md",
     "docs/IMAGE_PIPELINE.md",
     "docs/PERFORMANCE_BUDGETS.md",
     "docs/EDITOR_IMPLEMENTATION_PLAN.md",
