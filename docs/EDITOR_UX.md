@@ -29,6 +29,7 @@ A superfície mínima contém:
 - Escape: sair de modo de ajuste;
 - Ctrl+Z/Ctrl+Y: history (1 ação em lote ou individual = 1 entrada no histórico);
 - overlay/slot estrutural nunca se move no Operador.
+- **Ajuste fino de rotação**: slider (-180° a +179°, passo 1°), campo numérico com precisão de 0.1°, botões rápidos (↶ -90° / ↷ +90°) e indicador de ângulo (`Rotação: X.X°`). Coalescência de histórico: o arrasto contínuo do slider ou digitação atualiza o canvas em tempo real e consolida exatamente 1 entrada de Undo ao soltar o cursor (`onPointerUp`) ou confirmar (`Enter`/`onBlur`).
 
 ## Calendário
 - canvas retrato 1067×1474;
@@ -44,6 +45,8 @@ A superfície mínima contém:
 - 18 slots em 6×3;
 - cada slot mantém source + transform independente;
 - tecla Delete: remove a foto do slot ativo, mantendo a foto na bandeja;
+- **Multi-seleção com Shift + clique**: permite selecionar múltiplos slots simultaneamente no Chaveiro. O slot primário mantém a borda azul ativa e os slots secundários exibem borda ciano pontilhada (`#06b6d4`). O clique com Shift não inicia arrasto de foto;
+- **Duplicação em lote (`⧉ Duplicar selecionados (N)`)**: duplica as fotos e enquadramentos dos slots selecionados para os próximos slots vazios disponíveis (com wrap-around), gerando exatamente 1 entrada de Undo;
 - **⚡ Preencher restantes**: preenche estritamente os slots vazios utilizando a foto e o transform completo do slot ativo. O botão exibe a contagem de slots vazios (`⚡ Preencher restantes (N)`) e permanece desabilitado se o slot ativo não possuir foto ou se todos os slots já estiverem preenchidos; não há fallback silencioso para outros slots;
 - **Distribuição em lote (Multi-drop)**: arrastar múltiplos arquivos do Windows Explorer ou selecionar múltiplas fotos no diálogo distribui os itens nos slots:
   - drop direto sobre um slot: substitui a foto daquele slot (âncora) com o primeiro item e preenche os próximos slots vazios em ordem (com wrap-around);
@@ -53,7 +56,18 @@ A superfície mínima contém:
   - cada operação em lote gera exatamente 1 entrada no histórico de Undo (Ctrl+Z);
 - double-click em slot preenchido duplica o SlotEditState inteiro para o próximo slot, preservando enquadramento e tornando o destino ativo;
 - uma duplicação = uma entrada de undo;
+- **Renderização parcial**: o Chaveiro pode ser gerado a partir de 2 ou mais slots preenchidos (os slots vazios permanecem brancos no papel fotográfico, e o nome do arquivo final deriva do primeiro slot preenchido na ordem do gabarito);
 - deve existir alternativa visível ao gesto para acessibilidade.
+
+## Polaroid Natal (Draft)
+- canvas 82.97×102.02 mm (980×1205 px @ 300 DPI);
+- 1 slot de foto (`foto_principal` 71.37×72.98 mm em x=5.84, y=5.00 mm, correspondendo à janela transparente 843×862 px a partir de 69, 59 px);
+- overlay PNG obrigatório posicionado na camada superior sem redimensionamento destrutivo;
+- exportação JPEG a 95% de qualidade (`Polaroid_<orig>_<hash>.jpg`);
+- requer 1 foto preenchida para produção.
+
+## Pós-Renderização e Shell
+- **Abertura automática no Windows Explorer**: após a geração do arquivo de produção, a pasta de saída é aberta e o arquivo recém-gerado é automaticamente selecionado via `SHOpenFolderAndSelectItems` (com fallback robusto para `explorer.exe /select,<path>`), sem falhar a renderização caso o Shell do Windows demore a responder.
 
 ## Globo
 - canvas paisagem 152×102 mm (1795×1205 px @ 300 DPI);
