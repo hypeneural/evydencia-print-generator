@@ -15,7 +15,7 @@
 - Branch stacked `feat/operator-precision-polaroid-partial-render` (base PR #21):
   - G1 Repository: PASS
   - G2 Unit/Contract: PASS (260 testes Vitest em 11 suites / 152 testes Pytest)
-  - G3 Remote CI: PENDING (draft PR sobre PR #21)
+  - G3 Remote CI: PASS (PR #22, Runs #37272927436 e #37272932834 100% verdes)
   - G4 UI / Visual: PENDING
   - G5 Performance: PENDING
   - G6 Windows Shell / Explorer Reveal: PASS (64-bit ctypes + fallback)
