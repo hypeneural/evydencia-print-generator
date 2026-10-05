@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from ..domain.job import JobSnapshot
 from ..domain.template import Template, TemplateError
 from .compose import compose_canvas
-from .models import RenderOptions, RenderResult
+from .models import RenderError, RenderOptions, RenderResult
 from .output import atomic_save_image, resolve_output_path
-
-
-class RenderError(RuntimeError):
-    """Raised when rendering cannot proceed or fails."""
 
 
 def render(
@@ -47,11 +44,16 @@ def render(
         draw_cut_guidelines=opts.draw_cut_guidelines,
     )
 
-    # Determine primary source path for output naming
-    primary_slot = template.slots[0]
-    primary_edit = snapshot.slot_edits[primary_slot.id]
-    primary_source = snapshot.sources[primary_edit.source_id]
-    primary_source_path = primary_source.path
+    # Determine primary source path for output naming (first filled slot in template order)
+    primary_source_path: Path | None = None
+    for slot in template.slots:
+        if slot.id in snapshot.slot_edits:
+            primary_edit = snapshot.slot_edits[slot.id]
+            primary_source = snapshot.sources[primary_edit.source_id]
+            primary_source_path = primary_source.path
+            break
+    if primary_source_path is None:
+        raise RenderError("Job snapshot has no filled slots")
 
     # Resolve output path with collision safety
     output_path = resolve_output_path(
