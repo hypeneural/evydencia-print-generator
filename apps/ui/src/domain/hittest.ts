@@ -64,3 +64,35 @@ export function findSlotAtClientPoint<T extends { id: string; rect_px: PixelRect
   const { x, y } = pointToScene(clientX, clientY, canvasBoundingRect, fitScale);
   return findSlotAtScenePoint(slots, x, y);
 }
+
+export type DropTarget =
+  | { kind: "slot"; slotId: string }
+  /** Inside the sheet but outside every slot (Globo gap, Chaveiro margin). */
+  | { kind: "canvas" }
+  | { kind: "outside" };
+
+/**
+ * Classify a client point for drop semantics:
+ * - slot: explicit target (anchor);
+ * - canvas: general batch, fill first empty slots;
+ * - outside: tray only, zero slot mutation.
+ */
+export function classifyDropPoint<T extends { id: string; rect_px: PixelRect }>(
+  slots: T[],
+  clientX: number,
+  clientY: number,
+  canvasBoundingRect: { left: number; top: number; width: number; height: number },
+  fitScale: number
+): DropTarget {
+  if (
+    clientX < canvasBoundingRect.left ||
+    clientX > canvasBoundingRect.left + canvasBoundingRect.width ||
+    clientY < canvasBoundingRect.top ||
+    clientY > canvasBoundingRect.top + canvasBoundingRect.height
+  ) {
+    return { kind: "outside" };
+  }
+  const hit = findSlotAtClientPoint(slots, clientX, clientY, canvasBoundingRect, fitScale);
+  return hit ? { kind: "slot", slotId: hit.id } : { kind: "canvas" };
+}
+

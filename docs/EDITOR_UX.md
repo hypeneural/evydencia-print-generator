@@ -25,8 +25,9 @@ A superfície mínima contém:
 - click no slot: selecionar;
 - drag no slot preenchido: mover somente a foto;
 - wheel no slot ativo: zoom;
+- Delete: remover a foto do slot ativo (somente no Chaveiro e Globo). A foto permanece disponível na bandeja (tray) e o arquivo original nunca é excluído. Ctrl+Z restaura a foto e seu enquadramento exato;
 - Escape: sair de modo de ajuste;
-- Ctrl+Z/Ctrl+Y: history;
+- Ctrl+Z/Ctrl+Y: history (1 ação em lote ou individual = 1 entrada no histórico);
 - overlay/slot estrutural nunca se move no Operador.
 
 ## Calendário
@@ -35,13 +36,21 @@ A superfície mínima contém:
 - foto inicia em cover centralizado;
 - nenhuma área branca deve aparecer dentro da abertura;
 - pan/zoom/rotação afetam apenas a foto;
-- double-click/Enter pode focar/alternar modo Ajustar.
+- double-click/Enter pode focar/alternar modo Ajustar;
+- tecla Delete não é habilitada no Calendário (remoção via botão "Remover foto" explícito).
 
 ## Chaveiro
 - canvas paisagem 216×152 mm;
 - 18 slots em 6×3;
 - cada slot mantém source + transform independente;
-- **Preencher folha** continua disponível;
+- tecla Delete: remove a foto do slot ativo, mantendo a foto na bandeja;
+- **⚡ Preencher restantes**: preenche estritamente os slots vazios utilizando a foto e o transform completo do slot ativo. O botão exibe a contagem de slots vazios (`⚡ Preencher restantes (N)`) e permanece desabilitado se o slot ativo não possuir foto ou se todos os slots já estiverem preenchidos; não há fallback silencioso para outros slots;
+- **Distribuição em lote (Multi-drop)**: arrastar múltiplos arquivos do Windows Explorer ou selecionar múltiplas fotos no diálogo distribui os itens nos slots:
+  - drop direto sobre um slot: substitui a foto daquele slot (âncora) com o primeiro item e preenche os próximos slots vazios em ordem (com wrap-around);
+  - drop na margem do canvas: preenche os primeiros slots vazios sem sobrescrever slots já ocupados;
+  - drop fora do canvas: adiciona as fotos exclusivamente à bandeja sem mutar os slots da folha;
+  - fotos que excederem o número de slots vazios permanecem na bandeja sem descarte;
+  - cada operação em lote gera exatamente 1 entrada no histórico de Undo (Ctrl+Z);
 - double-click em slot preenchido duplica o SlotEditState inteiro para o próximo slot, preservando enquadramento e tornando o destino ativo;
 - uma duplicação = uma entrada de undo;
 - deve existir alternativa visível ao gesto para acessibilidade.
@@ -49,9 +58,18 @@ A superfície mínima contém:
 ## Globo
 - canvas paisagem 152×102 mm (1795×1205 px @ 300 DPI);
 - dois slots 50×80 mm lado a lado (x=16.7 mm e x=73.7 mm, gap 7 mm assimétrico derivado do gabarito físico real, margem direita 28.3 mm);
+- tecla Delete: remove a foto do slot ativo (`foto_1` ou `foto_2`), mantendo-a na bandeja e preservando o outro slot;
+- **Distribuição em lote**: suporta até a capacidade do template (2 slots). Drop sobre um slot substitui a âncora e preenche o outro se vazio; drop no gap de 7 mm ou nas margens preenche os primeiros slots vazios; excedentes permanecem na bandeja;
 - **Usar mesma foto nos dois** continua disponível;
 - double-click em slot preenchido copia o SlotEditState inteiro para o outro slot;
 - depois da cópia, cada slot pode ser ajustado independentemente.
+
+## Windows 11 — Integração de Shell e Menu de Contexto
+- Implementado via `IExplorerCommand` nativo x64 + identidade de pacote esparso (Sparse MSIX);
+- O comando aparece no **menu moderno principal** do Windows 11 para formatos suportados (.jpg, .jpeg, .png);
+- **Posicionamento no menu**: o Windows Explorer agrupa extensões de terceiros abaixo dos comandos nativos do Shell (Abrir, Abrir com, etc.). A API pública `IExplorerCommand::GetFlags` (`EXPCMDFLAGS`) não oferece flags de ordenação ou prioridade absoluta (`MODERN_MENU_VISIBLE = PASS`, `ABSOLUTE_FIRST_POSITION = UNSUPPORTED_BY_PUBLIC_API`);
+- A flag `Position=Top` é restrita aos verbos estáticos do menu clássico/legado (Shift+F10 / Mostrar mais opções), já configurada no instalador de fallback (`shell_fallback.py`).
+
 
 ## Viewport
 Preview deve manter a proporção física em qualquer janela. Ver docs/UI_RUNTIME_ARCHITECTURE.md.

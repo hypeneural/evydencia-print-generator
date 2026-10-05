@@ -32,8 +32,10 @@ def launch_app(
     ingest_service = IngestService(registry, schedule_preview=preview_service.ensure_preview)
 
     # Pre-ingest any initial paths passed via CLI / Explorer (non-blocking)
+    startup_ids: list[str] = []
     if initial_image_paths:
-        ingest_service.ingest_paths(initial_image_paths, origin="cli")
+        startup_res = ingest_service.ingest_paths(initial_image_paths, origin="cli")
+        startup_ids = list(startup_res.accepted_ids)
 
     # 2. Start localhost asset server
     server = AssetServer(cache_dir=cache.cache_dir)
@@ -45,6 +47,7 @@ def launch_app(
         ingest_service=ingest_service,
         preview_service=preview_service,
         server_base_url=server.base_url,
+        startup_accepted_ids=startup_ids,
     )
 
     try:

@@ -1,5 +1,6 @@
 import type {
   EditStateModel,
+  IngestBatchModel,
   RenderResultModel,
   SourceAssetModel,
   TemplateModel,
@@ -11,7 +12,8 @@ declare global {
       api: {
         get_templates: () => Promise<TemplateModel[]>;
         get_sources: () => Promise<SourceAssetModel[]>;
-        open_file_dialog: () => Promise<SourceAssetModel[]>;
+        get_startup_batch: () => Promise<{ accepted_ids: string[] }>;
+        open_file_dialog: () => Promise<IngestBatchModel>;
         ingest_paths: (paths: string[]) => Promise<SourceAssetModel[]>;
         render_job: (edit_state: EditStateModel) => Promise<RenderResultModel>;
         open_output_folder: (file_path: string) => Promise<boolean>;
@@ -173,7 +175,14 @@ export const bridge = {
     return mockSources;
   },
 
-  async openFileDialog(): Promise<SourceAssetModel[]> {
+  async getStartupBatch(): Promise<{ accepted_ids: string[] }> {
+    if (window.pywebview?.api) {
+      return window.pywebview.api.get_startup_batch();
+    }
+    return { accepted_ids: [] };
+  },
+
+  async openFileDialog(): Promise<IngestBatchModel> {
     if (window.pywebview?.api) {
       return window.pywebview.api.open_file_dialog();
     }
@@ -195,7 +204,11 @@ export const bridge = {
       },
     };
     mockSources = [...mockSources, mockAsset];
-    return [mockAsset];
+    return {
+      sources: mockSources,
+      accepted_ids: [mockAsset.id],
+      rejected: [],
+    };
   },
 
   async ingestPaths(paths: string[]): Promise<SourceAssetModel[]> {

@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -28,12 +29,14 @@ class DesktopBridge:
         preview_service: PreviewService,
         server_base_url: str,
         templates_root: Path | None = None,
+        startup_accepted_ids: Sequence[str] | None = None,
     ) -> None:
         self.registry = registry
         self.ingest_service = ingest_service
         self.preview_service = preview_service
         self.server_base_url = server_base_url.rstrip("/")
         self.templates_root = templates_root or templates_dir()
+        self._startup_accepted_ids = list(startup_accepted_ids or [])
         self._window: Any = None
 
     def set_window(self, window: Any) -> None:
@@ -168,10 +171,33 @@ class DesktopBridge:
             )
         return sources
 
-    def open_file_dialog(self) -> list[dict[str, Any]]:
+    def get_startup_batch(self) -> dict[str, Any]:
+        """Return the accepted source IDs from the startup CLI/Explorer batch."""
+        return {"accepted_ids": list(self._startup_accepted_ids)}
+
+    def ingest_batch(self, paths: list[str], origin: str = "dialog") -> dict[str, Any]:
+        """Ingest paths asynchronously and return IngestBatchModel dict."""
+        ingest_res = self.ingest_service.ingest_paths(paths, origin=origin)  # type: ignore[arg-type]
+        sources = self.get_sources()
+        accepted_ids = list(ingest_res.accepted_ids)
+        rejected_data = [
+            {"display_name": r.display_name, "code": r.code.value} for r in ingest_res.rejected
+        ]
+        return {
+            "sources": sources,
+            "accepted_ids": accepted_ids,
+            "rejected": rejected_data,
+        }
+
+    def open_file_dialog(self) -> dict[str, Any]:
         """Trigger native Windows file dialog and ingest selected files."""
+        empty: dict[str, Any] = {
+            "sources": self.get_sources(),
+            "accepted_ids": [],
+            "rejected": [],
+        }
         if not self._window:
-            return self.get_sources()
+            return empty
 
         try:
             import webview
@@ -182,11 +208,11 @@ class DesktopBridge:
                 file_types=["Image Files (*.jpg;*.jpeg;*.png)"],
             )
             if result:
-                return self.ingest_paths(list(result))
-        except Exception:
-            pass
+                return self.ingest_batch(list(result), origin="dialog")
+        except Exception as exc:
+            logger.warning("file dialog failed: %s", type(exc).__name__)
 
-        return self.get_sources()
+        return empty
 
     def ingest_paths(self, paths: list[str]) -> list[dict[str, Any]]:
         """Ingest paths asynchronously and return updated sources immediately."""
@@ -259,21 +285,16 @@ class DesktopBridge:
         if not paths:
             return
 
-        ingest_res = self.ingest_service.ingest_paths(paths, origin="drop")
-        sources = self.get_sources()
-        accepted_ids = [a.id for a in ingest_res.accepted]
-        rejected_data = [
-            {"display_name": r.display_name, "code": r.code.value} for r in ingest_res.rejected
-        ]
+        batch = self.ingest_batch(paths, origin="drop")
         client_x = event.get("clientX", 0)
         client_y = event.get("clientY", 0)
 
         if self._window:
             payload = json.dumps(
                 {
-                    "sources": sources,
-                    "accepted_ids": accepted_ids,
-                    "rejected": rejected_data,
+                    "sources": batch["sources"],
+                    "accepted_ids": batch["accepted_ids"],
+                    "rejected": batch["rejected"],
                     "clientX": client_x,
                     "clientY": client_y,
                 }
@@ -284,3 +305,4 @@ class DesktopBridge:
                 )
             except Exception as exc:
                 logger.warning("Failed to dispatch __onNativeFileDrop to UI: %s", exc)
+

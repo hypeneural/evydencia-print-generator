@@ -44,6 +44,20 @@ Estratégia: fatias testáveis + gates objetivos.
 - [x] uniform scale e guarda de aspect ratio no overlay do Calendário.
 - [ ] validação visual (G4), medição de performance (G5) e teste manual no Windows 11 (G6).
 
+## Stacked Branch — Operator Batch Assignment & Delete Hardening (`feat/operator-batch-assignment-delete`)
+- [x] Domínio puro de atribuição de slots (`slot_assignment.ts`): substituição com âncora, preenchimento de slots vazios, wrap-around, respeito à capacidade dos slots do template.
+- [x] Domínio puro de teclado (`keyboard.ts`): tecla Delete restrita a Chaveiro e Globo, ignorando campos de edição de texto (`INPUT`, `TEXTAREA`, `contenteditable`).
+- [x] Classificação de área de drop (`hittest.ts`): diferenciação entre slot, área interna da folha/canvas e fora do canvas.
+- [x] Contrato estruturado de batch no bridge (`IngestBatchModel`, `get_startup_batch()`, `open_file_dialog()`, preservação estrita de ordem e deduplicação).
+- [x] Integração da UI do Operador (`App.tsx`):
+  - Multi-drop nativo do Explorer com distribuição em lote (1 batch = 1 undo entry).
+  - Tecla Delete limpa slot ativo no Chaveiro e Globo sem excluir foto da bandeja ou disco.
+  - "⚡ Preencher restantes (N)": preenche apenas slots vazios com o transform do slot ativo, desabilitado quando slot ativo vazio ou 0 slots vazios.
+  - Remoção de auto-atribuição no loop de polling (impede ressurgimento de foto deletada e perda de histórico).
+  - Ponto único de mutação `commitEditState` fora de updaters React.
+- [x] Testes automatizados: 243 testes Vitest em 10 suites e 141 testes Pytest.
+- [x] Documentação atualizada (UX do Operador, Ingest Pipeline, posicionamento no menu moderno Windows 11).
+
 ## Fase 4-A — Modo Gestor Fundação (M5-A) — CONCLUÍDO & MERGED
 - [x] alternância de modo `[ Operador | Gestor ]` no cabeçalho (PR #18).
 - [x] Shared Editor Runtime (`ProductCanvas.tsx` unificado).
