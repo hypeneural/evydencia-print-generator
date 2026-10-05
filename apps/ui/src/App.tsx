@@ -3,7 +3,8 @@ import { bridge } from "./bridge/api";
 import { ProductCanvas } from "./components/ProductCanvas";
 import { ManagerInspector } from "./components/ManagerInspector";
 import { createHistoryManager } from "./domain/history";
-import { duplicateSlot } from "./domain/duplication";
+import { duplicateSlot, duplicateSelectedSlots } from "./domain/duplication";
+import { checkRenderEligibility } from "./domain/render_policy";
 import type { PreviewLayout } from "./domain/layout";
 import { computePreviewLayout } from "./domain/layout";
 import type { SlotTransform } from "./domain/transform";
@@ -55,6 +56,7 @@ export const App: React.FC = () => {
   const [draft, setDraft] = useState<TemplateDraft | null>(null);
   const [sources, setSources] = useState<SourceAssetModel[]>([]);
   const [activeSlotId, setActiveSlotId] = useState<string>("");
+  const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
   const [editState, setEditState] = useState<EditStateModel | null>(null);
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
@@ -125,6 +127,7 @@ export const App: React.FC = () => {
           setDraft(createDraftFromTemplate(tpl));
           const firstSlotId = tpl.slots[0]?.id || "";
           setActiveSlotId(firstSlotId);
+          setSelectedSlotIds(firstSlotId ? [firstSlotId] : []);
 
           let initialEdits: Record<string, SlotEditState> = {};
           if (startupBatch.accepted_ids.length > 0) {
@@ -188,6 +191,7 @@ export const App: React.FC = () => {
     setIsManagerGeometryUnlocked(false);
     const firstSlot = tpl.slots[0]?.id || "";
     setActiveSlotId(firstSlot);
+    setSelectedSlotIds(firstSlot ? [firstSlot] : []);
 
     // Compute preview layout synchronously to eliminate 1-frame orientation flash
     if (canvasContainerRef.current) {
@@ -584,11 +588,65 @@ export const App: React.FC = () => {
     [commitEditState]
   );
 
+  // Slot selection with Shift multi-select support for Chaveiro
+  const handleSelectSlot = useCallback(
+    (slotId: string, options?: { shiftKey?: boolean }) => {
+      if (
+        modeRef.current === "operator" &&
+        templateRef.current?.id === "chaveiro-3x4" &&
+        options?.shiftKey
+      ) {
+        setSelectedSlotIds((prev) => {
+          if (prev.includes(slotId)) {
+            const next = prev.filter((id) => id !== slotId);
+            return next.length > 0 ? next : [slotId];
+          }
+          return [...prev, slotId];
+        });
+        setActiveSlotId(slotId);
+      } else {
+        setSelectedSlotIds([slotId]);
+        setActiveSlotId(slotId);
+      }
+    },
+    []
+  );
+
   // Batch action: Duplicate active slot to next slot in Chaveiro
   const handleDuplicateToNextSlot = useCallback(() => {
     if (!activeSlotId) return;
     handleDoubleClickSlot(activeSlotId);
   }, [activeSlotId, handleDoubleClickSlot]);
+
+  // Batch action: Duplicate multiple selected slots in Chaveiro
+  const handleDuplicateSelected = useCallback(() => {
+    const prev = editStateRef.current;
+    const tpl = templateRef.current;
+    if (!prev || !tpl) return;
+
+    const slotIds = tpl.slots.map((s) => s.id);
+    const res = duplicateSelectedSlots({
+      slotIds,
+      selectedSlotIds,
+      slotEdits: prev.slot_edits,
+    });
+
+    if (res.changed) {
+      commitEditState({
+        ...prev,
+        slot_edits: res.nextSlotEdits,
+      });
+      if (res.targetSlotIds.length > 0) {
+        setActiveSlotId(res.targetSlotIds[0]);
+        setSelectedSlotIds(res.targetSlotIds);
+      }
+    }
+    if (res.unassignedCount > 0) {
+      setTrayNotice(
+        `${res.unassignedCount} foto(s) não puderam ser duplicadas por falta de campos vazios.`
+      );
+    }
+  }, [selectedSlotIds, commitEditState]);
 
   // Batch action: Fill remaining empty slots in Chaveiro
   const emptySlotsCount = useMemo(() => {
@@ -651,6 +709,16 @@ export const App: React.FC = () => {
     handleTransformChange(activeSlotId, clamped, true);
   };
 
+  // Direct rotation angle (slider or number input)
+  const handleRotateDirect = (targetDeg: number, commitToHistory: boolean) => {
+    if (!activeSlotId) return;
+    const clamped = clampTransform({
+      ...currentTransform,
+      rotation_deg: targetDeg,
+    });
+    handleTransformChange(activeSlotId, clamped, commitToHistory);
+  };
+
   // Zoom slider / buttons
   const handleZoomChange = (newScale: number, commitToHistory: boolean = true) => {
     if (!activeSlotId) return;
@@ -667,15 +735,36 @@ export const App: React.FC = () => {
     handleTransformChange(activeSlotId, DEFAULT_TRANSFORM, true);
   };
 
+  const filledSlotsCount = useMemo(() => {
+    if (!editState) return 0;
+    return Object.keys(editState.slot_edits).length;
+  }, [editState]);
+
+  const renderEligibility = useMemo(() => {
+    if (!template || !editState) {
+      return {
+        canRender: false,
+        filledCount: 0,
+        minimumRequired: 1,
+        totalSlots: 0,
+        missingForRequirement: 1,
+        requireAll: true,
+        statusMessage: "Nenhum template selecionado",
+      };
+    }
+    return checkRenderEligibility(
+      template.id,
+      template.slots.map((s) => s.id),
+      Object.keys(editState.slot_edits)
+    );
+  }, [template, editState]);
+
   // Render Job
   const handleRender = async () => {
     if (!editState || !template) return;
 
-    // Check slots
-    const filledCount = Object.keys(editState.slot_edits).length;
-    const totalSlots = template.slots.length;
-    if (filledCount < totalSlots) {
-      setErrorMessage(`Preencha todos os slots antes de gerar (${totalSlots - filledCount} restante(s)).`);
+    if (!renderEligibility.canRender) {
+      setErrorMessage(renderEligibility.statusMessage);
       return;
     }
 
@@ -686,19 +775,19 @@ export const App: React.FC = () => {
 
       const res = await bridge.renderJob(editState);
       setRenderResult(res);
+
+      // Best-effort auto-reveal in Windows Explorer
+      try {
+        await bridge.openOutputFolder(res.output_path);
+      } catch {
+        // Auto-reveal failure does not invalidate successful render
+      }
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : String(err));
     } finally {
       setRendering(false);
     }
   };
-
-  const filledSlotsCount = useMemo(() => {
-    if (!editState) return 0;
-    return Object.keys(editState.slot_edits).length;
-  }, [editState]);
-
-  const allSlotsFilled = template ? filledSlotsCount === template.slots.length : false;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -852,11 +941,12 @@ export const App: React.FC = () => {
             <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap" }}>
               {(mode === "manager" && draft ? draft.slots : template.slots).map((s) => {
                 const isActive = s.id === activeSlotId;
+                const isSelectedSecondary = selectedSlotIds.includes(s.id) && !isActive;
                 const hasPhoto = !!editState?.slot_edits[s.id];
                 return (
                   <button
                     key={s.id}
-                    onClick={() => setActiveSlotId(s.id)}
+                    onClick={(e) => handleSelectSlot(s.id, { shiftKey: e.shiftKey })}
                     style={{
                       padding: "4px 10px",
                       borderRadius: "4px",
@@ -864,15 +954,25 @@ export const App: React.FC = () => {
                         ? mode === "manager"
                           ? "2px solid #38bdf8"
                           : "2px solid #3b82f6"
+                        : isSelectedSecondary
+                        ? "2px solid #06b6d4"
                         : "1px solid #334155",
                       backgroundColor: isActive
                         ? mode === "manager"
                           ? "#0369a1"
                           : "#1e3a8a"
+                        : isSelectedSecondary
+                        ? "#164e63"
                         : hasPhoto
                         ? "#1e293b"
                         : "#0f172a",
-                      color: isActive ? "#ffffff" : hasPhoto ? "#e2e8f0" : "#64748b",
+                      color: isActive
+                        ? "#ffffff"
+                        : isSelectedSecondary
+                        ? "#a5f3fc"
+                        : hasPhoto
+                        ? "#e2e8f0"
+                        : "#64748b",
                       fontSize: "12px",
                       cursor: "pointer",
                       whiteSpace: "nowrap",
@@ -902,15 +1002,32 @@ export const App: React.FC = () => {
 
               {template.id === "chaveiro-3x4" && (
                 <>
-                  <button
-                    className="btn-secondary"
-                    onClick={handleDuplicateToNextSlot}
-                    disabled={!currentSlotEdit}
-                    style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
-                    title="Duplicar enquadramento para o próximo slot (ou dê duplo clique no slot)"
-                  >
-                    ⏩ Duplicar para próximo
-                  </button>
+                  {selectedSlotIds.length > 1 ? (
+                    <button
+                      className="btn-secondary"
+                      onClick={handleDuplicateSelected}
+                      style={{
+                        fontSize: "12px",
+                        padding: "5px 12px",
+                        backgroundColor: "#0e7490",
+                        color: "#ecfeff",
+                        border: "1px solid #06b6d4",
+                      }}
+                      title={`Duplicar os ${selectedSlotIds.length} slots selecionados para os próximos campos vazios`}
+                    >
+                      ⧉ Duplicar selecionados ({selectedSlotIds.length})
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-secondary"
+                      onClick={handleDuplicateToNextSlot}
+                      disabled={!currentSlotEdit}
+                      style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
+                      title="Duplicar enquadramento para o próximo slot (ou dê duplo clique no slot)"
+                    >
+                      ⏩ Duplicar para próximo
+                    </button>
+                  )}
                   <button
                     className="btn-secondary"
                     onClick={handleFillRemainingSlots}
@@ -963,7 +1080,8 @@ export const App: React.FC = () => {
               key={template.id}
               template={template}
               activeSlotId={activeSlotId}
-              onSelectSlot={setActiveSlotId}
+              selectedSlotIds={selectedSlotIds}
+              onSelectSlot={handleSelectSlot}
               slotEdits={editState?.slot_edits || {}}
               sources={sources}
               onTransformChange={handleTransformChange}
@@ -1093,7 +1211,54 @@ export const App: React.FC = () => {
                 }}
               >
                 <span>Rotação</span>
-                <span style={{ color: "#94a3b8" }}>{currentTransform.rotation_deg.toFixed(0)}°</span>
+                <span style={{ color: "#94a3b8" }}>{currentTransform.rotation_deg.toFixed(1)}°</span>
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
+                <input
+                  type="range"
+                  min="-180"
+                  max="179"
+                  step="1"
+                  value={Math.round(currentTransform.rotation_deg)}
+                  onChange={(e) => handleRotateDirect(parseFloat(e.target.value), false)}
+                  onPointerUp={() => handleRotateDirect(currentTransform.rotation_deg, true)}
+                  onKeyUp={() => handleRotateDirect(currentTransform.rotation_deg, true)}
+                  disabled={!activeAsset}
+                  style={{ flex: 1, accentColor: "#3b82f6" }}
+                  title="Ajuste fino de rotação (-180° a +179°)"
+                />
+                <input
+                  type="number"
+                  min="-180"
+                  max="180"
+                  step="0.1"
+                  value={Number(currentTransform.rotation_deg.toFixed(1))}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!Number.isNaN(val)) {
+                      handleRotateDirect(val, false);
+                    }
+                  }}
+                  onBlur={() => handleRotateDirect(currentTransform.rotation_deg, true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleRotateDirect(currentTransform.rotation_deg, true);
+                    }
+                  }}
+                  disabled={!activeAsset}
+                  style={{
+                    width: "60px",
+                    padding: "4px 6px",
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #334155",
+                    borderRadius: "4px",
+                    color: "#f8fafc",
+                    fontSize: "12px",
+                    textAlign: "right",
+                  }}
+                  title="Ângulo exato em graus (-180° a +180°)"
+                />
+                <span style={{ fontSize: "12px", color: "#94a3b8" }}>°</span>
               </div>
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
@@ -1366,8 +1531,8 @@ export const App: React.FC = () => {
           <button
             className="btn-success"
             onClick={handleRender}
-            disabled={rendering || !allSlotsFilled}
-            title={!allSlotsFilled ? "Preencha todos os slots para gerar" : "Gerar impressão final"}
+            disabled={rendering || !renderEligibility.canRender}
+            title={!renderEligibility.canRender ? renderEligibility.statusMessage : "Gerar impressão final"}
           >
             {rendering ? "GERANDO ARQUIVO ORIGINAL..." : "GERAR ARQUIVO DE PRODUÇÃO"}
           </button>

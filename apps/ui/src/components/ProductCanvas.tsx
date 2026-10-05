@@ -20,7 +20,8 @@ import { findSlotAtClientPoint } from "../domain/hittest";
 interface ProductCanvasProps {
   template: TemplateModel;
   activeSlotId: string;
-  onSelectSlot: (slotId: string) => void;
+  selectedSlotIds?: string[];
+  onSelectSlot: (slotId: string, options?: { shiftKey?: boolean }) => void;
   slotEdits: Record<string, SlotEditState>;
   sources: SourceAssetModel[];
   onTransformChange: (
@@ -58,6 +59,7 @@ type ManagerDragState =
 export const ProductCanvas: React.FC<ProductCanvasProps> = ({
   template,
   activeSlotId,
+  selectedSlotIds = [],
   onSelectSlot,
   slotEdits,
   sources,
@@ -532,8 +534,13 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       });
 
       if (clickedSlot) {
+        if (opt.e.shiftKey) {
+          onSelectSlotRef.current(clickedSlot.id, { shiftKey: true });
+          return;
+        }
+
         if (clickedSlot.id !== activeSlotIdRef.current) {
-          onSelectSlotRef.current(clickedSlot.id);
+          onSelectSlotRef.current(clickedSlot.id, { shiftKey: false });
         }
         isDraggingRef.current = true;
         lastPointerRef.current = { x, y };
@@ -939,6 +946,35 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
     scheduleRender();
   }, [activeSlotId, mode, draft, geometryLocked, scheduleRender]);
+
+  // Synchronize slot borders for multi-selection (Shift + click)
+  useEffect(() => {
+    const borders = slotBordersRef.current;
+    if (!borders || borders.size === 0) return;
+
+    const selectedSet = new Set(selectedSlotIds || []);
+    template.slots.forEach((s) => {
+      const border = borders.get(s.id);
+      if (!border) return;
+
+      const isSelectedSecondary = selectedSet.has(s.id) && s.id !== activeSlotId;
+      if (isSelectedSecondary) {
+        border.set({
+          stroke: "#06b6d4",
+          strokeWidth: 2,
+          strokeDashArray: [4, 4],
+        });
+      } else {
+        border.set({
+          stroke: "#cbd5e1",
+          strokeWidth: 1,
+          strokeDashArray: undefined,
+        });
+      }
+    });
+
+    scheduleRender();
+  }, [selectedSlotIds, activeSlotId, template, scheduleRender]);
 
   // Synchronize slot visual positions when draft updates externally
   useEffect(() => {
