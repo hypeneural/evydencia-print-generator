@@ -123,6 +123,32 @@ const mockTemplates: TemplateModel[] = [
     }),
     overlay: null,
   },
+  {
+    id: "polaroid-natal",
+    template_version: "1.0.0",
+    name: "Polaroid Natal",
+    status: "draft",
+    canvas: { width_mm: 82.97, height_mm: 102.02, dpi: 300 },
+    canvas_px: { width: 980, height: 1205 },
+    slots: [
+      {
+        id: "foto_principal",
+        x_mm: 5.84,
+        y_mm: 5.0,
+        width_mm: 71.37,
+        height_mm: 72.98,
+        rect_px: { left: 69, top: 59, width: 843, height: 862 },
+        fit: "cover",
+        allow_pan: true,
+        allow_zoom: true,
+        allow_rotate: true,
+      },
+    ],
+    overlay: {
+      path: "assets/polaroid-overlay.png",
+      url: "/api/templates/polaroid-natal/assets/polaroid-overlay.png",
+    },
+  },
 ];
 
 let mockSources: SourceAssetModel[] = [];
