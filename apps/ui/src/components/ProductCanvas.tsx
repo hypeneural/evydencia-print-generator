@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import { Canvas as FabricCanvas, FabricImage, Rect } from "fabric";
 import type { PreviewLayout } from "../domain/layout";
 import type { SlotTransform } from "../domain/transform";
@@ -15,6 +15,7 @@ import type {
 } from "../domain/types";
 import type { DraftSlot, TemplateDraft } from "../domain/draft";
 import { pxToMm } from "../domain/draft";
+import { findSlotAtClientPoint } from "../domain/hittest";
 
 interface ProductCanvasProps {
   template: TemplateModel;
@@ -32,6 +33,7 @@ interface ProductCanvasProps {
   mode?: "operator" | "manager";
   draft?: TemplateDraft | null;
   onDraftSlotChange?: (slotId: string, updated: DraftSlot) => void;
+  onDropPhoto?: (slotId: string, sourceId: string) => void;
 }
 
 type ManagerDragState =
@@ -64,6 +66,7 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
   mode = "operator",
   draft,
   onDraftSlotChange,
+  onDropPhoto,
 }) => {
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<FabricCanvas | null>(null);
@@ -270,18 +273,15 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     if (!canvasElRef.current) return;
 
     const fabric = new FabricCanvas(canvasElRef.current, {
-      width: canvasW,
-      height: canvasH,
+      width: layout.displayWidth,
+      height: layout.displayHeight,
       backgroundColor: "#ffffff",
       selection: false,
       renderOnAddRemove: false,
     });
     fabricRef.current = fabric;
 
-    fabric.setDimensions(
-      { width: `${layout.displayWidth}px`, height: `${layout.displayHeight}px` },
-      { cssOnly: true }
-    );
+    fabric.setViewportTransform([layout.fitScale, 0, 0, layout.fitScale, 0, 0]);
 
     // 1. Static Base Scene: Background
     const bg = new Rect({
@@ -382,13 +382,19 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
           overlayImg.set({
             left: 0,
             top: 0,
+            originX: "left",
+            originY: "top",
             scaleX: canvasW / (overlayImg.width || canvasW),
             scaleY: canvasH / (overlayImg.height || canvasH),
             selectable: false,
             evented: false,
+            lockMovementX: true,
+            lockMovementY: true,
+            hoverCursor: "default",
           });
           fabric.add(overlayImg);
           overlayImgRef.current = overlayImg;
+          fabric.bringObjectToFront(overlayImg);
           fabric.bringObjectToFront(activeBorder);
           fabric.bringObjectToFront(hNW);
           fabric.bringObjectToFront(hNE);
@@ -730,17 +736,44 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       }
     });
 
-    // Mouse wheel for zoom (Operator mode only)
-    const handleWheel = (e: WheelEvent) => {
+    // Mouse wheel for zoom on hovered/active slot (Operator mode only)
+    fabric.on("mouse:wheel", (opt) => {
       if (modeRef.current === "manager") return;
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
 
-      e.preventDefault();
-      const currentSlotId = activeSlotIdRef.current;
-      const currentEdit = slotEditsRef.current[currentSlotId];
+      const point = opt.scenePoint;
+      if (!point) return;
+
+      const currentSlots = templateRef.current.slots;
+
+      // Check if cursor is over a slot
+      const hovered = currentSlots.find((s) => {
+        const r = s.rect_px;
+        return (
+          point.x >= r.left &&
+          point.x <= r.left + r.width &&
+          point.y >= r.top &&
+          point.y <= r.top + r.height
+        );
+      });
+
+      // Target slot: hovered slot if it has an edit, otherwise active slot
+      const targetSlotId =
+        hovered && slotEditsRef.current[hovered.id]
+          ? hovered.id
+          : activeSlotIdRef.current;
+
+      if (!targetSlotId) return;
+      const currentEdit = slotEditsRef.current[targetSlotId];
       if (!currentEdit) return;
 
-      const factor = e.deltaY < 0 ? 1.05 : 0.95;
-      const curT: SlotTransform = transientTransformRef.current.get(currentSlotId) || {
+      if (targetSlotId !== activeSlotIdRef.current) {
+        onSelectSlotRef.current(targetSlotId);
+      }
+
+      const factor = opt.e.deltaY < 0 ? 1.05 : 0.95;
+      const curT: SlotTransform = transientTransformRef.current.get(targetSlotId) || {
         pan_x_norm: currentEdit.pan_x_norm,
         pan_y_norm: currentEdit.pan_y_norm,
         scale: currentEdit.scale,
@@ -749,27 +782,24 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       const newScale = curT.scale * factor;
       const clamped = clampTransform({ ...curT, scale: newScale });
 
-      transientTransformRef.current.set(currentSlotId, clamped);
-      applyImageTransform(currentSlotId, clamped);
+      transientTransformRef.current.set(targetSlotId, clamped);
+      applyImageTransform(targetSlotId, clamped);
+      onTransformChangeRef.current(targetSlotId, clamped, false);
 
       // Debounce commit to history
       if (wheelCommitTimeoutRef.current) {
         clearTimeout(wheelCommitTimeoutRef.current);
       }
       wheelCommitTimeoutRef.current = setTimeout(() => {
-        onTransformChangeRef.current(currentSlotId, clamped, true);
+        onTransformChangeRef.current(targetSlotId, clamped, true);
       }, 300);
-    };
-
-    const canvasEl = canvasElRef.current;
-    canvasEl.addEventListener("wheel", handleWheel, { passive: false });
+    });
 
     return () => {
       isCancelled = true;
       if (wheelCommitTimeoutRef.current) {
         clearTimeout(wheelCommitTimeoutRef.current);
       }
-      canvasEl.removeEventListener("wheel", handleWheel);
       fabric.dispose();
       fabricRef.current = null;
       slotPlaceholdersRef.current.clear();
@@ -785,15 +815,17 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     };
   }, [canvasW, canvasH, template, scheduleRender, applyImageTransform, updateSlotVisual]);
 
-  // Synchronize CSS display dimensions when layout changes
+  // Synchronize display dimensions & viewport transform when layout changes
   useEffect(() => {
     const fabric = fabricRef.current;
     if (!fabric) return;
-    fabric.setDimensions(
-      { width: `${layout.displayWidth}px`, height: `${layout.displayHeight}px` },
-      { cssOnly: true }
-    );
-  }, [layout.displayWidth, layout.displayHeight]);
+    fabric.setDimensions({
+      width: layout.displayWidth,
+      height: layout.displayHeight,
+    });
+    fabric.setViewportTransform([layout.fitScale, 0, 0, layout.fitScale, 0, 0]);
+    scheduleRender();
+  }, [layout.displayWidth, layout.displayHeight, layout.fitScale, scheduleRender]);
 
   // Synchronize Active Slot Border and Manager Handles Position & Visibility
   useEffect(() => {
@@ -998,8 +1030,62 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     };
   }, [template, slotEdits, sources, scheduleRender, applyImageTransform, mode, draft]);
 
+  const [dragOverSlotId, setDragOverSlotId] = useState<string | null>(null);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    if (!canvasElRef.current) return;
+    const rect = canvasElRef.current.getBoundingClientRect();
+    const currentSlots =
+      mode === "manager" && draft ? draft.slots : template.slots;
+    const hit = findSlotAtClientPoint(
+      currentSlots,
+      e.clientX,
+      e.clientY,
+      rect,
+      layout.fitScale
+    );
+    setDragOverSlotId(hit?.id || null);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverSlotId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverSlotId(null);
+    const sourceId =
+      e.dataTransfer.getData("application/x-evydencia-source") ||
+      e.dataTransfer.getData("text/plain");
+    if (!sourceId || !onDropPhoto) return;
+
+    if (!canvasElRef.current) return;
+    const rect = canvasElRef.current.getBoundingClientRect();
+    const currentSlots =
+      mode === "manager" && draft ? draft.slots : template.slots;
+    const hit = findSlotAtClientPoint(
+      currentSlots,
+      e.clientX,
+      e.clientY,
+      rect,
+      layout.fitScale
+    );
+    if (hit) {
+      onDropPhoto(hit.id, sourceId);
+    }
+  };
+
+  const currentSlots =
+    mode === "manager" && draft ? draft.slots : template.slots;
+  const dragOverSlot = currentSlots.find((s) => s.id === dragOverSlotId);
+
   return (
     <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       style={{
         width: `${layout.displayWidth}px`,
         height: `${layout.displayHeight}px`,
@@ -1010,7 +1096,32 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
         position: "relative",
       }}
     >
-      <canvas ref={canvasElRef} width={canvasW} height={canvasH} />
+      <canvas ref={canvasElRef} />
+      {dragOverSlot && (
+        <div
+          style={{
+            position: "absolute",
+            left: `${dragOverSlot.rect_px.left * layout.fitScale}px`,
+            top: `${dragOverSlot.rect_px.top * layout.fitScale}px`,
+            width: `${dragOverSlot.rect_px.width * layout.fitScale}px`,
+            height: `${dragOverSlot.rect_px.height * layout.fitScale}px`,
+            border: "2px solid #22c55e",
+            backgroundColor: "rgba(34, 197, 94, 0.15)",
+            boxSizing: "border-box",
+            borderRadius: "2px",
+            pointerEvents: "none",
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#22c55e",
+            fontWeight: "700",
+            fontSize: "13px",
+          }}
+        >
+          Soltar foto aqui
+        </div>
+      )}
     </div>
   );
 };
