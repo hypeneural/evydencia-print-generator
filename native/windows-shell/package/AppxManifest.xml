@@ -17,8 +17,8 @@
     Version="1.0.1.0" />
 
   <Properties>
-    <DisplayName>EVYDENCIA Print Generator</DisplayName>
-    <PublisherDisplayName>Evydencia</PublisherDisplayName>
+    <DisplayName>EVYDÊNCIA — Gerador de Produção</DisplayName>
+    <PublisherDisplayName>EVYDÊNCIA</PublisherDisplayName>
     <Description>Gerador de produtos fotográficos de alta precisão</Description>
     <Logo>Assets\StoreLogo.png</Logo>
     <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
@@ -46,7 +46,7 @@
       uap10:RuntimeBehavior="win32App">
       <uap:VisualElements
         AppListEntry="none"
-        DisplayName="EVYDENCIA Print Generator"
+        DisplayName="EVYDÊNCIA — Gerador de Produção"
         Description="Gerador de produtos fotográficos de alta precisão"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"

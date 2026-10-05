@@ -53,7 +53,7 @@ def launch_app(
     try:
         # 4. Create and launch pywebview window
         window = webview.create_window(
-            title="EVYDÊNCIA — Print Generator",
+            title="EVYDÊNCIA — Gerador de Produção",
             url=server.base_url,
             js_api=bridge,
             width=1280,
