@@ -144,11 +144,15 @@ export function updateSlotMm(
     const height_mm =
       updates.height_mm !== undefined ? Math.round(updates.height_mm * 100) / 100 : s.height_mm;
 
+    const left = mmToPx(x_mm, dpi);
+    const right = mmToPx(x_mm + width_mm, dpi);
+    const top = mmToPx(y_mm, dpi);
+    const bottom = mmToPx(y_mm + height_mm, dpi);
     const rect_px: PixelRect = {
-      left: mmToPx(x_mm, dpi),
-      top: mmToPx(y_mm, dpi),
-      width: mmToPx(width_mm, dpi),
-      height: mmToPx(height_mm, dpi),
+      left,
+      top,
+      width: right - left,
+      height: bottom - top,
     };
 
     return {
@@ -186,16 +190,22 @@ export function updateCanvasMm(
     height: mmToPx(nextCanvas.height_mm, nextCanvas.dpi),
   };
 
-  // Recompute slot pixel rectangles if DPI changed
-  const nextSlots = draft.slots.map((s) => ({
-    ...s,
-    rect_px: {
-      left: mmToPx(s.x_mm, nextCanvas.dpi),
-      top: mmToPx(s.y_mm, nextCanvas.dpi),
-      width: mmToPx(s.width_mm, nextCanvas.dpi),
-      height: mmToPx(s.height_mm, nextCanvas.dpi),
-    },
-  }));
+  // Recompute slot pixel rectangles with edge-based rounding if DPI changed
+  const nextSlots = draft.slots.map((s) => {
+    const left = mmToPx(s.x_mm, nextCanvas.dpi);
+    const right = mmToPx(s.x_mm + s.width_mm, nextCanvas.dpi);
+    const top = mmToPx(s.y_mm, nextCanvas.dpi);
+    const bottom = mmToPx(s.y_mm + s.height_mm, nextCanvas.dpi);
+    return {
+      ...s,
+      rect_px: {
+        left,
+        top,
+        width: right - left,
+        height: bottom - top,
+      },
+    };
+  });
 
   return {
     ...draft,
