@@ -82,3 +82,13 @@ export interface RenderResultModel {
   render_time_ms: number;
   bytes_written: number;
 }
+
+/** Result of one ingest batch (file dialog / native drop). */
+export interface IngestBatchModel {
+  /** Full, updated SourceRegistry list (tray). */
+  sources: SourceAssetModel[];
+  /** Exactly the sources of this batch, in input order, de-duplicated. */
+  accepted_ids: string[];
+  rejected: { display_name: string; code: string }[];
+}
+

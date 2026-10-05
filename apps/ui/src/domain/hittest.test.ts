@@ -3,6 +3,7 @@ import {
   pointToScene,
   findSlotAtScenePoint,
   findSlotAtClientPoint,
+  classifyDropPoint,
 } from "./hittest";
 import type { PixelRect } from "./types";
 
@@ -110,4 +111,46 @@ describe("hittest domain", () => {
       expect(findSlotAtScenePoint(globoSlots, 1600, 500)).toBeNull();
     });
   });
+
+  describe("classifyDropPoint", () => {
+    const slots = [
+      {
+        id: "foto_1",
+        rect_px: { left: 197, top: 120, width: 591, height: 945 } as PixelRect,
+      },
+      {
+        id: "foto_2",
+        rect_px: { left: 870, top: 120, width: 591, height: 945 } as PixelRect,
+      },
+    ];
+    // Canvas display rect: { left: 100, top: 50, width: 897.5, height: 602.5 }, fitScale: 0.5
+    const canvasRect = { left: 100, top: 50, width: 898, height: 603 };
+    const fitScale = 0.5;
+
+    it("returns slot target when point is inside a slot", () => {
+      // Inside foto_1: scene x=300 -> client x = 100 + 300*0.5 = 250, scene y=500 -> client y = 50 + 500*0.5 = 300
+      const target = classifyDropPoint(slots, 250, 300, canvasRect, fitScale);
+      expect(target).toEqual({ kind: "slot", slotId: "foto_1" });
+    });
+
+    it("returns canvas target when point is inside canvas bounds but in gap between slots", () => {
+      // In gap: scene x=820 -> client x = 100 + 820*0.5 = 510, scene y=500 -> client y = 300
+      const target = classifyDropPoint(slots, 510, 300, canvasRect, fitScale);
+      expect(target).toEqual({ kind: "canvas" });
+    });
+
+    it("returns canvas target when point is in margin", () => {
+      // In top margin: scene y=50 < 120 -> client y = 50 + 50*0.5 = 75, client x = 250
+      const target = classifyDropPoint(slots, 250, 75, canvasRect, fitScale);
+      expect(target).toEqual({ kind: "canvas" });
+    });
+
+    it("returns outside target when client point is outside canvas rect", () => {
+      expect(classifyDropPoint(slots, 50, 300, canvasRect, fitScale)).toEqual({ kind: "outside" });
+      expect(classifyDropPoint(slots, 1050, 300, canvasRect, fitScale)).toEqual({ kind: "outside" });
+      expect(classifyDropPoint(slots, 250, 10, canvasRect, fitScale)).toEqual({ kind: "outside" });
+      expect(classifyDropPoint(slots, 250, 700, canvasRect, fitScale)).toEqual({ kind: "outside" });
+    });
+  });
 });
+
