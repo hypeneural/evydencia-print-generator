@@ -4,6 +4,12 @@ import type {
   SourceAssetModel,
   TemplateModel,
 } from "../domain/types";
+import type { TemplateDraft } from "../domain/draft";
+import {
+  cleanDraftForPublish,
+  computeNextVersion,
+  type BumpType,
+} from "../domain/publish";
 
 declare global {
   interface Window {
@@ -15,6 +21,17 @@ declare global {
         ingest_paths: (paths: string[]) => Promise<SourceAssetModel[]>;
         render_job: (edit_state: EditStateModel) => Promise<RenderResultModel>;
         open_output_folder: (file_path: string) => Promise<boolean>;
+        publish_template: (
+          draft: Record<string, unknown>,
+          bump_type: string,
+          notes: string
+        ) => Promise<{
+          success: boolean;
+          template?: TemplateModel;
+          templates?: TemplateModel[];
+          error?: string;
+          issues?: string[];
+        }>;
       };
     };
   }
@@ -221,5 +238,52 @@ export const bridge = {
     }
     console.log("Mock open folder:", filePath);
     return true;
+  },
+
+  async publishTemplate(
+    draft: TemplateDraft,
+    bumpType: BumpType = "minor",
+    notes: string = ""
+  ): Promise<{
+    success: boolean;
+    template?: TemplateModel;
+    templates?: TemplateModel[];
+    error?: string;
+    issues?: string[];
+  }> {
+    const payload = cleanDraftForPublish(draft);
+    if (window.pywebview?.api) {
+      return window.pywebview.api.publish_template(payload, bumpType, notes);
+    }
+
+    // Mock implementation for browser-only dev (vite dev)
+    await new Promise((r) => setTimeout(r, 200));
+    const newVersion = computeNextVersion(draft.template_version, bumpType);
+
+    const updatedTemplate: TemplateModel = {
+      id: draft.id,
+      template_version: newVersion,
+      name: draft.name,
+      status: "production",
+      canvas: { ...draft.canvas },
+      canvas_px: { ...draft.canvas_px },
+      slots: draft.slots.map((s) => ({ ...s })),
+      overlay: draft.overlay
+        ? { path: draft.overlay.path, url: draft.overlay.url }
+        : null,
+    };
+
+    const existingIdx = mockTemplates.findIndex((t) => t.id === draft.id);
+    if (existingIdx >= 0) {
+      mockTemplates[existingIdx] = updatedTemplate;
+    } else {
+      mockTemplates.push(updatedTemplate);
+    }
+
+    return {
+      success: true,
+      template: updatedTemplate,
+      templates: [...mockTemplates],
+    };
   },
 };

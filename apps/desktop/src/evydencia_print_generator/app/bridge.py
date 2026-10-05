@@ -9,6 +9,7 @@ from typing import Any
 
 from ..domain.job import EditState, build_job_snapshot
 from ..domain.template import Template, load_template
+from ..domain.template_manager import BumpType, publish_template_to_disk
 from ..ingest import IngestService, PreviewService, SourceRegistry
 from ..paths import templates_dir
 from ..render import RenderOptions, RenderResult, render
@@ -66,74 +67,92 @@ class DesktopBridge:
                 except Exception:
                     pass
 
-        results: list[dict[str, Any]] = []
-        for tpl in templates:
-            # We provide templates that can be displayed/rendered
-            is_renderable = tpl.is_renderable
-            canvas_px = tpl.canvas_px() if is_renderable else (1000, 1000)
+        return [self._serialize_template(tpl) for tpl in templates]
 
-            slots_data = []
-            for slot in tpl.slots:
-                if is_renderable:
-                    rect = tpl.slot_rect_px(slot.id)
-                    rect_dict = {
-                        "left": rect.left,
-                        "top": rect.top,
-                        "width": rect.width,
-                        "height": rect.height,
-                    }
-                else:
-                    rect_dict = {"left": 0, "top": 0, "width": 1000, "height": 500}
+    def _serialize_template(self, tpl: Template) -> dict[str, Any]:
+        """Convert domain Template to UI-ready dictionary representation."""
+        is_renderable = tpl.is_renderable
+        canvas_px = tpl.canvas_px() if is_renderable else (1000, 1000)
 
-                slots_data.append(
-                    {
-                        "id": slot.id,
-                        "x_mm": slot.x_mm or 0.0,
-                        "y_mm": slot.y_mm or 0.0,
-                        "width_mm": slot.width_mm or 0.0,
-                        "height_mm": slot.height_mm or 0.0,
-                        "rect_px": rect_dict,
-                        "fit": slot.fit,
-                        "allow_pan": slot.allow_pan,
-                        "allow_zoom": slot.allow_zoom,
-                        "allow_rotate": slot.allow_rotate,
-                    }
-                )
-
-            overlay_data = None
-            if tpl.overlay is not None:
-                overlay_path = tpl.overlay_path()
-                overlay_url = None
-                if overlay_path and overlay_path.is_file():
-                    rel_to_root = overlay_path.relative_to(self.templates_root)
-                    overlay_url = f"{self.server_base_url}/api/templates/{rel_to_root.as_posix()}"
-
-                overlay_data = {
-                    "path": tpl.overlay.path,
-                    "url": overlay_url,
+        slots_data = []
+        for slot in tpl.slots:
+            if is_renderable:
+                rect = tpl.slot_rect_px(slot.id)
+                rect_dict = {
+                    "left": rect.left,
+                    "top": rect.top,
+                    "width": rect.width,
+                    "height": rect.height,
                 }
+            else:
+                rect_dict = {"left": 0, "top": 0, "width": 1000, "height": 500}
 
-            results.append(
+            slots_data.append(
                 {
-                    "id": tpl.id,
-                    "template_version": tpl.template_version,
-                    "name": tpl.name,
-                    "status": tpl.status,
-                    "canvas": {
-                        "width_mm": tpl.canvas.width_mm or 0.0,
-                        "height_mm": tpl.canvas.height_mm or 0.0,
-                        "dpi": tpl.canvas.dpi or 0,
-                    },
-                    "canvas_px": {
-                        "width": canvas_px[0],
-                        "height": canvas_px[1],
-                    },
-                    "slots": slots_data,
-                    "overlay": overlay_data,
+                    "id": slot.id,
+                    "x_mm": slot.x_mm or 0.0,
+                    "y_mm": slot.y_mm or 0.0,
+                    "width_mm": slot.width_mm or 0.0,
+                    "height_mm": slot.height_mm or 0.0,
+                    "rect_px": rect_dict,
+                    "fit": slot.fit,
+                    "allow_pan": slot.allow_pan,
+                    "allow_zoom": slot.allow_zoom,
+                    "allow_rotate": slot.allow_rotate,
                 }
             )
 
-        return results
+        overlay_data = None
+        if tpl.overlay is not None:
+            overlay_path = tpl.overlay_path()
+            overlay_url = None
+            if overlay_path and overlay_path.is_file():
+                rel_to_root = overlay_path.relative_to(self.templates_root)
+                overlay_url = f"{self.server_base_url}/api/templates/{rel_to_root.as_posix()}"
+
+            overlay_data = {
+                "path": tpl.overlay.path,
+                "url": overlay_url,
+            }
+
+        return {
+            "id": tpl.id,
+            "template_version": tpl.template_version,
+            "name": tpl.name,
+            "status": tpl.status,
+            "canvas": {
+                "width_mm": tpl.canvas.width_mm or 0.0,
+                "height_mm": tpl.canvas.height_mm or 0.0,
+                "dpi": tpl.canvas.dpi or 0,
+            },
+            "canvas_px": {
+                "width": canvas_px[0],
+                "height": canvas_px[1],
+            },
+            "slots": slots_data,
+            "overlay": overlay_data,
+        }
+
+    def publish_template(
+        self, draft: dict[str, Any], bump_type: BumpType = "minor", notes: str = ""
+    ) -> dict[str, Any]:
+        """Validate, version, and atomically persist a template draft to disk."""
+        try:
+            tpl = publish_template_to_disk(
+                self.templates_root, draft, bump_type=bump_type, notes=notes
+            )
+            return {
+                "success": True,
+                "template": self._serialize_template(tpl),
+                "templates": self.get_templates(),
+            }
+        except Exception as exc:
+            issues = getattr(exc, "issues", [])
+            return {
+                "success": False,
+                "error": str(exc),
+                "issues": issues,
+            }
 
     def get_sources(self) -> list[dict[str, Any]]:
         """Return all assets currently in SourceRegistry with proxy URLs."""

@@ -11,6 +11,7 @@ interface ManagerInspectorProps {
   activeSlotId: string;
   onSelectSlot: (slotId: string) => void;
   onUpdateDraft: (updated: TemplateDraft) => void;
+  onRequestPublish?: () => void;
 }
 
 export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
@@ -18,6 +19,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
   activeSlotId,
   onSelectSlot,
   onUpdateDraft,
+  onRequestPublish,
 }) => {
   const activeSlot = draft.slots.find((s) => s.id === activeSlotId);
   const validation = validateTemplateDraft(draft);
@@ -195,17 +197,38 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
             {draft.name}
           </h2>
         </div>
-        <div
-          style={{
-            fontSize: "11px",
-            padding: "3px 8px",
-            borderRadius: "4px",
-            backgroundColor: draft.dirty ? "#b45309" : "#1e293b",
-            color: draft.dirty ? "#fef3c7" : "#94a3b8",
-            fontWeight: "600",
-          }}
-        >
-          {draft.dirty ? "Modificado" : "Original"}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{
+              fontSize: "11px",
+              padding: "3px 8px",
+              borderRadius: "4px",
+              backgroundColor: draft.dirty ? "#b45309" : "#1e293b",
+              color: draft.dirty ? "#fef3c7" : "#94a3b8",
+              fontWeight: "600",
+            }}
+          >
+            {draft.dirty ? "Modificado" : "Original"}
+          </div>
+          {onRequestPublish && (
+            <button
+              onClick={onRequestPublish}
+              disabled={!validation.valid}
+              style={{
+                fontSize: "11px",
+                padding: "3px 8px",
+                borderRadius: "4px",
+                backgroundColor: validation.valid ? "#0284c7" : "#334155",
+                color: validation.valid ? "#ffffff" : "#64748b",
+                fontWeight: "600",
+                cursor: validation.valid ? "pointer" : "not-allowed",
+                border: "none",
+              }}
+              title="Publicar alterações em disco"
+            >
+              🚀 Publicar
+            </button>
+          )}
         </div>
       </div>
 
