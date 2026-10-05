@@ -1,4 +1,22 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import {
+  PersonRegular,
+  SettingsRegular,
+  ArrowUndoRegular,
+  ArrowRedoRegular,
+  ZoomInRegular,
+  ZoomOutRegular,
+  ArrowResetRegular,
+  DeleteRegular,
+  CopyRegular,
+  TableRegular,
+  FolderRegular,
+  CheckmarkCircleRegular,
+  WarningRegular,
+  InfoRegular,
+  DismissRegular,
+  AddRegular,
+} from "@fluentui/react-icons";
 import { bridge } from "./bridge/api";
 import { ProductCanvas } from "./components/ProductCanvas";
 import { ManagerInspector } from "./components/ManagerInspector";
@@ -30,6 +48,8 @@ import {
   isTextEditingTarget,
   type KeyTargetLike,
 } from "./domain/keyboard";
+import { getOperatorCapabilities } from "./domain/capabilities";
+import { parseRotationText } from "./domain/rotation_input";
 
 declare global {
   interface Window {
@@ -62,6 +82,7 @@ export const App: React.FC = () => {
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [trayNotice, setTrayNotice] = useState<string | null>(null);
+  const [rotationInputText, setRotationInputText] = useState<string | null>(null);
   const [isManagerGeometryUnlocked, setIsManagerGeometryUnlocked] = useState(false);
   const isGeometryLocked =
     template?.status === "production" && !isManagerGeometryUnlocked;
@@ -302,6 +323,10 @@ export const App: React.FC = () => {
     if (!template) return null;
     return template.slots.find((s) => s.id === activeSlotId) || template.slots[0] || null;
   }, [template, activeSlotId, mode, draft]);
+
+  const capabilities = useMemo(() => {
+    return getOperatorCapabilities(activeSlot);
+  }, [activeSlot]);
 
   const currentSlotEdit = useMemo(() => {
     if (!editState || !activeSlotId) return null;
@@ -803,12 +828,32 @@ export const App: React.FC = () => {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <h1 style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "0.5px", margin: 0 }}>
-            EVYDÊNCIA
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <img
+              src="/app-icon-32.png"
+              width="24"
+              height="24"
+              alt=""
+              aria-hidden="true"
+              style={{ borderRadius: "4px" }}
+            />
+            <h1
+              style={{
+                fontSize: "16px",
+                fontWeight: "700",
+                letterSpacing: "0.5px",
+                margin: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
+              EVYDÊNCIA
+            </h1>
+          </div>
 
           {/* Mode Switcher */}
           <div
+            role="group"
+            aria-label="Modo de operação"
             style={{
               display: "flex",
               backgroundColor: "#0f172a",
@@ -819,6 +864,8 @@ export const App: React.FC = () => {
             }}
           >
             <button
+              type="button"
+              aria-pressed={mode === "operator"}
               onClick={() => setMode("operator")}
               style={{
                 backgroundColor: mode === "operator" ? "#2563eb" : "transparent",
@@ -829,12 +876,18 @@ export const App: React.FC = () => {
                 fontSize: "12px",
                 fontWeight: mode === "operator" ? "600" : "500",
                 cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
                 transition: "all 0.15s ease",
               }}
             >
-              👤 Operador
+              <PersonRegular style={{ fontSize: "15px" }} />
+              <span>Operador</span>
             </button>
             <button
+              type="button"
+              aria-pressed={mode === "manager"}
               onClick={() => {
                 setMode("manager");
                 if (!draft && template) {
@@ -850,15 +903,21 @@ export const App: React.FC = () => {
                 fontSize: "12px",
                 fontWeight: mode === "manager" ? "600" : "500",
                 cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
                 transition: "all 0.15s ease",
               }}
             >
-              ⚙️ Gestor
+              <SettingsRegular style={{ fontSize: "15px" }} />
+              <span>Gestor</span>
             </button>
           </div>
 
           {/* Product Switcher Tabs */}
           <div
+            role="tablist"
+            aria-label="Seleção de produto"
             style={{
               display: "flex",
               backgroundColor: "#0f172a",
@@ -869,9 +928,12 @@ export const App: React.FC = () => {
           >
             {templates.map((t) => {
               const isSelected = t.id === template?.id;
+              const isDraft = t.status === "draft";
               return (
                 <button
                   key={t.id}
+                  role="tab"
+                  aria-selected={isSelected}
                   onClick={() => handleSwitchTemplate(t)}
                   style={{
                     backgroundColor: isSelected ? "#2563eb" : "transparent",
@@ -882,10 +944,25 @@ export const App: React.FC = () => {
                     fontSize: "13px",
                     fontWeight: isSelected ? "600" : "500",
                     cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
                     transition: "all 0.15s ease",
                   }}
                 >
-                  {t.name}
+                  <span>{t.name}</span>
+                  {isDraft && (
+                    <span
+                      className="badge badge-draft"
+                      style={{
+                        fontSize: "10px",
+                        padding: "1px 5px",
+                        borderRadius: "3px",
+                      }}
+                    >
+                      Rascunho
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -901,18 +978,22 @@ export const App: React.FC = () => {
                 onClick={handleUndo}
                 disabled={!historyRef.current?.canUndo}
                 title="Desfazer (Ctrl+Z)"
+                aria-label="Desfazer ação (Ctrl+Z)"
                 style={{ fontSize: "13px", padding: "6px 12px" }}
               >
-                ↶ Desfazer
+                <ArrowUndoRegular style={{ fontSize: "16px" }} />
+                <span>Desfazer</span>
               </button>
               <button
                 className="btn-secondary"
                 onClick={handleRedo}
                 disabled={!historyRef.current?.canRedo}
                 title="Refazer (Ctrl+Y)"
+                aria-label="Refazer ação (Ctrl+Y)"
                 style={{ fontSize: "13px", padding: "6px 12px" }}
               >
-                ↷ Refazer
+                <ArrowRedoRegular style={{ fontSize: "16px" }} />
+                <span>Refazer</span>
               </button>
             </>
           )}
@@ -978,7 +1059,9 @@ export const App: React.FC = () => {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {mode !== "manager" && hasPhoto ? "✓ " : ""}
+                    {mode !== "manager" && hasPhoto && (
+                      <CheckmarkCircleRegular style={{ fontSize: "13px", marginRight: "4px" }} />
+                    )}
                     {s.id.replace("slot_", "#").replace("foto_", "Foto ")}
                   </button>
                 );
@@ -996,7 +1079,8 @@ export const App: React.FC = () => {
                   style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
                   title="Copiar a mesma foto para ambos os slots"
                 >
-                  ✨ Usar mesma foto nos dois
+                  <CopyRegular style={{ fontSize: "14px" }} />
+                  <span>Usar mesma foto nos dois</span>
                 </button>
               )}
 
@@ -1015,7 +1099,8 @@ export const App: React.FC = () => {
                       }}
                       title={`Duplicar os ${selectedSlotIds.length} slots selecionados para os próximos campos vazios`}
                     >
-                      ⧉ Duplicar selecionados ({selectedSlotIds.length})
+                      <CopyRegular style={{ fontSize: "14px" }} />
+                      <span>Duplicar selecionados ({selectedSlotIds.length})</span>
                     </button>
                   ) : (
                     <button
@@ -1025,7 +1110,8 @@ export const App: React.FC = () => {
                       style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
                       title="Duplicar enquadramento para o próximo slot (ou dê duplo clique no slot)"
                     >
-                      ⏩ Duplicar para próximo
+                      <CopyRegular style={{ fontSize: "14px" }} />
+                      <span>Duplicar para próximo</span>
                     </button>
                   )}
                   <button
@@ -1039,7 +1125,8 @@ export const App: React.FC = () => {
                         : "Selecione um slot com foto para preencher os campos vazios"
                     }
                   >
-                    ⚡ Preencher restantes ({emptySlotsCount})
+                    <TableRegular style={{ fontSize: "14px" }} />
+                    <span>Preencher restantes ({emptySlotsCount})</span>
                   </button>
                 </>
               )}
@@ -1051,7 +1138,8 @@ export const App: React.FC = () => {
                   style={{ fontSize: "12px", padding: "5px 10px", color: "#f87171" }}
                   title="Remover foto do slot selecionado (Delete)"
                 >
-                  Remover foto
+                  <DeleteRegular style={{ fontSize: "14px" }} />
+                  <span>Remover foto</span>
                 </button>
               )}
             </div>
@@ -1173,9 +1261,11 @@ export const App: React.FC = () => {
                   className="btn-secondary"
                   style={{ width: "32px", height: "32px", padding: 0 }}
                   onClick={() => handleZoomChange(Math.max(1.0, currentTransform.scale - 0.25))}
-                  disabled={!activeAsset}
+                  disabled={!activeAsset || !capabilities.canZoom}
+                  title="Diminuir zoom"
+                  aria-label="Diminuir zoom"
                 >
-                  -
+                  <ZoomOutRegular style={{ fontSize: "14px" }} />
                 </button>
                 <input
                   type="range"
@@ -1186,16 +1276,19 @@ export const App: React.FC = () => {
                   onChange={(e) => handleZoomChange(parseFloat(e.target.value), false)}
                   onPointerUp={() => handleZoomChange(currentTransform.scale, true)}
                   onKeyUp={() => handleZoomChange(currentTransform.scale, true)}
-                  disabled={!activeAsset}
+                  disabled={!activeAsset || !capabilities.canZoom}
                   style={{ flex: 1, accentColor: "#3b82f6" }}
+                  aria-label="Controle deslizante de zoom"
                 />
                 <button
                   className="btn-secondary"
                   style={{ width: "32px", height: "32px", padding: 0 }}
                   onClick={() => handleZoomChange(Math.min(8.0, currentTransform.scale + 0.25))}
-                  disabled={!activeAsset}
+                  disabled={!activeAsset || !capabilities.canZoom}
+                  title="Aumentar zoom"
+                  aria-label="Aumentar zoom"
                 >
-                  +
+                  <ZoomInRegular style={{ fontSize: "14px" }} />
                 </button>
               </div>
             </div>
@@ -1223,29 +1316,43 @@ export const App: React.FC = () => {
                   onChange={(e) => handleRotateDirect(parseFloat(e.target.value), false)}
                   onPointerUp={() => handleRotateDirect(currentTransform.rotation_deg, true)}
                   onKeyUp={() => handleRotateDirect(currentTransform.rotation_deg, true)}
-                  disabled={!activeAsset}
+                  disabled={!activeAsset || !capabilities.canRotate}
                   style={{ flex: 1, accentColor: "#3b82f6" }}
                   title="Ajuste fino de rotação (-180° a +179°)"
+                  aria-label="Ajuste fino de rotação (-180° a +179°)"
                 />
                 <input
                   type="number"
                   min="-180"
-                  max="180"
+                  max="179.9"
                   step="0.1"
-                  value={Number(currentTransform.rotation_deg.toFixed(1))}
+                  value={
+                    rotationInputText !== null
+                      ? rotationInputText
+                      : Number(currentTransform.rotation_deg.toFixed(1))
+                  }
                   onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    if (!Number.isNaN(val)) {
-                      handleRotateDirect(val, false);
+                    setRotationInputText(e.target.value);
+                  }}
+                  onBlur={() => {
+                    if (rotationInputText !== null) {
+                      const parsed = parseRotationText(rotationInputText, currentTransform.rotation_deg);
+                      handleRotateDirect(parsed, true);
+                      setRotationInputText(null);
                     }
                   }}
-                  onBlur={() => handleRotateDirect(currentTransform.rotation_deg, true)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
-                      handleRotateDirect(currentTransform.rotation_deg, true);
+                      if (rotationInputText !== null) {
+                        const parsed = parseRotationText(rotationInputText, currentTransform.rotation_deg);
+                        handleRotateDirect(parsed, true);
+                        setRotationInputText(null);
+                      }
+                    } else if (e.key === "Escape") {
+                      setRotationInputText(null);
                     }
                   }}
-                  disabled={!activeAsset}
+                  disabled={!activeAsset || !capabilities.canRotate}
                   style={{
                     width: "60px",
                     padding: "4px 6px",
@@ -1256,7 +1363,8 @@ export const App: React.FC = () => {
                     fontSize: "12px",
                     textAlign: "right",
                   }}
-                  title="Ângulo exato em graus (-180° a +180°)"
+                  title="Ângulo exato em graus (-180° a +179.9°)"
+                  aria-label="Ângulo exato de rotação"
                 />
                 <span style={{ fontSize: "12px", color: "#94a3b8" }}>°</span>
               </div>
@@ -1265,17 +1373,23 @@ export const App: React.FC = () => {
                   className="btn-secondary"
                   style={{ flex: 1 }}
                   onClick={() => handleRotate(-90)}
-                  disabled={!activeAsset}
+                  disabled={!activeAsset || !capabilities.canRotate}
+                  title="Girar 90 graus no sentido anti-horário"
+                  aria-label="Girar -90 graus"
                 >
-                  ↶ -90°
+                  <ArrowUndoRegular style={{ fontSize: "14px" }} />
+                  <span>-90°</span>
                 </button>
                 <button
                   className="btn-secondary"
                   style={{ flex: 1 }}
                   onClick={() => handleRotate(90)}
-                  disabled={!activeAsset}
+                  disabled={!activeAsset || !capabilities.canRotate}
+                  title="Girar 90 graus no sentido horário"
+                  aria-label="Girar +90 graus"
                 >
-                  ↷ +90°
+                  <ArrowRedoRegular style={{ fontSize: "14px" }} />
+                  <span>+90°</span>
                 </button>
               </div>
             </div>
@@ -1285,9 +1399,12 @@ export const App: React.FC = () => {
               className="btn-secondary"
               style={{ width: "100%", marginTop: "4px" }}
               onClick={handleResetTransform}
-              disabled={!activeAsset}
+              disabled={!activeAsset || (!capabilities.canZoom && !capabilities.canRotate && !capabilities.canPan)}
+              title="Resetar enquadramento para valores padrão"
+              aria-label="Resetar enquadramento"
             >
-              Resetar Enquadramento
+              <ArrowResetRegular style={{ fontSize: "14px" }} />
+              <span>Resetar Enquadramento</span>
             </button>
           </div>
 
@@ -1309,7 +1426,8 @@ export const App: React.FC = () => {
                 onClick={handleAddPhotos}
                 style={{ fontSize: "12px", padding: "6px 12px" }}
               >
-                + Adicionar Fotos
+                <AddRegular style={{ fontSize: "14px" }} />
+                <span>Adicionar Fotos</span>
               </button>
             </div>
 
@@ -1328,20 +1446,26 @@ export const App: React.FC = () => {
                   alignItems: "center",
                 }}
               >
-                <span>ℹ️ {trayNotice}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <InfoRegular style={{ fontSize: "15px", flexShrink: 0 }} />
+                  <span>{trayNotice}</span>
+                </div>
                 <button
+                  type="button"
                   onClick={() => setTrayNotice(null)}
                   style={{
                     background: "transparent",
                     border: "none",
                     color: "#94a3b8",
                     cursor: "pointer",
-                    fontSize: "12px",
+                    display: "inline-flex",
+                    alignItems: "center",
                     padding: "0 4px",
                   }}
                   title="Fechar aviso"
+                  aria-label="Fechar aviso"
                 >
-                  ✕
+                  <DismissRegular style={{ fontSize: "14px" }} />
                 </button>
               </div>
             )}
@@ -1360,8 +1484,10 @@ export const App: React.FC = () => {
               {sources.map((s) => {
                 const isSelected = activeAsset?.id === s.id;
                 return (
-                  <div
+                  <button
                     key={s.id}
+                    type="button"
+                    className="photo-card"
                     draggable={true}
                     onDragStart={(e) => {
                       e.dataTransfer.setData("application/x-evydencia-source", s.id);
@@ -1369,7 +1495,15 @@ export const App: React.FC = () => {
                       e.dataTransfer.effectAllowed = "copy";
                     }}
                     onClick={() => handleSelectSource(s)}
-                    title="Clique para atribuir ao slot ativo ou arraste para um slot no produto"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectSource(s);
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-label={`Foto: ${s.display_name}. Pressione Enter ou espaço para atribuir ao slot ativo.`}
+                    title="Clique ou pressione Enter para atribuir ao slot ativo; ou arraste para um slot no produto"
                     style={{
                       cursor: "grab",
                       border: isSelected ? "2px solid #3b82f6" : "1px solid #334155",
@@ -1377,6 +1511,11 @@ export const App: React.FC = () => {
                       overflow: "hidden",
                       backgroundColor: "#1e293b",
                       position: "relative",
+                      padding: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      textAlign: "left",
+                      width: "100%",
                       transition: "transform 0.1s ease, border-color 0.1s ease",
                     }}
                   >
@@ -1415,11 +1554,12 @@ export const App: React.FC = () => {
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         backgroundColor: "#0f172a",
+                        width: "100%",
                       }}
                     >
                       {s.display_name}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1491,7 +1631,7 @@ export const App: React.FC = () => {
                 fontWeight: "600",
               }}
             >
-              Publicação em Disco (Marco M5-B)
+              Pipeline de publicação em homologação
             </div>
           </div>
         </footer>
@@ -1508,21 +1648,49 @@ export const App: React.FC = () => {
         >
           <div style={{ flex: 1, minWidth: 0, marginRight: "20px" }}>
             {errorMessage && (
-              <div style={{ color: "#f87171", fontSize: "14px", fontWeight: "500" }}>
-                ⚠️ {errorMessage}
+              <div
+                role="alert"
+                aria-live="assertive"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  color: "#f87171",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                <WarningRegular style={{ fontSize: "18px", flexShrink: 0 }} />
+                <span>{errorMessage}</span>
               </div>
             )}
             {renderResult && (
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ color: "#4ade80", fontSize: "14px", fontWeight: "500" }}>
-                  ✓ Arquivo gerado em {renderResult.render_time_ms.toFixed(0)} ms!
-                </span>
+              <div
+                role="status"
+                aria-live="polite"
+                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    color: "#4ade80",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  <CheckmarkCircleRegular style={{ fontSize: "18px", flexShrink: 0 }} />
+                  <span>Arquivo gerado em {renderResult.render_time_ms.toFixed(0)} ms!</span>
+                </div>
                 <button
                   className="btn-secondary"
                   style={{ fontSize: "12px", padding: "4px 10px" }}
                   onClick={() => bridge.openOutputFolder(renderResult.output_path)}
+                  aria-label="Abrir pasta no Windows Explorer com o arquivo gerado"
                 >
-                  Abrir pasta
+                  <FolderRegular style={{ fontSize: "14px" }} />
+                  <span>Abrir pasta</span>
                 </button>
               </div>
             )}
@@ -1533,8 +1701,15 @@ export const App: React.FC = () => {
             onClick={handleRender}
             disabled={rendering || !renderEligibility.canRender}
             title={!renderEligibility.canRender ? renderEligibility.statusMessage : "Gerar impressão final"}
+            aria-label={template?.status === "draft" ? "Gerar arquivo de prova" : "Gerar arquivo de produção"}
           >
-            {rendering ? "GERANDO ARQUIVO ORIGINAL..." : "GERAR ARQUIVO DE PRODUÇÃO"}
+            {rendering
+              ? template?.status === "draft"
+                ? "GERANDO PROVA..."
+                : "GERANDO ARQUIVO ORIGINAL..."
+              : template?.status === "draft"
+              ? "GERAR ARQUIVO DE PROVA"
+              : "GERAR ARQUIVO DE PRODUÇÃO"}
           </button>
         </footer>
       )}

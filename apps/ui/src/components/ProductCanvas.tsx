@@ -542,6 +542,11 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
         if (clickedSlot.id !== activeSlotIdRef.current) {
           onSelectSlotRef.current(clickedSlot.id, { shiftKey: false });
         }
+
+        if (clickedSlot.allow_pan === false) {
+          return;
+        }
+
         isDraggingRef.current = true;
         lastPointerRef.current = { x, y };
 
@@ -718,6 +723,7 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
       const slot = currentTpl.slots.find((s) => s.id === currentSlotId);
       if (!slot) return;
+      if (slot.allow_pan === false) return;
 
       const dx = x - lastPointerRef.current.x;
       const dy = y - lastPointerRef.current.y;
@@ -792,8 +798,6 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     // Mouse wheel for zoom on hovered/active slot (Operator mode only)
     fabric.on("mouse:wheel", (opt) => {
       if (modeRef.current === "manager") return;
-      opt.e.preventDefault();
-      opt.e.stopPropagation();
 
       const point = opt.scenePoint;
       if (!point) return;
@@ -811,12 +815,16 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
         );
       });
 
-      // Target slot: cursor MUST be directly over a filled slot (Gate 10)
-      // Pointer over empty slot or outside canvas is a strict no-op.
+      // Target slot: cursor MUST be directly over a filled slot that allows zoom (Gate 10)
+      // Pointer over empty slot, outside canvas, or non-zoom slot is a strict no-op.
       if (!hovered) return;
+      if (hovered.allow_zoom === false) return;
       const targetSlotId = hovered.id;
       const currentEdit = slotEditsRef.current[targetSlotId];
       if (!currentEdit) return;
+
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
 
       if (targetSlotId !== activeSlotIdRef.current) {
         onSelectSlotRef.current(targetSlotId);

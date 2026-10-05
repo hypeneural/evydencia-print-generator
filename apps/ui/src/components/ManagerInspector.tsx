@@ -1,4 +1,14 @@
 import React from "react";
+import {
+  CheckmarkCircleRegular,
+  WarningRegular,
+  InfoRegular,
+  LockClosedRegular,
+  LockOpenRegular,
+  RulerRegular,
+  TableRegular,
+  ColorRegular,
+} from "@fluentui/react-icons";
 import type { DraftSlot, TemplateDraft } from "../domain/draft";
 import {
   updateSlotMm,
@@ -195,7 +205,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
               letterSpacing: "0.5px",
             }}
           >
-            Modo Gestor • M5
+            Modo Gestor • Inspeção de Template
           </div>
           <h2 style={{ fontSize: "16px", fontWeight: "700", marginTop: "2px" }}>
             {draft.name}
@@ -234,7 +244,11 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
             color: validation.valid ? "#6ee7b7" : "#fca5a5",
           }}
         >
-          <span>{validation.valid ? "✓" : "⚠️"}</span>
+          {validation.valid ? (
+            <CheckmarkCircleRegular style={{ fontSize: "16px" }} />
+          ) : (
+            <WarningRegular style={{ fontSize: "16px" }} />
+          )}
           <span>
             {validation.valid
               ? "Template Válido para Produção"
@@ -269,7 +283,10 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
             }}
           >
             {validation.warnings.map((w, idx) => (
-              <div key={idx}>⚡ {w}</div>
+              <div key={idx} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <InfoRegular style={{ fontSize: "13px", flexShrink: 0 }} />
+                <span>{w}</span>
+              </div>
             ))}
           </div>
         )}
@@ -290,7 +307,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "16px" }}>🔒</span>
+            <LockClosedRegular style={{ fontSize: "18px", color: "#94a3b8" }} />
             <div>
               <div style={{ fontSize: "12px", fontWeight: "600", color: "#f8fafc" }}>
                 Geometria de Produção Fixa
@@ -341,7 +358,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "16px" }}>🔓</span>
+            <LockOpenRegular style={{ fontSize: "18px", color: "#fcd34d" }} />
             <div>
               <div style={{ fontSize: "12px", fontWeight: "600", color: "#fcd34d" }}>
                 Edição Avançada Desbloqueada
@@ -389,8 +406,9 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
             marginBottom: "12px",
           }}
         >
-          <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#e2e8f0" }}>
-            📐 Folha Física (Canvas)
+          <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#e2e8f0", display: "flex", alignItems: "center", gap: "6px" }}>
+            <RulerRegular style={{ fontSize: "16px" }} />
+            <span>Folha Física (Canvas)</span>
           </h3>
           <button
             onClick={handleFlipOrientation}
@@ -406,7 +424,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
               border: "1px solid #334155",
             }}
           >
-            ⇄ Girar Folha
+            Girar Orientação
           </button>
         </div>
 
@@ -524,8 +542,9 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
             marginBottom: "10px",
           }}
         >
-          <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#e2e8f0" }}>
-            🖼 Slots ({draft.slots.length})
+          <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#e2e8f0", display: "flex", alignItems: "center", gap: "6px" }}>
+            <TableRegular style={{ fontSize: "16px" }} />
+            <span>Slots ({draft.slots.length})</span>
           </h3>
           <button
             onClick={handleAddSlot}
@@ -794,8 +813,9 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
           border: "1px solid #334155",
         }}
       >
-        <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#e2e8f0", marginBottom: "8px" }}>
-          🎨 Máscara / Overlay
+        <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#e2e8f0", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+          <ColorRegular style={{ fontSize: "16px" }} />
+          <span>Máscara / Overlay</span>
         </h3>
         {draft.overlay ? (
           <div style={{ fontSize: "12px", color: "#94a3b8" }}>
