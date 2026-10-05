@@ -7,6 +7,7 @@
 | Calendário | canvas branco | sob o overlay | PNG transparente fornecido pelo estúdio |
 | Chaveiro | canvas branco **gerado pelo renderer** no tamanho físico | sobre o fundo | nenhum |
 | Globo | canvas branco **gerado pelo renderer** no tamanho físico | sobre o fundo | nenhum |
+| Polaroid Natal | canvas branco | sob o overlay | PNG transparente oficial 980×1205 px @ 300 DPI |
 
 Por que não criar PNG de moldura para Chaveiro/Globo:
 - o canvas é derivado de mm + DPI; um PNG fixo teria resolução própria e poderia divergir do DPI de produção;
@@ -74,6 +75,21 @@ Layout assimétrico (Image-Derived) — template v1.1.0:
 
 Pendente:
 - confirmação vetorial numérica via arquivo CorelDRAW / gabarito oficial do laboratório.
+
+## Polaroid Natal
+Status: `draft` (template v1.0.0).
+
+Confirmado / Medido:
+- asset: `templates/polaroid-natal/assets/polaroid-overlay.png` (980 × 1205 px, RGBA, SHA-256 `0586cfb0...`);
+- resolução: 300 DPI nominal;
+- dimensões físicas da folha: 82.97 × 102.02 mm (8.30 × 10.20 cm);
+- janela transparente de foto: alpha = 0 delimitada entre x = 69 px e y = 59 px com 843 px de largura e 862 px de altura;
+- dimensões físicas do slot: 71.37 × 72.98 mm em x = 5.84 mm, y = 5.00 mm;
+- saída: JPEG 95% de qualidade (`Polaroid_<nome original>_<hash>.jpg`);
+- overlay obrigatório: verificação estrita em tempo de renderização; divergência de resolução bloqueia com `RenderError` para evitar deformação estética ou perda de alinhamento com a moldura.
+
+Pendente:
+- validação com prova física impressa no laboratório antes da promoção para `production`.
 
 ## Integração de Shell Windows 11
 - **Menu Moderno**: Integração nativa via interface COM `IExplorerCommand` e *Sparse Package Identity / Sparse MSIX* (`MODERN_MENU_VISIBLE = supported`).

@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "template_version": "1.0.0",
+  "id": "polaroid-natal",
+  "name": "Polaroid Natal",
+  "status": "draft",
+  "canvas": {
+    "width_mm": 82.97,
+    "height_mm": 102.02,
+    "dpi": 300
+  },
+  "output": {
+    "format": "JPEG",
+    "quality": 95,
+    "filename_prefix": "Polaroid_"
+  },
+  "slots": [
+    {
+      "id": "foto_principal",
+      "x_mm": 5.84,
+      "y_mm": 5.0,
+      "width_mm": 71.37,
+      "height_mm": 72.98,
+      "fit": "cover",
+      "allow_pan": true,
+      "allow_zoom": true,
+      "allow_rotate": true
+    }
+  ],
+  "overlay": {
+    "path": "assets/polaroid-overlay.png",
+    "required": true
+  },
+  "groups": [],
+  "provenance": {
+    "measured": [
+      "overlay PNG 980x1205 px @ ~300 DPI",
+      "janela transparente bbox 69,59 -> 911,920 px"
+    ],
+    "derived": [
+      "canvas 82.97x102.02 mm derivado de 980x1205 @ 300 DPI",
+      "slot foto_principal 71.37x72.98 mm em (5.84, 5.00) mm"
+    ],
+    "pending": [
+      "validar prova física/impressão do Polaroid antes de promover a production"
+    ]
+  },
+  "notes": [
+    "Template Polaroid Natal derivado do overlay PNG oficial 980x1205 @ 300 DPI."
+  ]
+}

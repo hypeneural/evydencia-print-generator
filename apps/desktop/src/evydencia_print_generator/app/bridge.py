@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -255,20 +253,9 @@ class DesktopBridge:
 
     def open_output_folder(self, file_path: str) -> bool:
         """Reveal generated output file in Windows File Explorer."""
-        p = Path(file_path).resolve()
-        if not p.is_file():
-            return False
+        from ..windows.reveal import reveal_in_explorer
 
-        if os.name == "nt":
-            try:
-                subprocess.run(
-                    ["explorer.exe", f"/select,{p}"],
-                    check=False,
-                )
-                return True
-            except Exception:
-                pass
-        return True
+        return reveal_in_explorer(file_path)
 
     def handle_drag_ignore(self, event: dict[str, Any]) -> None:
         """No-op handler to acknowledge dragenter/dragover with prevent_default."""

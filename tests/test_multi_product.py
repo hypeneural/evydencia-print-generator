@@ -141,8 +141,8 @@ def test_chaveiro_3x4_production_render_18_slots(tmp_path: Path) -> None:
     assert result.render_time_ms < 3000.0
 
 
-def test_bridge_lists_all_three_products(tmp_path: Path) -> None:
-    """Verify DesktopBridge exposes all 3 templates to the frontend."""
+def test_bridge_lists_all_four_products(tmp_path: Path) -> None:
+    """Verify DesktopBridge exposes all 4 templates to the frontend."""
     registry = SourceRegistry()
     cache = PreviewCache(cache_dir=tmp_path / "cache")
     ingest = IngestService(registry)
@@ -160,6 +160,7 @@ def test_bridge_lists_all_three_products(tmp_path: Path) -> None:
         assert "calendario-2027" in ids
         assert "globo-neve" in ids
         assert "chaveiro-3x4" in ids
+        assert "polaroid-natal" in ids
 
         globo = next(t for t in templates if t["id"] == "globo-neve")
         assert len(globo["slots"]) == 2
@@ -168,6 +169,11 @@ def test_bridge_lists_all_three_products(tmp_path: Path) -> None:
         chaveiro = next(t for t in templates if t["id"] == "chaveiro-3x4")
         assert len(chaveiro["slots"]) == 18
         assert chaveiro["canvas_px"] == {"width": 2551, "height": 1795}
+
+        polaroid = next(t for t in templates if t["id"] == "polaroid-natal")
+        assert len(polaroid["slots"]) == 1
+        assert polaroid["canvas_px"] == {"width": 980, "height": 1205}
+        assert polaroid["status"] == "draft"
     finally:
         prev.shutdown()
 

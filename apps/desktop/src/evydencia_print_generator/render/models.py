@@ -8,6 +8,10 @@ from pathlib import Path
 from PIL import Image
 
 
+class RenderError(RuntimeError):
+    """Raised when rendering cannot proceed or fails."""
+
+
 @dataclass(frozen=True)
 class RenderOptions:
     """Options for rendering execution."""

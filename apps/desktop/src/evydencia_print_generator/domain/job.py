@@ -131,14 +131,26 @@ def build_job_snapshot(
     unknown_slots = set(edit_state.slot_edits) - set(template.slot_ids)
     if unknown_slots:
         raise JobError(f"unknown slots {sorted(unknown_slots)}")
-    empty = [sid for sid in template.slot_ids if sid not in edit_state.slot_edits]
-    if empty:
-        raise JobError(f"slots without photo {empty}")
+    from .render_policy import check_render_eligibility
+
+    eligibility = check_render_eligibility(
+        template.id, template.slot_ids, list(edit_state.slot_edits.keys())
+    )
+    if eligibility.require_all:
+        empty = [sid for sid in template.slot_ids if sid not in edit_state.slot_edits]
+        if empty:
+            raise JobError(f"slots without photo {empty}")
+    elif not eligibility.can_render:
+        raise JobError(
+            f"insufficient photos for template {template.id!r}: "
+            f"filled {eligibility.filled_count}, minimum required {eligibility.minimum_required}"
+        )
 
     sources: dict[str, JobSource] = {}
     edits: dict[str, SlotEdit] = {}
-    for slot_id in template.slot_ids:
-        edit = edit_state.slot_edits[slot_id]
+    for slot_id, edit in edit_state.slot_edits.items():
+        if slot_id not in template.slot_ids:
+            continue
         transform = clamp_transform(edit.transform)
         _check_permissions(template, slot_id, transform)
         if edit.source_id not in sources:

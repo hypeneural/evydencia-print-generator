@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageOps
 from ..domain.job import JobSnapshot
 from ..domain.template import Template
 from ..domain.transform import SlotTransform, resolve_placement, slot_to_source_affine
+from .models import RenderError
 
 
 def render_slot(
@@ -48,6 +49,8 @@ def compose_canvas(
 
     try:
         for slot in template.slots:
+            if slot.id not in snapshot.slot_edits:
+                continue
             rect = template.slot_rect_px(slot.id)
             slot_edit = snapshot.slot_edits[slot.id]
             job_source = snapshot.sources[slot_edit.source_id]
@@ -83,6 +86,17 @@ def compose_canvas(
     overlay_path = template.overlay_path()
     if overlay_path is not None and overlay_path.is_file():
         with Image.open(overlay_path) as overlay_raw:
+            if (
+                template.overlay is not None
+                and template.overlay.required
+                and overlay_raw.size != (canvas_w, canvas_h)
+            ):
+                actual_sz = f"{overlay_raw.size[0]}x{overlay_raw.size[1]}"
+                raise RenderError(
+                    f"required overlay size mismatch in template '{template.id}': "
+                    f"expected {canvas_w}x{canvas_h}, got {actual_sz} "
+                    f"({template.overlay.path})"
+                )
             overlay = (
                 overlay_raw
                 if overlay_raw.size == (canvas_w, canvas_h)
