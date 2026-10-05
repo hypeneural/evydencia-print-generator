@@ -11,14 +11,14 @@
 
 ## Renderer / geometria
 - Calendário: asset 1067×1474 a 254 DPI e slot medido correspondem ao template atual.
-- Globo: output canônico 2551×1205 a 300 DPI (`216×102 mm`, `template_version: 2.0.0`).
+- Globo: output canônico 1795×1205 a 300 DPI (`152×102 mm`, layout assimétrico derivado de gabarito real, `template_version: 1.1.0`).
 - Chaveiro: output 2551×1795 a 300 DPI (`216×152 mm`, 18 slots em 6×3).
 - Render final e preview visual são contratos separados; UI não é validada apenas pelos testes de render.
 
 ## Marcos
 - M4 (Operator UI Hardening): **MERGED** (PR #16, Issue #15 fechada).
 - M5-A (Manager Mode Foundation): **MERGED** (PR #18).
-- PR #20 (Hotfix / Viewport, Wheel coalescido, Explorer DnD e Globo v2.0.0): **EM HARDENING FORENSE**.
+- PR #20 (Hotfix / Viewport, Wheel coalescido, Explorer DnD, Globo v1.1.0 e Paridade Visual Fabric 7): **EM HARDENING FORENSE**.
 - M5-B (Persistência e versionamento do Gestor): **PENDENTE** (inicia após conclusão deste ciclo).
 
 ## Regra

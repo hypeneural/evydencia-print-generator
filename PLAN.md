@@ -34,9 +34,11 @@ Estratégia: fatias testáveis + gates objetivos.
 - [x] teste visual de switching/resize/overlay.
 - [x] benchmark de drag/zoom.
 
-## Hotfix PR #20 — Viewport Transform, Coalesced Wheel, Native DnD & Globo v2.0.0 — EM HARDENING
+## Hotfix PR #20 — Viewport Transform, Coalesced Wheel, Native DnD, Globo v1.1.0 & Paridade Visual Fabric 7 — EM HARDENING
 - [x] migração para Fabric 7 `viewportTransform` (`[fitScale, 0, 0, fitScale, 0, 0]`).
-- [x] canonização geométrica do Globo 216×102 mm (`template_version: "2.0.0"`).
+- [x] restauração do Globo canônico 152×102 mm assimétrico derivado de gabarito real (`template_version: "1.1.0"`).
+- [x] paridade visual Fabric 7: `originX: "left", originY: "top"` explícitos em rects e clipPaths (correção de cover no Calendário e alinhamento do Chaveiro).
+- [x] proteção de geometria fixa de produção (`geometryLocked`) em modo Gestor e Operador.
 - [x] native Explorer drag-and-drop sem bloqueio síncrono.
 - [x] wheel zoom restrito a foto preenchida com hot path coalescido (zero React setState por tick).
 - [x] uniform scale e guarda de aspect ratio no overlay do Calendário.

@@ -58,19 +58,27 @@ Pendente:
 
 ## Globo de neve
 Confirmado (Measured):
-- canvas: 216 × 102 mm (paisagem, 2551 × 1205 px @ 300 DPI);
+- canvas: 152 × 102 mm (paisagem, 10×15 cm fotográfico, 1795 × 1205 px @ 300 DPI);
 - duas fotos verticais;
 - cada foto: 50 × 80 mm (largura × altura);
-- pan/zoom/rotação por foto.
-
-Layout simétrico (Derived) — template v2.0.0:
-- par centralizado lado a lado, gap 7 mm (derivado);
-- foto_1: x 54,5 mm, y 11 mm; foto_2: x 111,5 mm, y 11 mm;
-- margens laterais 54,5 mm, margens verticais 11 mm;
+- pan/zoom/rotação por foto;
 - sem overlay; fundo branco gerado pelo renderer com guias sutis de corte.
 
+Layout assimétrico (Image-Derived) — template v1.1.0:
+- par lado a lado derivado de fotografia de referência do laboratório:
+- foto_1: x = 16,7 mm, y = 10,2 mm (w=50 mm, h=80 mm);
+- foto_2: x = 73,7 mm, y = 10,2 mm (w=50 mm, h=80 mm);
+- gap entre fotos: 7,0 mm;
+- margem esquerda: 16,7 mm, margem direita: 28,3 mm;
+- margem superior: 10,2 mm, margem inferior: 11,8 mm.
+
 Pendente:
-- prova física impressa no laboratório.
+- confirmação vetorial numérica via arquivo CorelDRAW / gabarito oficial do laboratório.
+
+## Integração de Shell Windows 11
+- **Menu Moderno**: Integração nativa via interface COM `IExplorerCommand` e *Sparse Package Identity / Sparse MSIX* (`MODERN_MENU_VISIBLE = supported`).
+- **Ícone e Visibilidade**: O comando "Gerar com EVYDÊNCIA" aparece no primeiro menu de contexto moderno do Windows 11 com ícone de alta resolução.
+- **Posicionamento**: O Windows 11 agrupa comandos em categorias de sistema; a API não oferece flag para forçar extensões de terceiros acima dos verbos nativos de sistema ("Abrir", "Abrir com"). Alterações invasivas de associação de arquivo (.jpg/.png) são estritamente rejeitadas para preservar a integridade do sistema operacional.
 
 ## Regra de status
-Enquanto houver geometria necessária pendente, template fica `draft`. `production` exige prova física e provenance.pending vazio.
+Enquanto houver geometria necessária pendente, template fica `draft`. `production` exige prova física e provenance.pending vazio. Templates industriais homologados possuem proteção de Geometria de Produção Fixa no Gestor.

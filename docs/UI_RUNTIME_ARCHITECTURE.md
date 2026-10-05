@@ -91,6 +91,6 @@ https://www.fabricjs.com/api/interfaces/canvasevents/#mousedblclick
 
 ## Validação visual
 - Calendário: 1067×1474, retrato.
-- Globo: 2551×1205, paisagem (216×102 mm @ 300 DPI).
+- Globo: 1795×1205, paisagem (152×102 mm @ 300 DPI, layout assimétrico derivado de gabarito real).
 - Chaveiro: 2551×1795, paisagem.
 - switching e resize não alteram proporção nem Job.
