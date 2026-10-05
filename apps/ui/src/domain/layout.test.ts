@@ -21,8 +21,8 @@ describe("computePreviewLayout", () => {
     expect(layout.fitScale).toBeLessThanOrEqual(1.0);
   });
 
-  it("preserves aspect ratio for Globo de Neve (1795x1205 landscape, aspect ~1.4896)", () => {
-    const prodW = 1795;
+  it("preserves aspect ratio for Globo de Neve (2551x1205 landscape, aspect ~2.1170)", () => {
+    const prodW = 2551;
     const prodH = 1205;
     const prodAspect = prodW / prodH;
 

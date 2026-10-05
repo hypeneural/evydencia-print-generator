@@ -379,13 +379,27 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       FabricImage.fromURL(template.overlay.url, { crossOrigin: "anonymous" })
         .then((overlayImg) => {
           if (isCancelled || !fabricRef.current) return;
+          const naturalW = overlayImg.width || canvasW;
+          const naturalH = overlayImg.height || canvasH;
+          const overlayAspect = naturalW / naturalH;
+          const canvasAspect = canvasW / canvasH;
+          const aspectDrift = Math.abs(overlayAspect - canvasAspect) / canvasAspect;
+
+          if (aspectDrift > 0.001) {
+            console.error(
+              `OVERLAY_GEOMETRY_MISMATCH: overlay aspect ${overlayAspect.toFixed(4)} differs from canvas aspect ${canvasAspect.toFixed(4)} by ${(aspectDrift * 100).toFixed(2)}%`
+            );
+            return;
+          }
+
+          const uniformScale = canvasW / naturalW;
           overlayImg.set({
             left: 0,
             top: 0,
             originX: "left",
             originY: "top",
-            scaleX: canvasW / (overlayImg.width || canvasW),
-            scaleY: canvasH / (overlayImg.height || canvasH),
+            scaleX: uniformScale,
+            scaleY: uniformScale,
             selectable: false,
             evented: false,
             lockMovementX: true,
@@ -758,13 +772,10 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
         );
       });
 
-      // Target slot: hovered slot if it has an edit, otherwise active slot
-      const targetSlotId =
-        hovered && slotEditsRef.current[hovered.id]
-          ? hovered.id
-          : activeSlotIdRef.current;
-
-      if (!targetSlotId) return;
+      // Target slot: cursor MUST be directly over a filled slot (Gate 10)
+      // Pointer over empty slot or outside canvas is a strict no-op.
+      if (!hovered) return;
+      const targetSlotId = hovered.id;
       const currentEdit = slotEditsRef.current[targetSlotId];
       if (!currentEdit) return;
 
@@ -784,9 +795,9 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
       transientTransformRef.current.set(targetSlotId, clamped);
       applyImageTransform(targetSlotId, clamped);
-      onTransformChangeRef.current(targetSlotId, clamped, false);
+      // NOTE: ZERO React setState during wheel ticks! (docs/PERFORMANCE_BUDGETS.md)
 
-      // Debounce commit to history
+      // Debounce commit to history and React state at gesture end
       if (wheelCommitTimeoutRef.current) {
         clearTimeout(wheelCommitTimeoutRef.current);
       }
@@ -1031,31 +1042,41 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
   }, [template, slotEdits, sources, scheduleRender, applyImageTransform, mode, draft]);
 
   const [dragOverSlotId, setDragOverSlotId] = useState<string | null>(null);
+  const dragOverSlotIdRef = useRef<string | null>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
+    if (mode === "manager") return;
     if (!canvasElRef.current) return;
     const rect = canvasElRef.current.getBoundingClientRect();
-    const currentSlots =
-      mode === "manager" && draft ? draft.slots : template.slots;
     const hit = findSlotAtClientPoint(
-      currentSlots,
+      template.slots,
       e.clientX,
       e.clientY,
       rect,
       layout.fitScale
     );
-    setDragOverSlotId(hit?.id || null);
+    const nextSlotId = hit?.id || null;
+    if (dragOverSlotIdRef.current !== nextSlotId) {
+      dragOverSlotIdRef.current = nextSlotId;
+      setDragOverSlotId(nextSlotId);
+    }
   };
 
   const handleDragLeave = () => {
-    setDragOverSlotId(null);
+    if (dragOverSlotIdRef.current !== null) {
+      dragOverSlotIdRef.current = null;
+      setDragOverSlotId(null);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    dragOverSlotIdRef.current = null;
     setDragOverSlotId(null);
+    if (mode === "manager") return;
+
     const sourceId =
       e.dataTransfer.getData("application/x-evydencia-source") ||
       e.dataTransfer.getData("text/plain");
@@ -1063,10 +1084,8 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
     if (!canvasElRef.current) return;
     const rect = canvasElRef.current.getBoundingClientRect();
-    const currentSlots =
-      mode === "manager" && draft ? draft.slots : template.slots;
     const hit = findSlotAtClientPoint(
-      currentSlots,
+      template.slots,
       e.clientX,
       e.clientY,
       rect,

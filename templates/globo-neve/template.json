@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "template_version": "1.0.0",
+  "template_version": "2.0.0",
   "id": "globo-neve",
   "name": "Globo de Neve",
   "status": "production",
@@ -43,11 +43,10 @@
   "provenance": {
     "measured": [
       "canvas 216x102 mm (folha horizontal 216x102 mm)",
-      "2 fotos de 50x80 mm (largura x altura)",
-      "espaço de 7 mm entre as fotos centralizado"
+      "2 fotos de 50x80 mm (largura x altura)"
     ],
     "derived": [
-      "layout simétrico: par centralizado, gap 7 mm, margens laterais 54.5 mm, margens verticais 11 mm",
+      "layout simétrico: par centralizado, gap 7 mm derivado, margens laterais 54.5 mm, margens verticais 11 mm",
       "DPI de produção definido em 300 DPI"
     ],
     "pending": []

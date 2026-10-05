@@ -63,12 +63,20 @@ def launch_app(
             try:
                 from webview.dom import DOMEventHandler
 
+                window.dom.document.events.dragenter += DOMEventHandler(
+                    callback=bridge.handle_drag_ignore,
+                    prevent_default=True,
+                )
+                window.dom.document.events.dragover += DOMEventHandler(
+                    callback=bridge.handle_drag_ignore,
+                    prevent_default=True,
+                )
                 window.dom.document.events.drop += DOMEventHandler(
                     callback=bridge.handle_native_drop,
                     prevent_default=True,
                 )
             except Exception as exc:
-                logger.warning("Could not register native DOM drop handler: %s", exc)
+                logger.warning("Could not register native DOM drag/drop handlers: %s", exc)
 
         window.events.loaded += on_window_loaded
         webview.start(debug=debug)

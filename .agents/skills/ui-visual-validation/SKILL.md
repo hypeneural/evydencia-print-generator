@@ -22,7 +22,7 @@ Output/render correto não prova preview correto.
 
 ## Invariantes
 - Calendário 1067/1474 retrato;
-- Globo 1795/1205 paisagem;
+- Globo 2551/1205 paisagem (216×102 mm @ 300 DPI);
 - Chaveiro 2551/1795 paisagem;
 - overlay Calendário cobre canvas inteiro;
 - foto inicia em cover;

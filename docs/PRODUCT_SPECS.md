@@ -57,23 +57,20 @@ Pendente:
 - asset final aprovado no repositório.
 
 ## Globo de neve
-Confirmado:
-- canvas: 152 × 102 mm;
-- duas fotos;
+Confirmado (Measured):
+- canvas: 216 × 102 mm (paisagem, 2551 × 1205 px @ 300 DPI);
+- duas fotos verticais;
 - cada foto: 50 × 80 mm (largura × altura);
 - pan/zoom/rotação por foto.
 
-Esquema de referência enviado em 2026-10-03 (≈ 6,5 px/mm; ±0,5 mm): foto_1 x≈16,7 y≈10,2; foto_2 x≈73,6 y≈10,5; gap ≈ 7 mm; layout assimétrico (margem direita ≈ 28,4 mm).
-
-Layout adotado (usuário pediu simetria, 2026-10-03) — template v0.2.0:
-- par centralizado lado a lado, gap 7 mm (mantido da referência);
-- foto_1: x 22,5 mm, y 11 mm; foto_2: x 79,5 mm, y 11 mm;
-- margens laterais 22,5 mm, margens verticais 11 mm;
-- sem overlay; fundo branco gerado pelo renderer.
+Layout simétrico (Derived) — template v2.0.0:
+- par centralizado lado a lado, gap 7 mm (derivado);
+- foto_1: x 54,5 mm, y 11 mm; foto_2: x 111,5 mm, y 11 mm;
+- margens laterais 54,5 mm, margens verticais 11 mm;
+- sem overlay; fundo branco gerado pelo renderer com guias sutis de corte.
 
 Pendente:
-- DPI;
-- prova física do layout simétrico.
+- prova física impressa no laboratório.
 
 ## Regra de status
 Enquanto houver geometria necessária pendente, template fica `draft`. `production` exige prova física e provenance.pending vazio.

@@ -189,15 +189,8 @@ class DesktopBridge:
         return self.get_sources()
 
     def ingest_paths(self, paths: list[str]) -> list[dict[str, Any]]:
-        """Ingest paths, trigger async preview generation, and return updated sources."""
-        ingest_res = self.ingest_service.ingest_paths(paths, origin="dialog")
-        for asset in ingest_res.accepted:
-            fut = self.preview_service.ensure_preview(asset)
-            try:
-                fut.result(timeout=1.0)
-            except Exception:
-                pass
-
+        """Ingest paths asynchronously and return updated sources immediately."""
+        self.ingest_service.ingest_paths(paths, origin="dialog")
         return self.get_sources()
 
     def render_job(self, edit_state_dict: dict[str, Any]) -> dict[str, Any]:
@@ -251,29 +244,27 @@ class DesktopBridge:
                 pass
         return True
 
+    def handle_drag_ignore(self, event: dict[str, Any]) -> None:
+        """No-op handler to acknowledge dragenter/dragover with prevent_default."""
+        pass
+
     def handle_native_drop(self, event: dict[str, Any]) -> None:
-        """Handle native Windows Explorer drag-and-drop into pywebview window."""
+        """Handle native Windows Explorer drag-and-drop into pywebview window without blocking."""
         files = event.get("dataTransfer", {}).get("files", [])
         paths = []
         for f in files:
             if isinstance(f, dict) and f.get("pywebviewFullPath"):
                 paths.append(f["pywebviewFullPath"])
-            elif isinstance(f, str):
-                paths.append(f)
 
         if not paths:
             return
 
         ingest_res = self.ingest_service.ingest_paths(paths, origin="drop")
-        for asset in ingest_res.accepted:
-            fut = self.preview_service.ensure_preview(asset)
-            try:
-                fut.result(timeout=1.0)
-            except Exception:
-                pass
-
         sources = self.get_sources()
         accepted_ids = [a.id for a in ingest_res.accepted]
+        rejected_data = [
+            {"display_name": r.display_name, "code": r.code.value} for r in ingest_res.rejected
+        ]
         client_x = event.get("clientX", 0)
         client_y = event.get("clientY", 0)
 
@@ -282,6 +273,7 @@ class DesktopBridge:
                 {
                     "sources": sources,
                     "accepted_ids": accepted_ids,
+                    "rejected": rejected_data,
                     "clientX": client_x,
                     "clientY": client_y,
                 }

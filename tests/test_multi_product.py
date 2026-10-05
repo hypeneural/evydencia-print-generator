@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from conftest import synthetic_rgb
 from evydencia_print_generator.app.bridge import DesktopBridge
-from evydencia_print_generator.domain.job import EditState, SlotEdit, build_job_snapshot
+from evydencia_print_generator.domain.job import EditState, JobError, SlotEdit, build_job_snapshot
 from evydencia_print_generator.domain.template import load_template
 from evydencia_print_generator.domain.transform import SlotTransform
 from evydencia_print_generator.ingest import (
@@ -62,6 +63,30 @@ def test_globo_neve_production_render(tmp_path: Path) -> None:
     assert result.canvas_size_px == (2551, 1205)
     assert result.dpi == 300
     assert result.render_time_ms < 2000.0
+
+
+def test_globo_neve_version_mismatch_rejected(tmp_path: Path) -> None:
+    """Test that EditState with legacy template_version '1.0.0' is rejected against Globo v2.0.0."""
+    tpl_path = TEMPLATES_ROOT / "globo-neve" / "template.json"
+    template = load_template(tpl_path)
+    assert template.template_version == "2.0.0"
+
+    photo_file = tmp_path / "photo.jpg"
+    synthetic_rgb((800, 600)).save(photo_file, format="JPEG")
+    registry = SourceRegistry()
+    source = IngestService(registry).ingest_paths([photo_file]).accepted[0]
+
+    legacy_edit_state = EditState(
+        template_id=template.id,
+        template_version="1.0.0",
+        slot_edits={
+            "foto_1": SlotEdit(source_id=source.id, transform=SlotTransform()),
+            "foto_2": SlotEdit(source_id=source.id, transform=SlotTransform()),
+        },
+    )
+
+    with pytest.raises(JobError, match="edit state targets version '1.0.0', loaded '2.0.0'"):
+        build_job_snapshot(template, legacy_edit_state, registry.get)
 
 
 def test_chaveiro_3x4_production_render_18_slots(tmp_path: Path) -> None:

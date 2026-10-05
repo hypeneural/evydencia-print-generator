@@ -152,6 +152,22 @@ export const App: React.FC = () => {
     const firstSlot = tpl.slots[0]?.id || "";
     setActiveSlotId(firstSlot);
 
+    // Compute preview layout synchronously to eliminate 1-frame orientation flash
+    if (canvasContainerRef.current) {
+      const { clientWidth, clientHeight } = canvasContainerRef.current;
+      if (clientWidth > 0 && clientHeight > 0) {
+        const padding = mode === "manager" ? 24 : 16;
+        const l = computePreviewLayout(
+          tpl.canvas_px.width,
+          tpl.canvas_px.height,
+          clientWidth,
+          clientHeight,
+          padding
+        );
+        setPreviewLayout(l);
+      }
+    }
+
     // If existing edit has current slot photo, we can carry over if applicable, or start fresh
     const newEditState: EditStateModel = {
       template_id: tpl.id,
@@ -206,12 +222,13 @@ export const App: React.FC = () => {
         mode === "manager" && draft
           ? draft.canvas_px.height
           : template.canvas_px.height;
+      const padding = mode === "manager" ? 24 : 16;
       const l = computePreviewLayout(
         wPx,
         hPx,
         clientWidth,
         clientHeight,
-        48
+        padding
       );
       setPreviewLayout(l);
     }
@@ -373,6 +390,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     window.__onNativeFileDrop = (payload) => {
       setSources(payload.sources);
+
+      // Photo drop to slots is Operator-only (Gate 8 & 9)
+      if (mode !== "operator") return;
       if (!canvasContainerRef.current || !template || payload.accepted_ids.length === 0) return;
 
       const canvasEl = canvasContainerRef.current.querySelector("canvas");
@@ -388,64 +408,18 @@ export const App: React.FC = () => {
       );
 
       if (hit) {
-        // Dropped over a specific slot: assign the first dropped asset to it
+        // Dropped over a specific slot: assign strictly the first dropped asset to it (Gate 9)
+        // All dropped photos remain in the tray; zero auto-fill of subsequent slots.
         const firstSourceId = payload.accepted_ids[0];
         handleDropAssetOnSlot(hit.id, firstSourceId);
-
-        // If multiple photos dropped, fill subsequent empty slots
-        if (payload.accepted_ids.length > 1) {
-          setEditState((prev) => {
-            if (!prev) return prev;
-            const nextEdits = { ...prev.slot_edits };
-            const emptySlots = template.slots.filter(
-              (s) => s.id !== hit.id && !nextEdits[s.id]
-            );
-            payload.accepted_ids.slice(1).forEach((srcId, idx) => {
-              if (emptySlots[idx]) {
-                nextEdits[emptySlots[idx].id] = {
-                  source_id: srcId,
-                  pan_x_norm: 0.0,
-                  pan_y_norm: 0.0,
-                  scale: 1.0,
-                  rotation_deg: 0.0,
-                };
-              }
-            });
-            const nextState = { ...prev, slot_edits: nextEdits };
-            if (historyRef.current) historyRef.current.push(nextState);
-            return nextState;
-          });
-        }
-      } else {
-        // Dropped outside slots: if active slot was empty, auto-assign first
-        setEditState((prev) => {
-          if (!prev || (activeSlotId && prev.slot_edits[activeSlotId])) return prev;
-          if (activeSlotId && payload.accepted_ids[0]) {
-            const nextState = {
-              ...prev,
-              slot_edits: {
-                ...prev.slot_edits,
-                [activeSlotId]: {
-                  source_id: payload.accepted_ids[0],
-                  pan_x_norm: 0.0,
-                  pan_y_norm: 0.0,
-                  scale: 1.0,
-                  rotation_deg: 0.0,
-                },
-              },
-            };
-            if (historyRef.current) historyRef.current.push(nextState);
-            return nextState;
-          }
-          return prev;
-        });
       }
+      // If dropped outside slots: photos are in the tray, zero slot mutation.
     };
 
     return () => {
       delete window.__onNativeFileDrop;
     };
-  }, [template, previewLayout.fitScale, activeSlotId, handleDropAssetOnSlot]);
+  }, [template, previewLayout.fitScale, mode, handleDropAssetOnSlot]);
 
   // Batch action: Duplicate photo across slots in Globo
   const handleDuplicateGloboSlot = () => {

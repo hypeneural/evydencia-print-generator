@@ -27,8 +27,8 @@ export function computePreviewLayout(
   const scaleY = availH / productionHeight;
   const fitScale = Math.min(scaleX, scaleY, 1.0);
 
-  const displayWidth = Math.round(productionWidth * fitScale);
-  const displayHeight = Math.round(productionHeight * fitScale);
+  const displayWidth = Math.max(1, Math.round(productionWidth * fitScale));
+  const displayHeight = Math.max(1, Math.round(productionHeight * fitScale));
 
   return {
     fitScale,

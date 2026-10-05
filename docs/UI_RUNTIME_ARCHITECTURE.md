@@ -29,10 +29,11 @@ Invariante:
 
 Não usar dimensões de produção gigantes no layout DOM e depender somente de `transform: scale(...)` com parent `overflow:hidden`.
 
-Fabric.js suporta separar dimensões CSS do backstore com `setDimensions(..., { cssOnly: true })`; qualquer estratégia escolhida deve preservar a mesma matemática e hit-testing.
+A estratégia CSS-only anterior foi substituída por um `viewportTransform` explícito (`[fitScale, 0, 0, fitScale, 0, 0]`) com `setDimensions` no tamanho do viewport (`layout.displayWidth` × `layout.displayHeight`) porque atende melhor aos requisitos de hit-testing nativo (`scenePoint` / `viewportPoint`), menor consumo de memória de backstore e separação clara entre coordenadas de cena e de exibição.
 
-Fonte oficial:
-https://www.fabricjs.com/api/classes/canvas/#setDimensions
+Fontes oficiais Fabric.js:
+- https://www.fabricjs.com/api/classes/canvas/#setDimensions
+- https://www.fabricjs.com/api/classes/canvas/#setViewportTransform
 
 ### 3. Job
 Persistir somente:
@@ -90,6 +91,6 @@ https://www.fabricjs.com/api/interfaces/canvasevents/#mousedblclick
 
 ## Validação visual
 - Calendário: 1067×1474, retrato.
-- Globo: 1795×1205, paisagem.
+- Globo: 2551×1205, paisagem (216×102 mm @ 300 DPI).
 - Chaveiro: 2551×1795, paisagem.
 - switching e resize não alteram proporção nem Job.

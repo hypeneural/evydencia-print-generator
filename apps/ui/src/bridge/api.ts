@@ -50,7 +50,7 @@ const mockTemplates: TemplateModel[] = [
   },
   {
     id: "globo-neve",
-    template_version: "1.0.0",
+    template_version: "2.0.0",
     name: "Globo de Neve",
     status: "production",
     canvas: { width_mm: 216, height_mm: 102, dpi: 300 },
