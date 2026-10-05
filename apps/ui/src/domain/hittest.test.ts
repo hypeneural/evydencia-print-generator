@@ -86,27 +86,28 @@ describe("hittest domain", () => {
     });
   });
 
-  describe("Globo de Neve 216x102 2-slot hit-test", () => {
+  describe("Globo de Neve 152x102 2-slot hit-test", () => {
     const globoSlots = [
       {
         id: "foto_1",
-        rect_px: { left: 644, top: 130, width: 591, height: 945 } as PixelRect,
+        rect_px: { left: 197, top: 120, width: 591, height: 945 } as PixelRect,
       },
       {
         id: "foto_2",
-        rect_px: { left: 1317, top: 130, width: 591, height: 945 } as PixelRect,
+        rect_px: { left: 870, top: 120, width: 591, height: 945 } as PixelRect,
       },
     ];
 
     it("correctly differentiates between foto_1, gap, and foto_2", () => {
       // Inside foto_1
-      expect(findSlotAtScenePoint(globoSlots, 700, 500)?.id).toBe("foto_1");
-      // In the 7mm gap (~82px) between 644+591=1235 and 1317
-      expect(findSlotAtScenePoint(globoSlots, 1270, 500)).toBeNull();
+      expect(findSlotAtScenePoint(globoSlots, 300, 500)?.id).toBe("foto_1");
+      // In the 7mm gap (~82px) between 197+591=788 and 870
+      expect(findSlotAtScenePoint(globoSlots, 820, 500)).toBeNull();
       // Inside foto_2
-      expect(findSlotAtScenePoint(globoSlots, 1400, 500)?.id).toBe("foto_2");
-      // In lateral margin
-      expect(findSlotAtScenePoint(globoSlots, 100, 500)).toBeNull();
+      expect(findSlotAtScenePoint(globoSlots, 1000, 500)?.id).toBe("foto_2");
+      // In lateral margin (e.g. x=50 < 197 or x=1600 > 870+591=1461)
+      expect(findSlotAtScenePoint(globoSlots, 50, 500)).toBeNull();
+      expect(findSlotAtScenePoint(globoSlots, 1600, 500)).toBeNull();
     });
   });
 });

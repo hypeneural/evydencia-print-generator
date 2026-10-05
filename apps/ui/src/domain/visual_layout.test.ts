@@ -15,9 +15,9 @@ describe("Visual Layout & Aspect Ratio Matrix (M4-A / M4-G)", () => {
     {
       id: "globo-neve",
       name: "Globo de Neve",
-      productionWidth: 2551,
+      productionWidth: 1795,
       productionHeight: 1205,
-      expectedAspect: 2551 / 1205, // ~2.1170 (Paisagem)
+      expectedAspect: 1795 / 1205, // ~1.4896 (Paisagem)
       isPortrait: false,
     },
     {
@@ -82,7 +82,7 @@ describe("Visual Layout & Aspect Ratio Matrix (M4-A / M4-G)", () => {
   }
 
   it("handles zero or degenerate container dimensions gracefully with minimum 1px bounds", () => {
-    const layout = computePreviewLayout(2551, 1205, 0, 0, 48);
+    const layout = computePreviewLayout(1795, 1205, 0, 0, 48);
     expect(layout.displayWidth).toBeGreaterThan(0);
     expect(layout.displayHeight).toBeGreaterThan(0);
     expect(layout.fitScale).toBeGreaterThan(0);

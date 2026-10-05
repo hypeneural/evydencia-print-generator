@@ -22,13 +22,13 @@ TEMPLATES_ROOT = Path(__file__).resolve().parents[1] / "templates"
 
 
 def test_globo_neve_production_render(tmp_path: Path) -> None:
-    """Test Globo de Neve: 2 symmetrical 50x80mm slots on 216x102mm canvas @ 300 DPI."""
+    """Test Globo de Neve: 2 asymmetric 50x80mm slots on 152x102mm canvas @ 300 DPI."""
     tpl_path = TEMPLATES_ROOT / "globo-neve" / "template.json"
     template = load_template(tpl_path)
 
     assert template.status == "production"
     assert template.canvas.dpi == 300
-    assert template.canvas_px() == (2551, 1205)
+    assert template.canvas_px() == (1795, 1205)
     assert len(template.slots) == 2
     assert template.slot_ids == ("foto_1", "foto_2")
 
@@ -60,16 +60,16 @@ def test_globo_neve_production_render(tmp_path: Path) -> None:
 
     assert result.output_path.is_file()
     assert result.output_path.name == "Globo_portrait_input.jpg"
-    assert result.canvas_size_px == (2551, 1205)
+    assert result.canvas_size_px == (1795, 1205)
     assert result.dpi == 300
     assert result.render_time_ms < 2000.0
 
 
 def test_globo_neve_version_mismatch_rejected(tmp_path: Path) -> None:
-    """Test that EditState with legacy template_version '1.0.0' is rejected against Globo v2.0.0."""
+    """Test that EditState with legacy template_version '1.0.0' is rejected against Globo v1.1.0."""
     tpl_path = TEMPLATES_ROOT / "globo-neve" / "template.json"
     template = load_template(tpl_path)
-    assert template.template_version == "2.0.0"
+    assert template.template_version == "1.1.0"
 
     photo_file = tmp_path / "photo.jpg"
     synthetic_rgb((800, 600)).save(photo_file, format="JPEG")
@@ -85,7 +85,7 @@ def test_globo_neve_version_mismatch_rejected(tmp_path: Path) -> None:
         },
     )
 
-    with pytest.raises(JobError, match="edit state targets version '1.0.0', loaded '2.0.0'"):
+    with pytest.raises(JobError, match="edit state targets version '1.0.0', loaded '1.1.0'"):
         build_job_snapshot(template, legacy_edit_state, registry.get)
 
 
@@ -163,7 +163,7 @@ def test_bridge_lists_all_three_products(tmp_path: Path) -> None:
 
         globo = next(t for t in templates if t["id"] == "globo-neve")
         assert len(globo["slots"]) == 2
-        assert globo["canvas_px"] == {"width": 2551, "height": 1205}
+        assert globo["canvas_px"] == {"width": 1795, "height": 1205}
 
         chaveiro = next(t for t in templates if t["id"] == "chaveiro-3x4")
         assert len(chaveiro["slots"]) == 18
