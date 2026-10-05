@@ -85,7 +85,7 @@ Confirmado / Medido:
 - dimensões físicas da folha: 82.97 × 102.02 mm (8.30 × 10.20 cm);
 - janela transparente de foto: alpha = 0 delimitada entre x = 69 px e y = 59 px com 843 px de largura e 862 px de altura;
 - dimensões físicas do slot: 71.37 × 72.98 mm em x = 5.84 mm, y = 5.00 mm;
-- saída: JPEG 95% de qualidade (`Polaroid_<nome original>_<hash>.jpg`);
+- saída: JPEG 95% de qualidade (`Polaroid_<nome original>.jpg` com sufixo numérico `_002` em caso de colisão, sem hash);
 - overlay obrigatório: verificação estrita em tempo de renderização; divergência de resolução bloqueia com `RenderError` para evitar deformação estética ou perda de alinhamento com a moldura.
 
 Pendente:

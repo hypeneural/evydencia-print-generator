@@ -12,15 +12,24 @@
   - G2 Unit/Contract: PASS (243 testes Vitest em 10 suites / 141 testes Pytest)
   - G3 Remote CI: PASS (PR #21, Runs #37267085333 e #37267099247 100% verdes)
   - Veredito: READY_FOR_VISUAL_REVIEW (bloqueada para merge até que o PR #20 seja finalizado e mergeado na main).
-- Branch stacked `feat/operator-precision-polaroid-partial-render` (base PR #21):
+- Branch stacked `feat/operator-precision-polaroid-partial-render` (PR #22, base PR #21):
   - G1 Repository: PASS
-  - G2 Unit/Contract: PASS (260 testes Vitest em 11 suites / 152 testes Pytest)
-  - G3 Remote CI: PASS (PR #22, Runs #37272927436 e #37272932834 100% verdes)
+  - G2 Unit/Contract: PASS (260 testes Vitest em 11 suites / 152 testes Pytest Windows / 143 passed + 9 skipped Linux)
+  - G3 Remote CI: PASS (PR #22, Run #37273065455 100% verde)
   - G4 UI / Visual: PENDING
   - G5 Performance: PENDING
   - G6 Windows Shell / Explorer Reveal: PASS (64-bit ctypes + fallback)
   - G7 Physical Geometry: PENDING (Polaroid em draft aguardando prova física)
   - Veredito: READY_FOR_VISUAL_REVIEW
+- Branch stacked `feat/ui-branding-accessibility-governance` (base PR #22):
+  - G1 Repository: PASS
+  - G2 Unit/Contract: IN PROGRESS
+  - G3 Remote CI: PENDING
+  - G4 UI / Visual: PENDING
+  - G5 Performance: PENDING
+  - G6 Windows Shell Integration: PASS
+  - G7 Physical Geometry: PENDING (Template Governance Audit em andamento)
+  - Veredito: WORK_IN_PROGRESS
 - PR #19 (`feat/manager-publish-pipeline`): BLOQUEADO até que o PR #20 seja finalizado e mergeado.
 
 ## Renderer / geometria

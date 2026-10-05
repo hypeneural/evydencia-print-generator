@@ -63,7 +63,7 @@ A superfície mínima contém:
 - canvas 82.97×102.02 mm (980×1205 px @ 300 DPI);
 - 1 slot de foto (`foto_principal` 71.37×72.98 mm em x=5.84, y=5.00 mm, correspondendo à janela transparente 843×862 px a partir de 69, 59 px);
 - overlay PNG obrigatório posicionado na camada superior sem redimensionamento destrutivo;
-- exportação JPEG a 95% de qualidade (`Polaroid_<orig>_<hash>.jpg`);
+- exportação JPEG a 95% de qualidade (`Polaroid_<nome original>.jpg` com sufixo numérico `_002` em caso de colisão);
 - requer 1 foto preenchida para produção.
 
 ## Pós-Renderização e Shell
