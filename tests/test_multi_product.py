@@ -193,4 +193,3 @@ def test_bridge_handles_native_drop(tmp_path: Path) -> None:
         assert len(registry.list()) == 1
     finally:
         prev.shutdown()
-
