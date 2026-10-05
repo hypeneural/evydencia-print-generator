@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 import subprocess
 from pathlib import Path
@@ -12,6 +14,8 @@ from ..domain.template import Template, load_template
 from ..ingest import IngestService, PreviewService, SourceRegistry
 from ..paths import templates_dir
 from ..render import RenderOptions, RenderResult, render
+
+logger = logging.getLogger(__name__)
 
 
 class DesktopBridge:
@@ -246,3 +250,45 @@ class DesktopBridge:
             except Exception:
                 pass
         return True
+
+    def handle_native_drop(self, event: dict[str, Any]) -> None:
+        """Handle native Windows Explorer drag-and-drop into pywebview window."""
+        files = event.get("dataTransfer", {}).get("files", [])
+        paths = []
+        for f in files:
+            if isinstance(f, dict) and f.get("pywebviewFullPath"):
+                paths.append(f["pywebviewFullPath"])
+            elif isinstance(f, str):
+                paths.append(f)
+
+        if not paths:
+            return
+
+        ingest_res = self.ingest_service.ingest_paths(paths, origin="drop")
+        for asset in ingest_res.accepted:
+            fut = self.preview_service.ensure_preview(asset)
+            try:
+                fut.result(timeout=1.0)
+            except Exception:
+                pass
+
+        sources = self.get_sources()
+        accepted_ids = [a.id for a in ingest_res.accepted]
+        client_x = event.get("clientX", 0)
+        client_y = event.get("clientY", 0)
+
+        if self._window:
+            payload = json.dumps(
+                {
+                    "sources": sources,
+                    "accepted_ids": accepted_ids,
+                    "clientX": client_x,
+                    "clientY": client_y,
+                }
+            )
+            try:
+                self._window.evaluate_js(
+                    f"window.__onNativeFileDrop && window.__onNativeFileDrop({payload});"
+                )
+            except Exception as exc:
+                logger.warning("Failed to dispatch __onNativeFileDrop to UI: %s", exc)

@@ -58,6 +58,19 @@ def launch_app(
             min_size=(1024, 680),
         )
         bridge.set_window(window)
+
+        def on_window_loaded() -> None:
+            try:
+                from webview.dom import DOMEventHandler
+
+                window.dom.document.events.drop += DOMEventHandler(
+                    callback=bridge.handle_native_drop,
+                    prevent_default=True,
+                )
+            except Exception as exc:
+                logger.warning("Could not register native DOM drop handler: %s", exc)
+
+        window.events.loaded += on_window_loaded
         webview.start(debug=debug)
         return 0
     finally:

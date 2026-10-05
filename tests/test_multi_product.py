@@ -145,3 +145,52 @@ def test_bridge_lists_all_three_products(tmp_path: Path) -> None:
         assert chaveiro["canvas_px"] == {"width": 2551, "height": 1795}
     finally:
         prev.shutdown()
+
+
+def test_bridge_handles_native_drop(tmp_path: Path) -> None:
+    """Verify DesktopBridge ingests native Explorer drop and evaluates JS callback."""
+    registry = SourceRegistry()
+    cache = PreviewCache(cache_dir=tmp_path / "cache")
+    ingest = IngestService(registry)
+    prev = PreviewService(registry, cache=cache)
+
+    photo_file = tmp_path / "dropped_image.jpg"
+    synthetic_rgb((800, 600)).save(photo_file, format="JPEG")
+
+    eval_calls: list[str] = []
+
+    class MockWindow:
+        def evaluate_js(self, script: str) -> None:
+            eval_calls.append(script)
+
+    try:
+        bridge = DesktopBridge(
+            registry,
+            ingest,
+            prev,
+            "http://127.0.0.1:5000",
+            templates_root=TEMPLATES_ROOT,
+        )
+        mock_win = MockWindow()
+        bridge.set_window(mock_win)
+
+        drop_event = {
+            "dataTransfer": {
+                "files": [
+                    {"pywebviewFullPath": str(photo_file)},
+                ]
+            },
+            "clientX": 250,
+            "clientY": 180,
+        }
+        bridge.handle_native_drop(drop_event)
+
+        assert len(eval_calls) == 1
+        assert "window.__onNativeFileDrop" in eval_calls[0]
+        assert "dropped_image.jpg" in eval_calls[0]
+        assert '"clientX": 250' in eval_calls[0]
+        assert '"clientY": 180' in eval_calls[0]
+        assert len(registry.list()) == 1
+    finally:
+        prev.shutdown()
+

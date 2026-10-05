@@ -16,6 +16,18 @@ import type {
 } from "./domain/types";
 import type { DraftSlot, TemplateDraft } from "./domain/draft";
 import { createDraftFromTemplate, updateSlotMm } from "./domain/draft";
+import { findSlotAtClientPoint } from "./domain/hittest";
+
+declare global {
+  interface Window {
+    __onNativeFileDrop?: (payload: {
+      sources: SourceAssetModel[];
+      accepted_ids: string[];
+      clientX: number;
+      clientY: number;
+    }) => void;
+  }
+}
 
 const DEFAULT_TRANSFORM: SlotTransform = {
   pan_x_norm: 0.0,
@@ -331,6 +343,109 @@ export const App: React.FC = () => {
       historyRef.current.push(nextState);
     }
   };
+
+  // Handle dropping an asset directly onto a specific slot
+  const handleDropAssetOnSlot = useCallback((slotId: string, sourceId: string) => {
+    setEditState((prev) => {
+      if (!prev) return prev;
+      const nextState: EditStateModel = {
+        ...prev,
+        slot_edits: {
+          ...prev.slot_edits,
+          [slotId]: {
+            source_id: sourceId,
+            pan_x_norm: 0.0,
+            pan_y_norm: 0.0,
+            scale: 1.0,
+            rotation_deg: 0.0,
+          },
+        },
+      };
+      if (historyRef.current) {
+        historyRef.current.push(nextState);
+      }
+      return nextState;
+    });
+    setActiveSlotId(slotId);
+  }, []);
+
+  // Native Explorer drag & drop event listener dispatched from Python DesktopBridge
+  useEffect(() => {
+    window.__onNativeFileDrop = (payload) => {
+      setSources(payload.sources);
+      if (!canvasContainerRef.current || !template || payload.accepted_ids.length === 0) return;
+
+      const canvasEl = canvasContainerRef.current.querySelector("canvas");
+      if (!canvasEl) return;
+      const rect = canvasEl.getBoundingClientRect();
+
+      const hit = findSlotAtClientPoint(
+        template.slots,
+        payload.clientX,
+        payload.clientY,
+        rect,
+        previewLayout.fitScale
+      );
+
+      if (hit) {
+        // Dropped over a specific slot: assign the first dropped asset to it
+        const firstSourceId = payload.accepted_ids[0];
+        handleDropAssetOnSlot(hit.id, firstSourceId);
+
+        // If multiple photos dropped, fill subsequent empty slots
+        if (payload.accepted_ids.length > 1) {
+          setEditState((prev) => {
+            if (!prev) return prev;
+            const nextEdits = { ...prev.slot_edits };
+            const emptySlots = template.slots.filter(
+              (s) => s.id !== hit.id && !nextEdits[s.id]
+            );
+            payload.accepted_ids.slice(1).forEach((srcId, idx) => {
+              if (emptySlots[idx]) {
+                nextEdits[emptySlots[idx].id] = {
+                  source_id: srcId,
+                  pan_x_norm: 0.0,
+                  pan_y_norm: 0.0,
+                  scale: 1.0,
+                  rotation_deg: 0.0,
+                };
+              }
+            });
+            const nextState = { ...prev, slot_edits: nextEdits };
+            if (historyRef.current) historyRef.current.push(nextState);
+            return nextState;
+          });
+        }
+      } else {
+        // Dropped outside slots: if active slot was empty, auto-assign first
+        setEditState((prev) => {
+          if (!prev || (activeSlotId && prev.slot_edits[activeSlotId])) return prev;
+          if (activeSlotId && payload.accepted_ids[0]) {
+            const nextState = {
+              ...prev,
+              slot_edits: {
+                ...prev.slot_edits,
+                [activeSlotId]: {
+                  source_id: payload.accepted_ids[0],
+                  pan_x_norm: 0.0,
+                  pan_y_norm: 0.0,
+                  scale: 1.0,
+                  rotation_deg: 0.0,
+                },
+              },
+            };
+            if (historyRef.current) historyRef.current.push(nextState);
+            return nextState;
+          }
+          return prev;
+        });
+      }
+    };
+
+    return () => {
+      delete window.__onNativeFileDrop;
+    };
+  }, [template, previewLayout.fitScale, activeSlotId, handleDropAssetOnSlot]);
 
   // Batch action: Duplicate photo across slots in Globo
   const handleDuplicateGloboSlot = () => {
@@ -777,6 +892,7 @@ export const App: React.FC = () => {
               mode={mode}
               draft={draft}
               onDraftSlotChange={handleDraftSlotChange}
+              onDropPhoto={handleDropAssetOnSlot}
             />
           ) : (
             <div style={{ color: "#64748b" }}>Carregando produto...</div>
@@ -964,9 +1080,16 @@ export const App: React.FC = () => {
                 return (
                   <div
                     key={s.id}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("application/x-evydencia-source", s.id);
+                      e.dataTransfer.setData("text/plain", s.id);
+                      e.dataTransfer.effectAllowed = "copy";
+                    }}
                     onClick={() => handleSelectSource(s)}
+                    title="Clique para atribuir ao slot ativo ou arraste para um slot no produto"
                     style={{
-                      cursor: "pointer",
+                      cursor: "grab",
                       border: isSelected ? "2px solid #3b82f6" : "1px solid #334155",
                       borderRadius: "6px",
                       overflow: "hidden",
