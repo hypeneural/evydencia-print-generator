@@ -11,12 +11,24 @@ import { clampTransform } from "./domain/transform";
 import type {
   EditStateModel,
   RenderResultModel,
+  SlotEditState,
   SourceAssetModel,
   TemplateModel,
 } from "./domain/types";
 import type { DraftSlot, TemplateDraft } from "./domain/draft";
 import { createDraftFromTemplate, updateSlotMm } from "./domain/draft";
-import { findSlotAtClientPoint } from "./domain/hittest";
+import { classifyDropPoint } from "./domain/hittest";
+import {
+  assignSourcesToSlots,
+  countEmptySlots,
+  fillEmptySlots,
+  removeSlotPhoto,
+} from "./domain/slot_assignment";
+import {
+  shouldHandleDeletePhoto,
+  isTextEditingTarget,
+  type KeyTargetLike,
+} from "./domain/keyboard";
 
 declare global {
   interface Window {
@@ -47,6 +59,7 @@ export const App: React.FC = () => {
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [trayNotice, setTrayNotice] = useState<string | null>(null);
   const [isManagerGeometryUnlocked, setIsManagerGeometryUnlocked] = useState(false);
   const isGeometryLocked =
     template?.status === "production" && !isManagerGeometryUnlocked;
@@ -60,16 +73,51 @@ export const App: React.FC = () => {
   // History manager ref
   const historyRef = useRef<ReturnType<typeof createHistoryManager> | null>(null);
 
+  // Stable refs for event listeners and non-stale callbacks
+  const editStateRef = useRef<EditStateModel | null>(null);
+  const activeSlotIdRef = useRef<string>("");
+  const modeRef = useRef<"operator" | "manager">(mode);
+  const templateRef = useRef<TemplateModel | null>(null);
+  const layoutRef = useRef<PreviewLayout>(previewLayout);
+  const startupBatchIdsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    editStateRef.current = editState;
+  }, [editState]);
+  useEffect(() => {
+    activeSlotIdRef.current = activeSlotId;
+  }, [activeSlotId]);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  useEffect(() => {
+    templateRef.current = template;
+  }, [template]);
+  useEffect(() => {
+    layoutRef.current = previewLayout;
+  }, [previewLayout]);
+
+  // Single authoritative commit helper: updates ref, updates React state, pushes exactly 1 history entry
+  const commitEditState = useCallback((next: EditStateModel) => {
+    editStateRef.current = next;
+    setEditState(next);
+    if (historyRef.current) {
+      historyRef.current.push(next);
+    }
+  }, []);
+
   // Load templates & initial sources
   useEffect(() => {
     async function init() {
       try {
-        const [availableTemplates, initialSources] = await Promise.all([
+        const [availableTemplates, initialSources, startupBatch] = await Promise.all([
           bridge.getTemplates(),
           bridge.getSources(),
+          bridge.getStartupBatch(),
         ]);
         setTemplates(availableTemplates);
         setSources(initialSources);
+        startupBatchIdsRef.current = startupBatch.accepted_ids;
 
         if (availableTemplates.length > 0) {
           const tpl = availableTemplates[0];
@@ -78,14 +126,16 @@ export const App: React.FC = () => {
           const firstSlotId = tpl.slots[0]?.id || "";
           setActiveSlotId(firstSlotId);
 
-          const initialEdit: EditStateModel = {
-            template_id: tpl.id,
-            template_version: tpl.template_version,
-            slot_edits: {},
-          };
-
-          if (initialSources.length > 0 && firstSlotId) {
-            initialEdit.slot_edits[firstSlotId] = {
+          let initialEdits: Record<string, SlotEditState> = {};
+          if (startupBatch.accepted_ids.length > 0) {
+            const res = assignSourcesToSlots({
+              slotIds: tpl.slots.map((s) => s.id),
+              slotEdits: {},
+              sourceIds: startupBatch.accepted_ids,
+            });
+            initialEdits = res.nextSlotEdits;
+          } else if (initialSources.length > 0 && firstSlotId) {
+            initialEdits[firstSlotId] = {
               source_id: initialSources[0].id,
               pan_x_norm: 0.0,
               pan_y_norm: 0.0,
@@ -94,7 +144,14 @@ export const App: React.FC = () => {
             };
           }
 
+          const initialEdit: EditStateModel = {
+            template_id: tpl.id,
+            template_version: tpl.template_version,
+            slot_edits: initialEdits,
+          };
+
           setEditState(initialEdit);
+          editStateRef.current = initialEdit;
           historyRef.current = createHistoryManager(initialEdit);
         }
       } catch (err: unknown) {
@@ -115,37 +172,13 @@ export const App: React.FC = () => {
       try {
         const updated = await bridge.getSources();
         setSources(updated);
-
-        // Auto-assign first source to active slot if empty
-        setEditState((prevEdit) => {
-          if (!prevEdit || Object.keys(prevEdit.slot_edits).length > 0) return prevEdit;
-          if (updated.length > 0 && activeSlotId) {
-            const nextEdit: EditStateModel = {
-              ...prevEdit,
-              slot_edits: {
-                [activeSlotId]: {
-                  source_id: updated[0].id,
-                  pan_x_norm: 0.0,
-                  pan_y_norm: 0.0,
-                  scale: 1.0,
-                  rotation_deg: 0.0,
-                },
-              },
-            };
-            if (historyRef.current) {
-              historyRef.current = createHistoryManager(nextEdit);
-            }
-            return nextEdit;
-          }
-          return prevEdit;
-        });
       } catch (e) {
         console.warn("Failed to poll sources:", e);
       }
     }, 250);
 
     return () => clearInterval(interval);
-  }, [sources, activeSlotId]);
+  }, [sources]);
 
   // Switch template
   const handleSwitchTemplate = (tpl: TemplateModel) => {
@@ -172,16 +205,16 @@ export const App: React.FC = () => {
       }
     }
 
-    // If existing edit has current slot photo, we can carry over if applicable, or start fresh
-    const newEditState: EditStateModel = {
-      template_id: tpl.id,
-      template_version: tpl.template_version,
-      slot_edits: {},
-    };
-
-    // Auto-assign first source to first slot if available
-    if (sources.length > 0 && firstSlot) {
-      newEditState.slot_edits[firstSlot] = {
+    let initialEdits: Record<string, SlotEditState> = {};
+    if (startupBatchIdsRef.current.length > 0) {
+      const res = assignSourcesToSlots({
+        slotIds: tpl.slots.map((s) => s.id),
+        slotEdits: {},
+        sourceIds: startupBatchIdsRef.current,
+      });
+      initialEdits = res.nextSlotEdits;
+    } else if (sources.length > 0 && firstSlot) {
+      initialEdits[firstSlot] = {
         source_id: sources[0].id,
         pan_x_norm: 0.0,
         pan_y_norm: 0.0,
@@ -190,10 +223,18 @@ export const App: React.FC = () => {
       };
     }
 
+    const newEditState: EditStateModel = {
+      template_id: tpl.id,
+      template_version: tpl.template_version,
+      slot_edits: initialEdits,
+    };
+
     setEditState(newEditState);
+    editStateRef.current = newEditState;
     historyRef.current = createHistoryManager(newEditState);
     setRenderResult(null);
     setErrorMessage(null);
+    setTrayNotice(null);
   };
 
   // Draft slot change handler (Manager mode)
@@ -324,9 +365,26 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Keyboard shortcuts (Ctrl+Z, Ctrl+Y)
+  // Remove photo from active slot (Delete key or "Remover foto" button)
+  const removeActiveSlotPhoto = useCallback((): boolean => {
+    const prev = editStateRef.current;
+    const slotId = activeSlotIdRef.current;
+    if (!prev || !slotId) return false;
+    const nextEdits = removeSlotPhoto(prev.slot_edits, slotId);
+    if (!nextEdits) return false;
+    commitEditState({
+      ...prev,
+      slot_edits: nextEdits,
+    });
+    return true;
+  }, [commitEditState]);
+
+  // Keyboard shortcuts (Ctrl+Z, Ctrl+Y, Delete)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as KeyTargetLike;
+      if (isTextEditingTarget(target)) return;
+
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
         handleUndo();
@@ -336,21 +394,42 @@ export const App: React.FC = () => {
       ) {
         e.preventDefault();
         handleRedo();
+      } else if (
+        shouldHandleDeletePhoto({
+          key: e.key,
+          ctrlKey: e.ctrlKey,
+          altKey: e.altKey,
+          metaKey: e.metaKey,
+          shiftKey: e.shiftKey,
+          target,
+          mode: modeRef.current,
+          templateId: templateRef.current?.id,
+          activeSlotId: activeSlotIdRef.current,
+          hasPhotoInActiveSlot: !!(
+            activeSlotIdRef.current &&
+            editStateRef.current?.slot_edits[activeSlotIdRef.current]
+          ),
+        })
+      ) {
+        e.preventDefault();
+        removeActiveSlotPhoto();
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, removeActiveSlotPhoto]);
 
   // Set photo to active slot
   const handleSelectSource = (asset: SourceAssetModel) => {
-    if (!editState || !activeSlotId) return;
+    const prev = editStateRef.current;
+    const slotId = activeSlotIdRef.current;
+    if (!prev || !slotId) return;
 
-    const nextState: EditStateModel = {
-      ...editState,
+    commitEditState({
+      ...prev,
       slot_edits: {
-        ...editState.slot_edits,
-        [activeSlotId]: {
+        ...prev.slot_edits,
+        [slotId]: {
           source_id: asset.id,
           pan_x_norm: 0.0,
           pan_y_norm: 0.0,
@@ -358,18 +437,15 @@ export const App: React.FC = () => {
           rotation_deg: 0.0,
         },
       },
-    };
-    setEditState(nextState);
-    if (historyRef.current) {
-      historyRef.current.push(nextState);
-    }
+    });
   };
 
-  // Handle dropping an asset directly onto a specific slot
-  const handleDropAssetOnSlot = useCallback((slotId: string, sourceId: string) => {
-    setEditState((prev) => {
-      if (!prev) return prev;
-      const nextState: EditStateModel = {
+  // Handle dropping an asset directly onto a specific slot from the internal photo tray (1-to-1)
+  const handleDropAssetOnSlot = useCallback(
+    (slotId: string, sourceId: string) => {
+      const prev = editStateRef.current;
+      if (!prev) return;
+      commitEditState({
         ...prev,
         slot_edits: {
           ...prev.slot_edits,
@@ -381,96 +457,131 @@ export const App: React.FC = () => {
             rotation_deg: 0.0,
           },
         },
-      };
-      if (historyRef.current) {
-        historyRef.current.push(nextState);
+      });
+      setActiveSlotId(slotId);
+    },
+    [commitEditState]
+  );
+
+  // Unified batch assignment helper for multi-drop, dialog and startup batch
+  const applySourceBatch = useCallback(
+    (sourceIds: string[], anchorSlotId?: string | null) => {
+      const prev = editStateRef.current;
+      const tpl = templateRef.current;
+      if (!prev || !tpl || modeRef.current !== "operator" || sourceIds.length === 0) {
+        return null;
       }
-      return nextState;
-    });
-    setActiveSlotId(slotId);
-  }, []);
+      const slotIds = tpl.slots.map((s) => s.id);
+      const res = assignSourcesToSlots({
+        slotIds,
+        slotEdits: prev.slot_edits,
+        sourceIds,
+        anchorSlotId,
+      });
+
+      if (res.changed) {
+        commitEditState({
+          ...prev,
+          slot_edits: res.nextSlotEdits,
+        });
+        if (res.firstAssignedSlotId) {
+          setActiveSlotId(res.firstAssignedSlotId);
+        }
+      }
+      if (res.unassignedSourceIds.length > 0) {
+        setTrayNotice(
+          `${res.unassignedSourceIds.length} foto(s) ficaram na bandeja (sem campos vazios).`
+        );
+      } else {
+        setTrayNotice(null);
+      }
+      return res;
+    },
+    [commitEditState]
+  );
 
   // Native Explorer drag & drop event listener dispatched from Python DesktopBridge
   useEffect(() => {
     window.__onNativeFileDrop = (payload) => {
       setSources(payload.sources);
 
-      // Photo drop to slots is Operator-only (Gate 8 & 9)
-      if (mode !== "operator") return;
-      if (!canvasContainerRef.current || !template || payload.accepted_ids.length === 0) return;
+      // Photo drop to slots is Operator-only
+      if (modeRef.current !== "operator" || payload.accepted_ids.length === 0) return;
+      if (!canvasContainerRef.current || !templateRef.current) return;
 
       const canvasEl = canvasContainerRef.current.querySelector("canvas");
       if (!canvasEl) return;
       const rect = canvasEl.getBoundingClientRect();
+      const tpl = templateRef.current;
 
-      const hit = findSlotAtClientPoint(
-        template.slots,
+      const dropTarget = classifyDropPoint(
+        tpl.slots,
         payload.clientX,
         payload.clientY,
         rect,
-        previewLayout.fitScale
+        layoutRef.current.fitScale
       );
 
-      if (hit) {
-        // Dropped over a specific slot: assign strictly the first dropped asset to it (Gate 9)
-        // All dropped photos remain in the tray; zero auto-fill of subsequent slots.
-        const firstSourceId = payload.accepted_ids[0];
-        handleDropAssetOnSlot(hit.id, firstSourceId);
+      if (dropTarget.kind === "outside") {
+        // CASO 7: drop outside canvas -> sources go to tray, zero slot mutation
+        return;
       }
-      // If dropped outside slots: photos are in the tray, zero slot mutation.
+
+      // CASOS 1..6: drop on specific slot (anchor) or canvas gap/margin (general batch)
+      const anchor = dropTarget.kind === "slot" ? dropTarget.slotId : null;
+      applySourceBatch(payload.accepted_ids, anchor);
     };
 
     return () => {
       delete window.__onNativeFileDrop;
     };
-  }, [template, previewLayout.fitScale, mode, handleDropAssetOnSlot]);
+  }, [applySourceBatch]);
 
   // Batch action: Duplicate photo across slots in Globo
   const handleDuplicateGloboSlot = () => {
-    if (!editState || !template || template.slots.length < 2) return;
-    const slot1Edit = editState.slot_edits["foto_1"];
-    const slot2Edit = editState.slot_edits["foto_2"];
+    const prev = editStateRef.current;
+    const tpl = templateRef.current;
+    if (!prev || !tpl || tpl.slots.length < 2) return;
+    const slot1Edit = prev.slot_edits["foto_1"];
+    const slot2Edit = prev.slot_edits["foto_2"];
 
-    const sourceEdit = activeSlotId === "foto_2" ? (slot2Edit || slot1Edit) : (slot1Edit || slot2Edit);
+    const sourceEdit =
+      activeSlotIdRef.current === "foto_2"
+        ? slot2Edit || slot1Edit
+        : slot1Edit || slot2Edit;
     if (!sourceEdit) return;
 
-    const nextState: EditStateModel = {
-      ...editState,
+    commitEditState({
+      ...prev,
       slot_edits: {
-        ...editState.slot_edits,
+        ...prev.slot_edits,
         foto_1: { ...sourceEdit },
         foto_2: { ...sourceEdit },
       },
-    };
-    setEditState(nextState);
-    if (historyRef.current) {
-      historyRef.current.push(nextState);
-    }
+    });
   };
 
   // Double-click handler per product (M4-D, M4-E)
   const handleDoubleClickSlot = useCallback(
     (slotId: string) => {
-      if (!editState || !template) return;
+      const prev = editStateRef.current;
+      const tpl = templateRef.current;
+      if (!prev || !tpl) return;
 
-      const slotIds = template.slots.map((s) => s.id);
-      const res = duplicateSlot(template.id, slotIds, slotId, editState.slot_edits);
+      const slotIds = tpl.slots.map((s) => s.id);
+      const res = duplicateSlot(tpl.id, slotIds, slotId, prev.slot_edits);
       if (res) {
-        const nextState: EditStateModel = {
-          ...editState,
+        commitEditState({
+          ...prev,
           slot_edits: res.nextSlotEdits,
-        };
-        setEditState(nextState);
+        });
         setActiveSlotId(res.targetSlotId);
-        if (historyRef.current) {
-          historyRef.current.push(nextState);
-        }
       } else {
         // Calendário or generic: focus slot
         setActiveSlotId(slotId);
       }
     },
-    [editState, template]
+    [commitEditState]
   );
 
   // Batch action: Duplicate active slot to next slot in Chaveiro
@@ -479,64 +590,50 @@ export const App: React.FC = () => {
     handleDoubleClickSlot(activeSlotId);
   }, [activeSlotId, handleDoubleClickSlot]);
 
-  // Batch action: Fill all slots in Chaveiro
-  const handleFillAllSlots = () => {
-    if (!editState || !template) return;
-    const baseEdit = currentSlotEdit || Object.values(editState.slot_edits)[0];
-    if (!baseEdit) {
-      setErrorMessage("Selecione uma foto para o slot ativo antes de preencher todos.");
-      return;
-    }
+  // Batch action: Fill remaining empty slots in Chaveiro
+  const emptySlotsCount = useMemo(() => {
+    if (!template || !editState) return 0;
+    return countEmptySlots(
+      template.slots.map((s) => s.id),
+      editState.slot_edits
+    );
+  }, [template, editState]);
 
-    const newEdits = { ...editState.slot_edits };
-    for (const s of template.slots) {
-      newEdits[s.id] = { ...baseEdit };
-    }
+  const handleFillRemainingSlots = () => {
+    const prev = editStateRef.current;
+    const tpl = templateRef.current;
+    const activeSlot = activeSlotIdRef.current;
+    if (!prev || !tpl || !activeSlot) return;
 
-    const nextState: EditStateModel = {
-      ...editState,
-      slot_edits: newEdits,
-    };
-    setEditState(nextState);
-    if (historyRef.current) {
-      historyRef.current.push(nextState);
-    }
+    const res = fillEmptySlots({
+      slotIds: tpl.slots.map((s) => s.id),
+      slotEdits: prev.slot_edits,
+      baseSlotId: activeSlot,
+    });
+    if (!res) return;
+
+    commitEditState({
+      ...prev,
+      slot_edits: res.nextSlotEdits,
+    });
   };
 
   // Clear active slot
   const handleClearSlot = () => {
-    if (!editState || !activeSlotId || !editState.slot_edits[activeSlotId]) return;
-    const newEdits = { ...editState.slot_edits };
-    delete newEdits[activeSlotId];
-
-    const nextState: EditStateModel = {
-      ...editState,
-      slot_edits: newEdits,
-    };
-    setEditState(nextState);
-    if (historyRef.current) {
-      historyRef.current.push(nextState);
-    }
+    removeActiveSlotPhoto();
   };
 
   // Add photos button
   const handleAddPhotos = async () => {
     try {
       setErrorMessage(null);
-      const newAssets = await bridge.openFileDialog();
-      if (newAssets.length > 0) {
-        setSources((prev) => {
-          const map = new Map(prev.map((a) => [a.id, a]));
-          for (const a of newAssets) {
-            map.set(a.id, a);
-          }
-          return Array.from(map.values());
-        });
-
-        // Automatically assign first imported asset to active slot if empty
-        if (!currentSlotEdit && activeSlotId) {
-          handleSelectSource(newAssets[0]);
-        }
+      const batch = await bridge.openFileDialog();
+      if (batch.sources.length > 0) {
+        setSources(batch.sources);
+        const active = activeSlotIdRef.current;
+        const anchor =
+          active && !editStateRef.current?.slot_edits[active] ? active : null;
+        applySourceBatch(batch.accepted_ids, anchor);
       }
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : String(err));
@@ -816,11 +913,16 @@ export const App: React.FC = () => {
                   </button>
                   <button
                     className="btn-secondary"
-                    onClick={handleFillAllSlots}
+                    onClick={handleFillRemainingSlots}
+                    disabled={!currentSlotEdit || emptySlotsCount === 0}
                     style={{ fontSize: "12px", padding: "5px 12px", backgroundColor: "#1e293b" }}
-                    title="Preencher toda a folha com a foto do slot ativo"
+                    title={
+                      currentSlotEdit
+                        ? `Preencher ${emptySlotsCount} campo(s) vazio(s) com a foto selecionada`
+                        : "Selecione um slot com foto para preencher os campos vazios"
+                    }
                   >
-                    ⚡ Preencher todos os 18 slots
+                    ⚡ Preencher restantes ({emptySlotsCount})
                   </button>
                 </>
               )}
@@ -830,7 +932,7 @@ export const App: React.FC = () => {
                   className="btn-secondary"
                   onClick={handleClearSlot}
                   style={{ fontSize: "12px", padding: "5px 10px", color: "#f87171" }}
-                  title="Remover foto do slot selecionado"
+                  title="Remover foto do slot selecionado (Delete)"
                 >
                   Remover foto
                 </button>
@@ -1045,6 +1147,39 @@ export const App: React.FC = () => {
                 + Adicionar Fotos
               </button>
             </div>
+
+            {trayNotice && (
+              <div
+                style={{
+                  padding: "8px 12px",
+                  marginBottom: "12px",
+                  borderRadius: "6px",
+                  backgroundColor: "#0f172a",
+                  border: "1px solid #38bdf8",
+                  color: "#38bdf8",
+                  fontSize: "12px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span>ℹ️ {trayNotice}</span>
+                <button
+                  onClick={() => setTrayNotice(null)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#94a3b8",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    padding: "0 4px",
+                  }}
+                  title="Fechar aviso"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             <div
               style={{
