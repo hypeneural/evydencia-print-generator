@@ -49,7 +49,7 @@ Ferramentas estruturais:
 |---|---:|---:|---|
 | Chaveiro 3x4 | 216 × 152 mm | 18 (6×3), 34 × 44 mm | draft; prova física pendente |
 | Calendário 2027 | dimensão física a confirmar | 1 | primeiro vertical slice |
-| Globo de neve | 216 × 102 mm | 2 × 50 × 80 mm | canonical 216×102; prova física pendente |
+| Globo de neve | 152 × 102 mm | 2 × 50 × 80 mm | canonical 152×102; prova física pendente |
 
 ## Stack
 - React + TypeScript + Fabric.js 7.x
