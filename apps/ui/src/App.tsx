@@ -47,6 +47,9 @@ export const App: React.FC = () => {
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isManagerGeometryUnlocked, setIsManagerGeometryUnlocked] = useState(false);
+  const isGeometryLocked =
+    template?.status === "production" && !isManagerGeometryUnlocked;
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout>({
     fitScale: 1.0,
@@ -149,6 +152,7 @@ export const App: React.FC = () => {
     if (tpl.id === template?.id) return;
     setTemplate(tpl);
     setDraft(createDraftFromTemplate(tpl));
+    setIsManagerGeometryUnlocked(false);
     const firstSlot = tpl.slots[0]?.id || "";
     setActiveSlotId(firstSlot);
 
@@ -867,6 +871,7 @@ export const App: React.FC = () => {
               draft={draft}
               onDraftSlotChange={handleDraftSlotChange}
               onDropPhoto={handleDropAssetOnSlot}
+              geometryLocked={isGeometryLocked}
             />
           ) : (
             <div style={{ color: "#64748b" }}>Carregando produto...</div>
@@ -880,6 +885,9 @@ export const App: React.FC = () => {
             activeSlotId={activeSlotId}
             onSelectSlot={setActiveSlotId}
             onUpdateDraft={setDraft}
+            isGeometryLocked={isGeometryLocked}
+            onUnlockGeometry={() => setIsManagerGeometryUnlocked(true)}
+            onLockGeometry={() => setIsManagerGeometryUnlocked(false)}
           />
         ) : (
           <aside

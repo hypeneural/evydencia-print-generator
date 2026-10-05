@@ -34,6 +34,7 @@ interface ProductCanvasProps {
   draft?: TemplateDraft | null;
   onDraftSlotChange?: (slotId: string, updated: DraftSlot) => void;
   onDropPhoto?: (slotId: string, sourceId: string) => void;
+  geometryLocked?: boolean;
 }
 
 type ManagerDragState =
@@ -67,6 +68,7 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
   draft,
   onDraftSlotChange,
   onDropPhoto,
+  geometryLocked = false,
 }) => {
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<FabricCanvas | null>(null);
@@ -98,6 +100,9 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
   // Synchronized prop refs
   const modeRef = useRef(mode);
   modeRef.current = mode;
+
+  const geometryLockedRef = useRef(geometryLocked);
+  geometryLockedRef.current = geometryLocked;
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -439,6 +444,25 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       // MANAGER MODE INTERACTION
       if (modeRef.current === "manager") {
         const currentDraft = draftRef.current;
+        const slots = currentDraft?.slots || templateRef.current.slots;
+
+        // If geometry is locked, only allow selecting slots without move or resize
+        if (geometryLockedRef.current) {
+          const clickedSlot = slots.find((s) => {
+            const r = s.rect_px;
+            return (
+              x >= r.left &&
+              x <= r.left + r.width &&
+              y >= r.top &&
+              y <= r.top + r.height
+            );
+          });
+          if (clickedSlot && clickedSlot.id !== activeSlotIdRef.current) {
+            onSelectSlotRef.current(clickedSlot.id);
+          }
+          return;
+        }
+
         const currentSlot = currentDraft?.slots.find(
           (s) => s.id === activeSlotIdRef.current
         );
@@ -471,7 +495,6 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
         }
 
         // Check if clicked inside any slot
-        const slots = currentDraft?.slots || templateRef.current.slots;
         const clickedSlot = slots.find((s) => {
           const r = s.rect_px;
           return (
@@ -554,6 +577,7 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
       // MANAGER MODE MOVE/RESIZE
       if (modeRef.current === "manager") {
+        if (geometryLockedRef.current) return;
         const drag = managerDragRef.current;
         if (drag.kind === "move" || drag.kind === "resize") {
           const dx = x - drag.startPointer.x;
@@ -871,25 +895,26 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
       // Update manager corner handles
       if (handleNWRef.current && handleNERef.current && handleSERef.current && handleSWRef.current) {
+        const showHandles = isManager && !geometryLocked;
         handleNWRef.current.set({
           left: slot.rect_px.left,
           top: slot.rect_px.top,
-          visible: isManager,
+          visible: showHandles,
         });
         handleNERef.current.set({
           left: slot.rect_px.left + slot.rect_px.width,
           top: slot.rect_px.top,
-          visible: isManager,
+          visible: showHandles,
         });
         handleSERef.current.set({
           left: slot.rect_px.left + slot.rect_px.width,
           top: slot.rect_px.top + slot.rect_px.height,
-          visible: isManager,
+          visible: showHandles,
         });
         handleSWRef.current.set({
           left: slot.rect_px.left,
           top: slot.rect_px.top + slot.rect_px.height,
-          visible: isManager,
+          visible: showHandles,
         });
       }
 
@@ -913,7 +938,7 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
     }
 
     scheduleRender();
-  }, [activeSlotId, mode, draft, scheduleRender]);
+  }, [activeSlotId, mode, draft, geometryLocked, scheduleRender]);
 
   // Synchronize slot visual positions when draft updates externally
   useEffect(() => {
