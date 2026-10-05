@@ -5,7 +5,7 @@
   "name": "Globo de Neve",
   "status": "production",
   "canvas": {
-    "width_mm": 152,
+    "width_mm": 216,
     "height_mm": 102,
     "dpi": 300
   },
@@ -17,7 +17,7 @@
   "slots": [
     {
       "id": "foto_1",
-      "x_mm": 22.5,
+      "x_mm": 54.5,
       "y_mm": 11,
       "width_mm": 50,
       "height_mm": 80,
@@ -28,7 +28,7 @@
     },
     {
       "id": "foto_2",
-      "x_mm": 79.5,
+      "x_mm": 111.5,
       "y_mm": 11,
       "width_mm": 50,
       "height_mm": 80,
@@ -42,12 +42,12 @@
   "groups": [],
   "provenance": {
     "measured": [
-      "canvas 152x102 mm (10x15 cm fotográfico)",
+      "canvas 216x102 mm (folha horizontal 216x102 mm)",
       "2 fotos de 50x80 mm (largura x altura)",
       "espaço de 7 mm entre as fotos centralizado"
     ],
     "derived": [
-      "layout simétrico: par centralizado, gap 7 mm, margens laterais 22,5 mm, margens verticais 11 mm",
+      "layout simétrico: par centralizado, gap 7 mm, margens laterais 54.5 mm, margens verticais 11 mm",
       "DPI de produção definido em 300 DPI"
     ],
     "pending": []
