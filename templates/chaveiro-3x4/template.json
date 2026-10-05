@@ -230,6 +230,8 @@
   },
   "notes": [
     "Todos os 18 slots permitem substituição individual.",
-    "Ação de preenchimento em lote preenche toda a folha com a mesma foto."
+    "Ação 'Preencher restantes' preenche apenas slots vazios com a foto do slot ativo.",
+    "Suporta multi-drop do Windows Explorer e duplicação em lote com wrap-around.",
+    "Permite renderização parcial com no mínimo 2 slots preenchidos."
   ]
 }

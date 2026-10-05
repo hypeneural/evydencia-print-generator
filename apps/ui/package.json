@@ -6,6 +6,7 @@
   "engines": {"node": ">=22.13.0"},
   "scripts": {"dev": "vite", "build": "tsc -b && vite build", "test": "vitest run"},
   "dependencies": {
+    "@fluentui/react-icons": "2.0.343",
     "fabric": "7.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
