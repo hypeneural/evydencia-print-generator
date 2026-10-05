@@ -10,7 +10,7 @@
 - Branch stacked `feat/operator-batch-assignment-delete` (base PR #20):
   - G1 Repository: PASS
   - G2 Unit/Contract: PASS (243 testes Vitest em 10 suites / 141 testes Pytest)
-  - G3 Remote CI: PENDING
+  - G3 Remote CI: PASS (PR #21, Runs #37267085333 e #37267099247 100% verdes)
   - G4 UI / Visual: PENDING
   - G5 Performance: PENDING
   - G6 Windows Native Drop / Shell: PARTIAL
