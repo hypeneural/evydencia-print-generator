@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { bridge } from "./bridge/api";
 import { ProductCanvas } from "./components/ProductCanvas";
 import { ManagerInspector } from "./components/ManagerInspector";
+import { PublishTemplateModal } from "./components/PublishTemplateModal";
 import { createHistoryManager } from "./domain/history";
 import { duplicateSlot } from "./domain/duplication";
 import type { PreviewLayout } from "./domain/layout";
@@ -35,6 +36,8 @@ export const App: React.FC = () => {
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishSuccessMessage, setPublishSuccessMessage] = useState<string | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const [previewLayout, setPreviewLayout] = useState<PreviewLayout>({
     fitScale: 1.0,
@@ -176,6 +179,27 @@ export const App: React.FC = () => {
           height_mm: updatedSlot.height_mm,
         });
       });
+    },
+    []
+  );
+
+  // Handle successful publication from modal
+  const handlePublishSuccess = useCallback(
+    (updatedTemplate: TemplateModel, updatedTemplates: TemplateModel[]) => {
+      setTemplates(updatedTemplates);
+      setTemplate(updatedTemplate);
+      setDraft(createDraftFromTemplate(updatedTemplate));
+      setPublishSuccessMessage(
+        `Template "${updatedTemplate.name}" v${updatedTemplate.template_version} publicado com sucesso no disco!`
+      );
+      setEditState((prev) => {
+        if (!prev || prev.template_id !== updatedTemplate.id) return prev;
+        return {
+          ...prev,
+          template_version: updatedTemplate.template_version,
+        };
+      });
+      setTimeout(() => setPublishSuccessMessage(null), 6000);
     },
     []
   );
@@ -790,6 +814,7 @@ export const App: React.FC = () => {
             activeSlotId={activeSlotId}
             onSelectSlot={setActiveSlotId}
             onUpdateDraft={setDraft}
+            onRequestPublish={() => setShowPublishModal(true)}
           />
         ) : (
           <aside
@@ -1065,6 +1090,11 @@ export const App: React.FC = () => {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {publishSuccessMessage && (
+              <span style={{ color: "#4ade80", fontSize: "13px", fontWeight: "600" }}>
+                ✓ {publishSuccessMessage}
+              </span>
+            )}
             <button
               className="btn-secondary"
               onClick={() => {
@@ -1076,18 +1106,20 @@ export const App: React.FC = () => {
             >
               Descartar Alterações
             </button>
-            <div
+            <button
+              className="btn-success"
+              onClick={() => setShowPublishModal(true)}
               style={{
-                fontSize: "12px",
-                padding: "6px 14px",
-                backgroundColor: "#0369a1",
-                color: "#ffffff",
-                borderRadius: "6px",
-                fontWeight: "600",
+                fontSize: "13px",
+                padding: "6px 16px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
               }}
+              title="Publicar template no disco"
             >
-              Publicação em Disco (Marco M5-B)
-            </div>
+              🚀 Publicar Template
+            </button>
           </div>
         </footer>
       ) : (
@@ -1132,6 +1164,16 @@ export const App: React.FC = () => {
             {rendering ? "GERANDO ARQUIVO ORIGINAL..." : "GERAR ARQUIVO DE PRODUÇÃO"}
           </button>
         </footer>
+      )}
+
+      {showPublishModal && draft && (
+        <PublishTemplateModal
+          isOpen={showPublishModal}
+          onClose={() => setShowPublishModal(false)}
+          draft={draft}
+          originalTemplate={template}
+          onPublishSuccess={handlePublishSuccess}
+        />
       )}
     </div>
   );
