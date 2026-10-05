@@ -26,6 +26,22 @@ Explorer / File Dialog / Drag Drop
                     Fabric
 ```
 
+## Contrato de Ingest em Lote (Batch Ingest)
+Para suportar arrastar múltiplas fotos do Explorer e seleção múltipla no diálogo sem acoplamento nem perda de ordem, o bridge Python expõe o modelo estruturado `IngestBatchModel`:
+
+```ts
+export interface IngestBatchModel {
+  sources: SourceAssetModel[];          // registry completo atualizado
+  accepted_ids: string[];               // IDs deste lote específico, em ordem estrita de seleção/drop
+  rejected: { display_name: string; code: string }[];
+}
+```
+
+### Métodos de Transporte:
+- `open_file_dialog()`: retorna `IngestBatchModel` com apenas os IDs selecionados naquela chamada em `accepted_ids` (evita misturar com arquivos já abertos anteriormente).
+- `handle_native_drop(payload)`: despacha evento com `sources`, `accepted_ids` e coordenadas `clientX/clientY`.
+- `get_startup_batch()`: retorna `{ accepted_ids: string[] }` com a ordem exata dos arquivos passados via CLI ou context menu no momento da abertura da janela.
+
 ## Source identity
 V1:
 `normalized path + size + mtime_ns`

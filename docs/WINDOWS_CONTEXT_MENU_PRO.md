@@ -135,6 +135,18 @@ Depois de estabilizar o CLI pode-se considerar `EnumSubCommands`:
 
 Não criar submenu antes de haver contratos de seleção claros por produto.
 
+### Ordenação e Posicionamento no Menu Moderno (Windows 11)
+
+```text
+MODERN_MENU_VISIBLE      = PASS   (evidência humana confirmada no Windows 11 Home 25H2)
+ABSOLUTE_FIRST_POSITION  = UNSUPPORTED_BY_PUBLIC_API
+```
+
+- **Comportamento do Shell do Windows 11**: O Windows Explorer agrupa itens no menu moderno por design do sistema operacional. Comandos nativos do sistema (como Abrir, Abrir com, Recortar, Copiar) ocupam o topo. Extensões de terceiros registradas via `IExplorerCommand` e Sparse MSIX são agrupadas na seção dedicada de comandos de aplicativos.
+- **Limitações da API Pública**: A interface `IExplorerCommand::GetFlags` aceita apenas constantes da enumeração `EXPCMDFLAGS` (`ECF_DEFAULT`, `ECF_HASSUBCOMMANDS`, `ECF_HASSPLITBUTTON`, `ECF_HIDETITLEWHENISICON`, `ECF_ISSEPARATOR`, `ECF_HASLUACSHIELD`, `ECF_AUTOMENUICONS`). Não existe nenhuma flag para definir prioridade, índice ou posicionamento absoluto no menu moderno.
+- **Posição no Menu Clássico**: A diretiva de registro `Position="Top"` é suportada exclusivamente pelo mecanismo estático do menu clássico ("Mostrar mais opções" / Shift+F10), já implementada em `installer/shell_fallback.py`.
+- **Invariante**: Não utilizar hacks não documentados ou injeções de processo para tentar alterar a ordem nativa do Windows Explorer.
+
 ## Signing
 
 ### Desenvolvimento
