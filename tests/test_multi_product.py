@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from conftest import synthetic_rgb
 from evydencia_print_generator.app.bridge import DesktopBridge
-from evydencia_print_generator.domain.job import EditState, SlotEdit, build_job_snapshot
+from evydencia_print_generator.domain.job import EditState, JobError, SlotEdit, build_job_snapshot
 from evydencia_print_generator.domain.template import load_template
 from evydencia_print_generator.domain.transform import SlotTransform
 from evydencia_print_generator.ingest import (
@@ -21,7 +22,7 @@ TEMPLATES_ROOT = Path(__file__).resolve().parents[1] / "templates"
 
 
 def test_globo_neve_production_render(tmp_path: Path) -> None:
-    """Test Globo de Neve: 2 symmetrical 50x80mm slots on 152x102mm canvas @ 300 DPI."""
+    """Test Globo de Neve: 2 asymmetric 50x80mm slots on 152x102mm canvas @ 300 DPI."""
     tpl_path = TEMPLATES_ROOT / "globo-neve" / "template.json"
     template = load_template(tpl_path)
 
@@ -62,6 +63,30 @@ def test_globo_neve_production_render(tmp_path: Path) -> None:
     assert result.canvas_size_px == (1795, 1205)
     assert result.dpi == 300
     assert result.render_time_ms < 2000.0
+
+
+def test_globo_neve_version_mismatch_rejected(tmp_path: Path) -> None:
+    """Test that EditState with legacy template_version '1.0.0' is rejected against Globo v1.1.0."""
+    tpl_path = TEMPLATES_ROOT / "globo-neve" / "template.json"
+    template = load_template(tpl_path)
+    assert template.template_version == "1.1.0"
+
+    photo_file = tmp_path / "photo.jpg"
+    synthetic_rgb((800, 600)).save(photo_file, format="JPEG")
+    registry = SourceRegistry()
+    source = IngestService(registry).ingest_paths([photo_file]).accepted[0]
+
+    legacy_edit_state = EditState(
+        template_id=template.id,
+        template_version="1.0.0",
+        slot_edits={
+            "foto_1": SlotEdit(source_id=source.id, transform=SlotTransform()),
+            "foto_2": SlotEdit(source_id=source.id, transform=SlotTransform()),
+        },
+    )
+
+    with pytest.raises(JobError, match="edit state targets version '1.0.0', loaded '1.1.0'"):
+        build_job_snapshot(template, legacy_edit_state, registry.get)
 
 
 def test_chaveiro_3x4_production_render_18_slots(tmp_path: Path) -> None:
@@ -143,5 +168,53 @@ def test_bridge_lists_all_three_products(tmp_path: Path) -> None:
         chaveiro = next(t for t in templates if t["id"] == "chaveiro-3x4")
         assert len(chaveiro["slots"]) == 18
         assert chaveiro["canvas_px"] == {"width": 2551, "height": 1795}
+    finally:
+        prev.shutdown()
+
+
+def test_bridge_handles_native_drop(tmp_path: Path) -> None:
+    """Verify DesktopBridge ingests native Explorer drop and evaluates JS callback."""
+    registry = SourceRegistry()
+    cache = PreviewCache(cache_dir=tmp_path / "cache")
+    ingest = IngestService(registry)
+    prev = PreviewService(registry, cache=cache)
+
+    photo_file = tmp_path / "dropped_image.jpg"
+    synthetic_rgb((800, 600)).save(photo_file, format="JPEG")
+
+    eval_calls: list[str] = []
+
+    class MockWindow:
+        def evaluate_js(self, script: str) -> None:
+            eval_calls.append(script)
+
+    try:
+        bridge = DesktopBridge(
+            registry,
+            ingest,
+            prev,
+            "http://127.0.0.1:5000",
+            templates_root=TEMPLATES_ROOT,
+        )
+        mock_win = MockWindow()
+        bridge.set_window(mock_win)
+
+        drop_event = {
+            "dataTransfer": {
+                "files": [
+                    {"pywebviewFullPath": str(photo_file)},
+                ]
+            },
+            "clientX": 250,
+            "clientY": 180,
+        }
+        bridge.handle_native_drop(drop_event)
+
+        assert len(eval_calls) == 1
+        assert "window.__onNativeFileDrop" in eval_calls[0]
+        assert "dropped_image.jpg" in eval_calls[0]
+        assert '"clientX": 250' in eval_calls[0]
+        assert '"clientY": 180' in eval_calls[0]
+        assert len(registry.list()) == 1
     finally:
         prev.shutdown()

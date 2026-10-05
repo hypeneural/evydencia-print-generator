@@ -50,19 +50,20 @@ const mockTemplates: TemplateModel[] = [
   },
   {
     id: "globo-neve",
-    template_version: "1.0.0",
+    template_version: "1.1.0",
     name: "Globo de Neve",
     status: "production",
+    fixed_production_geometry: true,
     canvas: { width_mm: 152, height_mm: 102, dpi: 300 },
     canvas_px: { width: 1795, height: 1205 },
     slots: [
       {
         id: "foto_1",
-        x_mm: 22.5,
-        y_mm: 11.0,
+        x_mm: 16.7,
+        y_mm: 10.2,
         width_mm: 50.0,
         height_mm: 80.0,
-        rect_px: { left: 266, top: 130, width: 590, height: 945 },
+        rect_px: { left: 197, top: 120, width: 591, height: 945 },
         fit: "cover",
         allow_pan: true,
         allow_zoom: true,
@@ -70,11 +71,11 @@ const mockTemplates: TemplateModel[] = [
       },
       {
         id: "foto_2",
-        x_mm: 79.5,
-        y_mm: 11.0,
+        x_mm: 73.7,
+        y_mm: 10.2,
         width_mm: 50.0,
         height_mm: 80.0,
-        rect_px: { left: 939, top: 130, width: 590, height: 945 },
+        rect_px: { left: 870, top: 120, width: 591, height: 945 },
         fit: "cover",
         allow_pan: true,
         allow_zoom: true,
@@ -88,6 +89,7 @@ const mockTemplates: TemplateModel[] = [
     template_version: "1.0.0",
     name: "Chaveiro 3x4 (18 fotos)",
     status: "production",
+    fixed_production_geometry: true,
     canvas: { width_mm: 216, height_mm: 152, dpi: 300 },
     canvas_px: { width: 2551, height: 1795 },
     slots: Array.from({ length: 18 }, (_, i) => {
@@ -95,6 +97,10 @@ const mockTemplates: TemplateModel[] = [
       const row = Math.floor(i / 6);
       const x_mm = 6 + col * 34;
       const y_mm = 10 + row * 44;
+      const left = Math.round((x_mm / 25.4) * 300);
+      const right = Math.round(((x_mm + 34) / 25.4) * 300);
+      const top = Math.round((y_mm / 25.4) * 300);
+      const bottom = Math.round(((y_mm + 44) / 25.4) * 300);
       return {
         id: `slot_${String(i + 1).padStart(2, "0")}`,
         x_mm,
@@ -102,10 +108,10 @@ const mockTemplates: TemplateModel[] = [
         width_mm: 34,
         height_mm: 44,
         rect_px: {
-          left: Math.round((x_mm / 25.4) * 300),
-          top: Math.round((y_mm / 25.4) * 300),
-          width: Math.round((34 / 25.4) * 300),
-          height: Math.round((44 / 25.4) * 300),
+          left,
+          top,
+          width: right - left,
+          height: bottom - top,
         },
         fit: "cover",
         allow_pan: true,

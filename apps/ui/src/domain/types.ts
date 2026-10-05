@@ -39,6 +39,7 @@ export interface TemplateModel {
     path: string;
     url?: string;
   } | null;
+  fixed_production_geometry?: boolean;
 }
 
 export interface SourceAssetModel {

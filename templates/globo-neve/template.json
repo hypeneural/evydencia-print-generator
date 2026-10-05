@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "template_version": "1.0.0",
+  "template_version": "1.1.0",
   "id": "globo-neve",
   "name": "Globo de Neve",
   "status": "production",
@@ -17,10 +17,10 @@
   "slots": [
     {
       "id": "foto_1",
-      "x_mm": 22.5,
-      "y_mm": 11,
-      "width_mm": 50,
-      "height_mm": 80,
+      "x_mm": 16.7,
+      "y_mm": 10.2,
+      "width_mm": 50.0,
+      "height_mm": 80.0,
       "fit": "cover",
       "allow_pan": true,
       "allow_zoom": true,
@@ -28,10 +28,10 @@
     },
     {
       "id": "foto_2",
-      "x_mm": 79.5,
-      "y_mm": 11,
-      "width_mm": 50,
-      "height_mm": 80,
+      "x_mm": 73.7,
+      "y_mm": 10.2,
+      "width_mm": 50.0,
+      "height_mm": 80.0,
       "fit": "cover",
       "allow_pan": true,
       "allow_zoom": true,
@@ -42,18 +42,18 @@
   "groups": [],
   "provenance": {
     "measured": [
-      "canvas 152x102 mm (10x15 cm fotográfico)",
-      "2 fotos de 50x80 mm (largura x altura)",
-      "espaço de 7 mm entre as fotos centralizado"
+      "canvas 152x102 mm (10x15 cm fotográfico horizontal)",
+      "2 fotos de 50x80 mm (largura x altura)"
     ],
     "derived": [
-      "layout simétrico: par centralizado, gap 7 mm, margens laterais 22,5 mm, margens verticais 11 mm",
+      "layout assimétrico derivado de fotografia de referência: foto_1 (x=16.7, y=10.2), foto_2 (x=73.7, y=10.2), gap 7.0 mm, margem direita 28.3 mm, margem inferior 11.8 mm (IMAGE_DERIVED)",
       "DPI de produção definido em 300 DPI"
     ],
     "pending": []
   },
   "notes": [
     "Sem overlay transparente: fundo branco opaco com linhas de guia de corte sutis.",
-    "Cada slot pode usar foto individual ou ser duplicado com 1 clique."
+    "Cada slot pode usar foto individual ou ser duplicado com 1 clique.",
+    "Pendente confirmação vetorial numérica via arquivo CorelDRAW / gabarito oficial do laboratório."
   ]
 }

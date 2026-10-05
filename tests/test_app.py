@@ -105,7 +105,6 @@ def test_asset_server_reports_missing_ui_build(tmp_path: Path) -> None:
         server.stop()
 
 
-
 def test_desktop_bridge_full_lifecycle(asset_server: AssetServer, tmp_path: Path) -> None:
     registry = SourceRegistry()
     cache = PreviewCache(asset_server.cache_dir)
@@ -135,6 +134,14 @@ def test_desktop_bridge_full_lifecycle(asset_server: AssetServer, tmp_path: Path
     assert len(sources) == 1
     asset_data = sources[0]
     assert asset_data["display_name"] == "camera_input.jpg"
+
+    # Wait for async background preview worker to finish
+    asset = registry.get(asset_data["id"])
+    assert asset is not None
+    preview_service.ensure_preview(asset).result(timeout=2.0)
+
+    sources = bridge.get_sources()
+    asset_data = sources[0]
     assert asset_data["preview"]["status"] == "ready"
     assert asset_data["preview"]["url"].startswith(asset_server.base_url)
 
@@ -157,4 +164,33 @@ def test_desktop_bridge_full_lifecycle(asset_server: AssetServer, tmp_path: Path
     assert render_result["bytes_written"] > 0
     assert render_result["render_time_ms"] > 0
 
+    preview_service.shutdown()
+
+
+def test_bridge_ingest_paths_is_non_blocking(tmp_path: Path) -> None:
+    """Verify that bridge.ingest_paths returns immediately without waiting for preview."""
+    import time
+
+    registry = SourceRegistry()
+    cache = PreviewCache(tmp_path / "cache")
+    preview_service = PreviewService(registry, cache=cache)
+    ingest_service = IngestService(registry, schedule_preview=preview_service.ensure_preview)
+
+    bridge = DesktopBridge(
+        registry=registry,
+        ingest_service=ingest_service,
+        preview_service=preview_service,
+        server_base_url="http://127.0.0.1:8000",
+    )
+
+    photo_path = tmp_path / "fast_input.jpg"
+    synthetic_rgb((1200, 800)).save(photo_path, format="JPEG")
+
+    t0 = time.perf_counter()
+    sources = bridge.ingest_paths([str(photo_path)])
+    elapsed = time.perf_counter() - t0
+
+    assert len(sources) == 1
+    # Must return immediately (well under 200ms) without waiting for preview thumbnail
+    assert elapsed < 0.2
     preview_service.shutdown()

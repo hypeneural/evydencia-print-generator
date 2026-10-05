@@ -1,35 +1,25 @@
 # Status
 
-**Estado em 2026-10-04:** renderer/geometria multi-produto estão avançados; menu moderno do Windows foi validado visualmente; a UI do Operador está em hardening de viewport/interação e a main atual não está com CI remoto totalmente verde.
+**Estado em 2026-10-04:** M4 (Operator UI Hardening) e M5-A (Manager Mode Foundation) concluídos e mergeados na `main`. O PR #20 está em hardening forense antes dos gates de validação visual e manual no Windows 11. O PR #19 permanece bloqueado.
 
 ## Evidência atual
-- main auditada: `f0e2d1280f1ad347816bdcfb5b7c2446a74048bb`.
-- GitHub Actions #49: verify_repo PASS, pytest Linux PASS (122 passed, 7 skipped), Ruff FAIL; workflow geral FAILURE.
-- Windows contract PASS, porém o workflow atual ainda não executa pytest completo no Windows.
-- Frontend ainda não possui job remoto próprio de test/build na main auditada.
-- Captura real do Windows 11 Home 25H2 confirma “Gerar com EVYDÊNCIA” no menu moderno com ícone.
+- main base auditada: `7a6966b098fd728707e4f2d02621372d61da80ba`.
+- CI na main: 100% verde (Run #37245385949).
+- PR #20 (`fix/product-preview-viewport-and-drop-ux`): Push Run #37253314308 e PR Run #37253348995 100% verdes.
+- Status do PR #20: BLOCKED — FORENSIC HARDENING REQUIRED (G4 Visual, G5 Performance, G6 Windows Native Drop e G7 Physical Geometry em PENDING).
+- PR #19 (`feat/manager-publish-pipeline`): BLOQUEADO até que o PR #20 seja finalizado e mergeado.
 
 ## Renderer / geometria
-- Calendário: asset 1067×1474 e slot transparente medido correspondem ao template atual.
-- Globo: output 1795×1205.
-- Chaveiro: output 2551×1795.
-- Render final e preview visual são contratos diferentes; UI não é considerada validada apenas pelos testes de output.
+- Calendário: asset 1067×1474 a 254 DPI e slot medido correspondem ao template atual.
+- Globo: output canônico 1795×1205 a 300 DPI (`152×102 mm`, layout assimétrico derivado de gabarito real, `template_version: 1.1.0`).
+- Chaveiro: output 2551×1795 a 300 DPI (`216×152 mm`, 18 slots em 6×3).
+- Render final e preview visual são contratos separados; UI não é validada apenas pelos testes de render.
 
-## UI Operador — HARDENING (M4 — Issue #15)
-Status dos entregáveis:
-- [x] PreviewLayout separado de canvas físico: PASS local (`apps/ui/src/domain/layout.ts`)
-- [x] Corrigir aspect ratio visual de Globo/Chaveiro: PASS local (`apps/ui/src/domain/visual_layout.test.ts`)
-- [x] Overlay do Calendário ocupar 100% do preview: PASS local (`ProductCanvas.tsx`)
-- [x] Cena Fabric persistente sem reload no hot path: PASS local (`ProductCanvas.tsx`)
-- [x] Startup assíncrono sem bloqueio de thumbnails: PASS local (`window.py`, `bridge.py`, `App.tsx`)
-- [x] Double-click de duplicação por produto: PASS local (`duplication.ts`, `duplication.test.ts`, `App.tsx`)
-- [x] Bateria de testes visuais e frontend CI: PASS local (42 testes Vitest, build Vite, CI workflow atualizado)
-
-## Windows
-- menu moderno: VISUAL PASS;
-- ícone: VISUAL PASS;
-- posição absoluta como primeira entrada: não controlável pela API moderna; Explorer decide agrupamento;
-- lifecycle/install/uninstall/release signing continuam sujeitos aos gates da entrega correspondente.
+## Marcos
+- M4 (Operator UI Hardening): **MERGED** (PR #16, Issue #15 fechada).
+- M5-A (Manager Mode Foundation): **MERGED** (PR #18).
+- PR #20 (Hotfix / Viewport, Wheel coalescido, Explorer DnD, Globo v1.1.0 e Paridade Visual Fabric 7): **EM HARDENING FORENSE**.
+- M5-B (Persistência e versionamento do Gestor): **PENDENTE** (inicia após conclusão deste ciclo).
 
 ## Regra
 Não usar “100% concluído” sem listar os gates de docs/QUALITY_GATES.md.

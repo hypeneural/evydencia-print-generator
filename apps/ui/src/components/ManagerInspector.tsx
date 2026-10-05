@@ -11,6 +11,9 @@ interface ManagerInspectorProps {
   activeSlotId: string;
   onSelectSlot: (slotId: string) => void;
   onUpdateDraft: (updated: TemplateDraft) => void;
+  isGeometryLocked?: boolean;
+  onUnlockGeometry?: () => void;
+  onLockGeometry?: () => void;
 }
 
 export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
@@ -18,6 +21,9 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
   activeSlotId,
   onSelectSlot,
   onUpdateDraft,
+  isGeometryLocked = false,
+  onUnlockGeometry,
+  onLockGeometry,
 }) => {
   const activeSlot = draft.slots.find((s) => s.id === activeSlotId);
   const validation = validateTemplateDraft(draft);
@@ -269,6 +275,103 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
         )}
       </div>
 
+      {/* Production Geometry Protection Banner */}
+      {isGeometryLocked ? (
+        <div
+          style={{
+            padding: "12px",
+            backgroundColor: "#1e293b",
+            border: "1px solid #334155",
+            borderRadius: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "16px" }}>🔒</span>
+            <div>
+              <div style={{ fontSize: "12px", fontWeight: "600", color: "#f8fafc" }}>
+                Geometria de Produção Fixa
+              </div>
+              <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                Gabarito físico industrial aprovado. Edição bloqueada por segurança.
+              </div>
+            </div>
+          </div>
+          {onUnlockGeometry && (
+            <button
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Atenção: alterar a geometria deste gabarito físico pode invalidar facas de corte e impressões industriais aprovadas. Deseja realmente desbloquear a edição avançada?"
+                  )
+                ) {
+                  onUnlockGeometry();
+                }
+              }}
+              style={{
+                padding: "5px 10px",
+                backgroundColor: "#334155",
+                border: "1px solid #475569",
+                borderRadius: "4px",
+                color: "#e2e8f0",
+                fontSize: "11px",
+                cursor: "pointer",
+                fontWeight: "500",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Desbloquear
+            </button>
+          )}
+        </div>
+      ) : draft.status === "production" ? (
+        <div
+          style={{
+            padding: "10px 12px",
+            backgroundColor: "rgba(245, 158, 11, 0.15)",
+            border: "1px solid rgba(245, 158, 11, 0.4)",
+            borderRadius: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "16px" }}>🔓</span>
+            <div>
+              <div style={{ fontSize: "12px", fontWeight: "600", color: "#fcd34d" }}>
+                Edição Avançada Desbloqueada
+              </div>
+              <div style={{ fontSize: "11px", color: "#fef3c7" }}>
+                Cuidado ao modificar dimensões físicas do gabarito.
+              </div>
+            </div>
+          </div>
+          {onLockGeometry && (
+            <button
+              onClick={onLockGeometry}
+              style={{
+                padding: "4px 8px",
+                backgroundColor: "#78350f",
+                border: "1px solid #d97706",
+                borderRadius: "4px",
+                color: "#fef3c7",
+                fontSize: "11px",
+                cursor: "pointer",
+                fontWeight: "500",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Bloquear
+            </button>
+          )}
+        </div>
+      ) : null}
+
       {/* Section 1: Physical Paper / Canvas */}
       <div
         style={{
@@ -291,13 +394,16 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
           </h3>
           <button
             onClick={handleFlipOrientation}
-            title="Alternar Orientação (Paisagem / Retrato)"
+            disabled={isGeometryLocked}
+            title={isGeometryLocked ? "Geometria fixa bloqueada" : "Alternar Orientação (Paisagem / Retrato)"}
             style={{
               fontSize: "11px",
               padding: "4px 8px",
-              backgroundColor: "#334155",
-              color: "#cbd5e1",
+              backgroundColor: isGeometryLocked ? "#1e293b" : "#334155",
+              color: isGeometryLocked ? "#64748b" : "#cbd5e1",
               borderRadius: "4px",
+              cursor: isGeometryLocked ? "not-allowed" : "pointer",
+              border: "1px solid #334155",
             }}
           >
             ⇄ Girar Folha
@@ -311,6 +417,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
               type="number"
               step="0.1"
               min="1"
+              disabled={isGeometryLocked}
               value={draft.canvas.width_mm}
               onChange={(e) =>
                 handleCanvasChange("width_mm", parseFloat(e.target.value))
@@ -319,11 +426,12 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                 width: "100%",
                 padding: "6px 8px",
                 marginTop: "4px",
-                backgroundColor: "#0f172a",
+                backgroundColor: isGeometryLocked ? "#1e293b" : "#0f172a",
                 border: "1px solid #334155",
                 borderRadius: "4px",
-                color: "#ffffff",
+                color: isGeometryLocked ? "#94a3b8" : "#ffffff",
                 fontSize: "13px",
+                cursor: isGeometryLocked ? "not-allowed" : "text",
               }}
             />
           </div>
@@ -333,6 +441,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
               type="number"
               step="0.1"
               min="1"
+              disabled={isGeometryLocked}
               value={draft.canvas.height_mm}
               onChange={(e) =>
                 handleCanvasChange("height_mm", parseFloat(e.target.value))
@@ -341,11 +450,12 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                 width: "100%",
                 padding: "6px 8px",
                 marginTop: "4px",
-                backgroundColor: "#0f172a",
+                backgroundColor: isGeometryLocked ? "#1e293b" : "#0f172a",
                 border: "1px solid #334155",
                 borderRadius: "4px",
-                color: "#ffffff",
+                color: isGeometryLocked ? "#94a3b8" : "#ffffff",
                 fontSize: "13px",
+                cursor: isGeometryLocked ? "not-allowed" : "text",
               }}
             />
           </div>
@@ -356,6 +466,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
             <label style={{ fontSize: "11px", color: "#94a3b8" }}>Resolução (DPI)</label>
             <select
               value={draft.canvas.dpi}
+              disabled={isGeometryLocked}
               onChange={(e) =>
                 handleCanvasChange("dpi", parseInt(e.target.value, 10))
               }
@@ -363,11 +474,12 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                 width: "100%",
                 padding: "6px 8px",
                 marginTop: "4px",
-                backgroundColor: "#0f172a",
+                backgroundColor: isGeometryLocked ? "#1e293b" : "#0f172a",
                 border: "1px solid #334155",
                 borderRadius: "4px",
-                color: "#ffffff",
+                color: isGeometryLocked ? "#94a3b8" : "#ffffff",
                 fontSize: "13px",
+                cursor: isGeometryLocked ? "not-allowed" : "pointer",
               }}
             >
               <option value="150">150 DPI (Rascunho)</option>
@@ -417,12 +529,15 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
           </h3>
           <button
             onClick={handleAddSlot}
+            disabled={isGeometryLocked}
             style={{
               fontSize: "11px",
               padding: "4px 8px",
-              backgroundColor: "#2563eb",
-              color: "#ffffff",
+              backgroundColor: isGeometryLocked ? "#1e293b" : "#2563eb",
+              color: isGeometryLocked ? "#64748b" : "#ffffff",
               borderRadius: "4px",
+              cursor: isGeometryLocked ? "not-allowed" : "pointer",
+              border: "1px solid #334155",
             }}
           >
             + Adicionar Slot
@@ -474,6 +589,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                 <input
                   type="number"
                   step="0.1"
+                  disabled={isGeometryLocked}
                   value={activeSlot.x_mm}
                   onChange={(e) =>
                     handleSlotChange({ x_mm: parseFloat(e.target.value) || 0 })
@@ -482,11 +598,12 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                     width: "100%",
                     padding: "6px 8px",
                     marginTop: "4px",
-                    backgroundColor: "#0f172a",
+                    backgroundColor: isGeometryLocked ? "#1e293b" : "#0f172a",
                     border: "1px solid #334155",
                     borderRadius: "4px",
-                    color: "#ffffff",
+                    color: isGeometryLocked ? "#94a3b8" : "#ffffff",
                     fontSize: "13px",
+                    cursor: isGeometryLocked ? "not-allowed" : "text",
                   }}
                 />
               </div>
@@ -495,6 +612,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                 <input
                   type="number"
                   step="0.1"
+                  disabled={isGeometryLocked}
                   value={activeSlot.y_mm}
                   onChange={(e) =>
                     handleSlotChange({ y_mm: parseFloat(e.target.value) || 0 })
@@ -503,11 +621,12 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                     width: "100%",
                     padding: "6px 8px",
                     marginTop: "4px",
-                    backgroundColor: "#0f172a",
+                    backgroundColor: isGeometryLocked ? "#1e293b" : "#0f172a",
                     border: "1px solid #334155",
                     borderRadius: "4px",
-                    color: "#ffffff",
+                    color: isGeometryLocked ? "#94a3b8" : "#ffffff",
                     fontSize: "13px",
+                    cursor: isGeometryLocked ? "not-allowed" : "text",
                   }}
                 />
               </div>
@@ -521,6 +640,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                   type="number"
                   step="0.1"
                   min="1"
+                  disabled={isGeometryLocked}
                   value={activeSlot.width_mm}
                   onChange={(e) =>
                     handleSlotChange({ width_mm: parseFloat(e.target.value) || 1 })
@@ -529,11 +649,12 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                     width: "100%",
                     padding: "6px 8px",
                     marginTop: "4px",
-                    backgroundColor: "#0f172a",
+                    backgroundColor: isGeometryLocked ? "#1e293b" : "#0f172a",
                     border: "1px solid #334155",
                     borderRadius: "4px",
-                    color: "#ffffff",
+                    color: isGeometryLocked ? "#94a3b8" : "#ffffff",
                     fontSize: "13px",
+                    cursor: isGeometryLocked ? "not-allowed" : "text",
                   }}
                 />
               </div>
@@ -543,6 +664,7 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                   type="number"
                   step="0.1"
                   min="1"
+                  disabled={isGeometryLocked}
                   value={activeSlot.height_mm}
                   onChange={(e) =>
                     handleSlotChange({ height_mm: parseFloat(e.target.value) || 1 })
@@ -551,11 +673,12 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
                     width: "100%",
                     padding: "6px 8px",
                     marginTop: "4px",
-                    backgroundColor: "#0f172a",
+                    backgroundColor: isGeometryLocked ? "#1e293b" : "#0f172a",
                     border: "1px solid #334155",
                     borderRadius: "4px",
-                    color: "#ffffff",
+                    color: isGeometryLocked ? "#94a3b8" : "#ffffff",
                     fontSize: "13px",
+                    cursor: isGeometryLocked ? "not-allowed" : "text",
                   }}
                 />
               </div>
@@ -622,26 +745,33 @@ export const ManagerInspector: React.FC<ManagerInspectorProps> = ({
             <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
               <button
                 onClick={handleDuplicateSlot}
+                disabled={isGeometryLocked}
                 style={{
                   flex: 1,
                   padding: "6px 10px",
-                  backgroundColor: "#334155",
-                  color: "#f8fafc",
+                  backgroundColor: isGeometryLocked ? "#1e293b" : "#334155",
+                  color: isGeometryLocked ? "#64748b" : "#f8fafc",
                   fontSize: "12px",
                   borderRadius: "4px",
+                  cursor: isGeometryLocked ? "not-allowed" : "pointer",
+                  border: "1px solid #334155",
                 }}
               >
                 Duplicar Slot
               </button>
               <button
                 onClick={handleDeleteSlot}
-                disabled={draft.slots.length <= 1}
+                disabled={isGeometryLocked || draft.slots.length <= 1}
                 style={{
                   padding: "6px 10px",
-                  backgroundColor: draft.slots.length <= 1 ? "#1e293b" : "#7f1d1d",
-                  color: draft.slots.length <= 1 ? "#64748b" : "#fca5a5",
+                  backgroundColor:
+                    isGeometryLocked || draft.slots.length <= 1 ? "#1e293b" : "#7f1d1d",
+                  color:
+                    isGeometryLocked || draft.slots.length <= 1 ? "#64748b" : "#fca5a5",
                   fontSize: "12px",
                   borderRadius: "4px",
+                  cursor: isGeometryLocked || draft.slots.length <= 1 ? "not-allowed" : "pointer",
+                  border: "1px solid #334155",
                 }}
               >
                 Remover

@@ -47,8 +47,8 @@ A superfície mínima contém:
 - deve existir alternativa visível ao gesto para acessibilidade.
 
 ## Globo
-- canvas paisagem 152×102 mm;
-- dois slots 50×80 mm lado a lado;
+- canvas paisagem 152×102 mm (1795×1205 px @ 300 DPI);
+- dois slots 50×80 mm lado a lado (x=16.7 mm e x=73.7 mm, gap 7 mm assimétrico derivado do gabarito físico real, margem direita 28.3 mm);
 - **Usar mesma foto nos dois** continua disponível;
 - double-click em slot preenchido copia o SlotEditState inteiro para o outro slot;
 - depois da cópia, cada slot pode ser ajustado independentemente.
