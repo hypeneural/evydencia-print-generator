@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..domain.job import JobSnapshot
 from ..domain.template import Template, TemplateError
+from ..imaging.color import get_srgb_profile_bytes
 from .compose import compose_canvas
 from .models import RenderError, RenderOptions, RenderResult
 from .output import atomic_save_image, resolve_output_path
@@ -36,13 +37,14 @@ def render(
     opts = options or RenderOptions()
     t0 = time.perf_counter()
 
-    # Compose full resolution canvas and extract ICC profile
+    # Compose full resolution canvas in canonical sRGB
     composed_image, icc = compose_canvas(
         template,
         snapshot,
         resample=opts.resample,
         draw_cut_guidelines=opts.draw_cut_guidelines,
     )
+    icc = icc or get_srgb_profile_bytes()
 
     # Determine primary source path for output naming (first filled slot in template order)
     primary_source_path: Path | None = None
