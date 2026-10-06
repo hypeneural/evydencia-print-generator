@@ -6,8 +6,10 @@ from PIL import Image, ImageDraw, ImageOps
 
 from ..domain.job import JobSnapshot
 from ..domain.template import Template
-from ..domain.transform import SlotTransform, resolve_placement, slot_to_source_affine
+from ..domain.transform import SlotTransform
+from ..imaging.color import get_srgb_profile_bytes, normalize_to_srgb
 from .models import RenderError
+from .resample import resample_slot
 
 
 def render_slot(
@@ -16,17 +18,8 @@ def render_slot(
     transform: SlotTransform,
     resample: Image.Resampling = Image.Resampling.BICUBIC,
 ) -> Image.Image:
-    """Render a source image into slot dimensions using ADR-011 inverse affine transform."""
-    sw, sh = src_image.size
-    slot_w, slot_h = slot_size_px
-    placement = resolve_placement(sw, sh, slot_w, slot_h, transform)
-    affine = slot_to_source_affine(sw, sh, placement)
-    return src_image.transform(
-        (slot_w, slot_h),
-        method=Image.Transform.AFFINE,
-        data=affine,
-        resample=resample,
-    )
+    """Render a source image into slot dimensions using ADR-013 high-fidelity resampling."""
+    return resample_slot(src_image, slot_size_px, transform)
 
 
 def compose_canvas(
@@ -35,17 +28,17 @@ def compose_canvas(
     resample: Image.Resampling = Image.Resampling.BICUBIC,
     draw_cut_guidelines: bool = False,
 ) -> tuple[Image.Image, bytes | None]:
-    """Compose all slots and overlay onto a canvas.
+    """Compose all slots and overlay onto a canvas in canonical sRGB color space.
 
     Returns:
-        (composed_image, primary_icc_profile_bytes)
+        (composed_image, canonical_srgb_icc_bytes)
     """
     canvas_w, canvas_h = template.canvas_px()
-    # Base RGBA canvas (white solid background)
+    # Base RGBA canvas (white solid background in canonical sRGB)
     canvas = Image.new("RGBA", (canvas_w, canvas_h), (255, 255, 255, 255))
-    primary_icc: bytes | None = None
+    srgb_icc = get_srgb_profile_bytes()
 
-    loaded_sources: dict[str, tuple[Image.Image, bytes | None]] = {}
+    loaded_sources: dict[str, Image.Image] = {}
 
     try:
         for slot in template.slots:
@@ -59,16 +52,16 @@ def compose_canvas(
                 with Image.open(job_source.path) as raw:
                     icc = raw.info.get("icc_profile")
                     oriented = ImageOps.exif_transpose(raw)
-                    if oriented.mode not in {"RGB", "RGBA"}:
-                        oriented = oriented.convert("RGB")
-                    loaded_sources[job_source.source_id] = (oriented, icc)
+                    # Normalize source directly to canonical sRGB
+                    srgb_img = normalize_to_srgb(oriented, icc)
+                    if srgb_img.mode not in {"RGB", "RGBA"}:
+                        srgb_img = srgb_img.convert("RGB")
+                    loaded_sources[job_source.source_id] = srgb_img
 
-            oriented, icc = loaded_sources[job_source.source_id]
-            if primary_icc is None and icc is not None:
-                primary_icc = icc
+            oriented_srgb = loaded_sources[job_source.source_id]
 
             slot_img = render_slot(
-                oriented,
+                oriented_srgb,
                 (rect.width, rect.height),
                 slot_edit.transform,
                 resample=resample,
@@ -79,7 +72,7 @@ def compose_canvas(
             else:
                 canvas.paste(slot_img, (rect.left, rect.top))
     finally:
-        for img, _ in loaded_sources.values():
+        for img in loaded_sources.values():
             img.close()
 
     # Composite overlay RGBA if template specifies one, else draw subtle cut guidelines
@@ -97,10 +90,12 @@ def compose_canvas(
                     f"expected {canvas_w}x{canvas_h}, got {actual_sz} "
                     f"({template.overlay.path})"
                 )
+            # Ensure overlay is normalized to sRGB
+            overlay_srgb = normalize_to_srgb(overlay_raw)
             overlay = (
-                overlay_raw
-                if overlay_raw.size == (canvas_w, canvas_h)
-                else overlay_raw.resize((canvas_w, canvas_h), Image.Resampling.LANCZOS)
+                overlay_srgb
+                if overlay_srgb.size == (canvas_w, canvas_h)
+                else overlay_srgb.resize((canvas_w, canvas_h), Image.Resampling.LANCZOS)
             )
             if overlay.mode != "RGBA":
                 overlay = overlay.convert("RGBA")
@@ -121,6 +116,6 @@ def compose_canvas(
     if fmt_upper in {"JPEG", "JPG"}:
         out_rgb = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
         out_rgb.paste(canvas, mask=canvas.split()[3])
-        return out_rgb, primary_icc
+        return out_rgb, srgb_icc
 
-    return canvas, primary_icc
+    return canvas, srgb_icc

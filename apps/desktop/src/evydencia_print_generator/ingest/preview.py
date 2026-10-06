@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageOps
 
+from ..imaging.color import get_srgb_profile_bytes, normalize_to_srgb
 from .cache import PreviewCache
 from .models import PreviewStatus, SourceAsset
 
@@ -27,7 +28,7 @@ PreviewListener = Callable[[SourceAsset, PreviewStatus], None]
 def generate_preview_image(
     path: Path, max_side: int = DEFAULT_PREVIEW_MAX_SIDE
 ) -> tuple[Image.Image, bytes | None]:
-    """Read an image, apply draft scaling (proportional target) + EXIF transpose + LANCZOS."""
+    """Read an image, apply draft scaling + EXIF transpose + LANCZOS + sRGB normalization."""
     with Image.open(path) as im:
         icc = im.info.get("icc_profile")
         orig_w, orig_h = im.size
@@ -46,7 +47,9 @@ def generate_preview_image(
     if max(w, h) > max_side:
         upright.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
 
-    return upright, icc
+    # Normalize preview proxy to canonical sRGB (ADR-012)
+    srgb_img = normalize_to_srgb(upright, icc)
+    return srgb_img, get_srgb_profile_bytes()
 
 
 class PreviewService:

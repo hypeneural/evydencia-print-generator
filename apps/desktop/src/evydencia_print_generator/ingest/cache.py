@@ -12,7 +12,7 @@ from PIL import Image
 
 from ..paths import preview_cache_dir
 
-PREVIEW_CACHE_VERSION = "1"
+PREVIEW_CACHE_VERSION = "2"
 DEFAULT_MAX_BYTES = 1_000_000_000  # 1 GB
 DEFAULT_MAX_AGE_SECONDS = 30 * 86400.0  # 30 days
 

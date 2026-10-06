@@ -30,10 +30,19 @@
   - G6 Windows Shell Integration: PASS (6 testes de reveal passando, assets canônicos gerados)
   - G7 Physical Geometry: PENDING (Template Governance Audit documentado com matriz de governança)
   - Veredito: READY_FOR_VISUAL_REVIEW
+- Branch stacked `fix/production-color-resampling` (PR #24, base PR #23):
+  - G1 Repository: PASS
+  - G2 Unit/Contract: PASS (273 testes Vitest em 14 suites / 181 testes Pytest Windows e Linux, 0 erros no Ruff, verificação de repositório 100% OK)
+  - G3 Remote CI: PASS (PR #24, Runs #37414058744 e #37414063046 100% verdes em Ubuntu e Windows)
+  - G4 UI / Visual: PASS (100% paridade cromática tela vs arquivo de produção em sRGB)
+  - G5 Performance: PASS (180ms para rotação zero, 430ms para rotação arbitrária, orçamento < 2500ms respeitado)
+  - G6 Windows Shell Integration: PASS (diagnose tool pericial, reveal e context menu preservados)
+  - G7 Physical Geometry: PENDING (Calendário auditado em docs/CALENDAR_PRODUCTION_SIZE_AUDIT.md, aguardando prova física no minilab)
+  - Veredito: READY_FOR_VISUAL_REVIEW
 - PR #19 (`feat/manager-publish-pipeline`): BLOQUEADO até que o PR #20 seja finalizado e mergeado.
 
 ## Renderer / geometria
-- Calendário: asset 1067×1474 a 254 DPI e slot medido correspondem ao template atual.
+- Calendário: asset 1067×1474 a 254 DPI e slot medido correspondem ao template atual (auditado em docs/CALENDAR_PRODUCTION_SIZE_AUDIT.md).
 - Globo: output canônico 1795×1205 a 300 DPI (`152×102 mm`, layout assimétrico derivado de gabarito real, `template_version: 1.1.0`).
 - Chaveiro: output 2551×1795 a 300 DPI (`216×152 mm`, 18 slots em 6×3, suporte a renderização parcial a partir de 2 slots).
 - Polaroid Natal: output 980×1205 a 300 DPI (`82.97×102.02 mm`, 1 slot medido `foto_principal`, overlay obrigatório fail-closed, template draft).
@@ -45,7 +54,8 @@
 - PR #20 (Hotfix / Viewport, Wheel coalescido, Explorer DnD, Globo v1.1.0 e Paridade Visual Fabric 7): **EM HARDENING FORENSE**.
 - PR #21 (`feat/operator-batch-assignment-delete`): **READY_FOR_VISUAL_REVIEW**.
 - PR #22 (`feat/operator-precision-polaroid-partial-render`): **READY_FOR_VISUAL_REVIEW**.
-- PR #23 (`feat/ui-branding-accessibility-governance`): **READY_FOR_VISUAL_REVIEW** (Design Tokens Fluent 2, eliminação total de emojis, assets canônicos, enforce de permissões de operador, digitação segura de rotação, governança de templates).
+- PR #23 (`feat/ui-branding-accessibility-governance`): **READY_FOR_VISUAL_REVIEW**.
+- PR #24 (`fix/production-color-resampling`): **READY_FOR_VISUAL_REVIEW** (Normalização universal sRGB LittleCMS ADR-012, eliminação de "primeiro ICC vence", suporte a Rec. 2020 de câmeras Canon, resampling de alta fidelidade com Lanczos + reducing_gap ADR-013 eliminando aliasing/moiré, governança formal do Calendário 2027).
 - M5-B (Persistência e versionamento do Gestor): **PENDENTE** (inicia após conclusão deste ciclo).
 
 ## Regra
