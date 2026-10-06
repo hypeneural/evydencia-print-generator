@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 from conftest import QUADRANT_COLORS, synthetic_rgb
 from evydencia_print_generator.domain.transform import (
@@ -11,7 +10,7 @@ from evydencia_print_generator.domain.transform import (
     slot_to_source_affine,
 )
 from evydencia_print_generator.render.resample import resample_slot
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageStat
 
 
 def test_resampling_anti_aliasing_grid() -> None:
@@ -40,11 +39,11 @@ def test_resampling_anti_aliasing_grid() -> None:
         data=aff,
         resample=Image.Resampling.BICUBIC,
     )
-    old_std = float(np.std(np.array(old_out)))
+    old_std = float(ImageStat.Stat(old_out.convert("L")).stddev[0])
 
     # 2. New method: resample_slot (Lanczos + reducing_gap)
     new_out = resample_slot(src, slot_size, transform)
-    new_std = float(np.std(np.array(new_out)))
+    new_std = float(ImageStat.Stat(new_out.convert("L")).stddev[0])
 
     # Direct bicubic skips pixels, creating wild 0/255 alternating moiré (std dev > 100)
     # Lanczos properly anti-aliases and band-limits to smooth gray (std dev < 20)
