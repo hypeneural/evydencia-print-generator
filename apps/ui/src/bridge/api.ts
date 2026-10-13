@@ -6,6 +6,16 @@ import type {
   TemplateModel,
 } from "../domain/types";
 
+export interface SoclicHandoffResponse {
+  ok: boolean;
+  job_id?: string;
+  observation?: string;
+  panel_url?: string;
+  is_existing?: boolean;
+  total_orders?: number;
+  error?: string;
+}
+
 declare global {
   interface Window {
     pywebview?: {
@@ -17,6 +27,10 @@ declare global {
         ingest_paths: (paths: string[]) => Promise<SourceAssetModel[]>;
         render_job: (edit_state: EditStateModel) => Promise<RenderResultModel>;
         open_output_folder: (file_path: string) => Promise<boolean>;
+        prepare_soclic: (
+          render_result: RenderResultModel,
+          edit_state: EditStateModel
+        ) => Promise<SoclicHandoffResponse>;
       };
     };
   }
@@ -267,4 +281,24 @@ export const bridge = {
     console.log("Mock open folder:", filePath);
     return true;
   },
+
+  async prepareSoclic(
+    renderResult: RenderResultModel,
+    editState: EditStateModel
+  ): Promise<SoclicHandoffResponse> {
+    if (window.pywebview?.api) {
+      return window.pywebview.api.prepare_soclic(renderResult, editState);
+    }
+    console.log("Mock prepareSoclic:", renderResult, editState);
+    await new Promise((r) => setTimeout(r, 600));
+    return {
+      ok: true,
+      job_id: "job_print_mock123",
+      observation: "Chaveiro | Mock #4101 | 1 folha",
+      panel_url: "http://127.0.0.1:8095/panel/soclick?focus=job_print_mock123#review",
+      is_existing: false,
+      total_orders: 1,
+    };
+  },
 };
+

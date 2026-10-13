@@ -257,6 +257,51 @@ class DesktopBridge:
 
         return reveal_in_explorer(file_path)
 
+    def prepare_soclic(
+        self, render_result_dict: dict[str, Any], edit_state_dict: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Handoff generated production file to EvydFlow / SóClick and open conference."""
+        from ..soclick import PanelUnavailableError, SoclicHandoffError, prepare_soclic_draft
+
+        output_path = render_result_dict.get("output_path")
+        if not output_path:
+            return {"ok": False, "error": "Caminho do arquivo de saída ausente."}
+
+        try:
+            edit_state = EditState.from_ui(edit_state_dict)
+
+            # Resolve template
+            tpl_path = self.templates_root / edit_state.template_id / "template.json"
+            if not tpl_path.is_file():
+                fixture_tpl = (
+                    Path(__file__).resolve().parents[4]
+                    / "tests"
+                    / "fixtures"
+                    / "templates"
+                    / edit_state.template_id
+                    / "template.json"
+                )
+                if fixture_tpl.is_file():
+                    tpl_path = fixture_tpl
+                else:
+                    return {
+                        "ok": False,
+                        "error": f"Template não encontrado: {edit_state.template_id}",
+                    }
+
+            template = load_template(tpl_path)
+            snapshot = build_job_snapshot(template, edit_state, self.registry.get)
+            return prepare_soclic_draft(output_path, snapshot)
+        except PanelUnavailableError as err:
+            logger.warning("SoClic panel unavailable: %s", err)
+            return {"ok": False, "error": str(err)}
+        except SoclicHandoffError as err:
+            logger.warning("SoClic handoff failed: %s", err)
+            return {"ok": False, "error": str(err)}
+        except Exception as exc:
+            logger.exception("Unexpected error during SoClic preparation")
+            return {"ok": False, "error": f"Erro inesperado ao preparar na SóClick: {exc}"}
+
     def handle_drag_ignore(self, event: dict[str, Any]) -> None:
         """No-op handler to acknowledge dragenter/dragover with prevent_default."""
         pass

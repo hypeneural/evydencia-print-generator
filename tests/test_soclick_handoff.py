@@ -1,0 +1,231 @@
+"""Unit tests for the SoClic handoff client and discovery in Print Generator."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from evydencia_print_generator.domain.job import (
+    JobSnapshot,
+    JobSource,
+    SlotEdit,
+    SlotTransform,
+)
+from evydencia_print_generator.soclick.client import (
+    PanelUnavailableError,
+    SoclicHandoffError,
+    prepare_soclic_draft,
+)
+from evydencia_print_generator.soclick.discovery import discover_panel_port
+from PIL import Image
+
+
+def _make_dummy_image(path: Path) -> None:
+    img = Image.new("RGB", (100, 100), color="blue")
+    img.save(path, "JPEG")
+
+
+def test_discover_panel_port_returns_none_when_no_server_running():
+    with patch("evydencia_print_generator.soclick.discovery._is_port_healthy", return_value=False):
+        port = discover_panel_port()
+        assert port is None
+
+
+def test_discover_panel_port_finds_active_port():
+    def fake_healthy(port: int, timeout_sec: float = 0.8) -> bool:
+        return port == 8095
+
+    with patch(
+        "evydencia_print_generator.soclick.discovery._is_port_healthy",
+        side_effect=fake_healthy,
+    ):
+        port = discover_panel_port()
+        assert port == 8095
+
+
+def test_discover_panel_port_respects_env_var(monkeypatch):
+    monkeypatch.setenv("EVYDFLOW_PANEL_PORT", "8120")
+
+    def fake_healthy(port: int, timeout_sec: float = 0.8) -> bool:
+        return port == 8120
+
+    with patch(
+        "evydencia_print_generator.soclick.discovery._is_port_healthy",
+        side_effect=fake_healthy,
+    ):
+        port = discover_panel_port()
+        assert port == 8120
+
+
+def test_prepare_soclic_draft_fails_closed_when_file_not_found(tmp_path):
+    dummy_snapshot = JobSnapshot(
+        template_id="chaveiro-3x4",
+        template_version="1.0.0",
+        sources={},
+        slot_edits={},
+    )
+    non_existent = tmp_path / "does_not_exist.jpg"
+    with pytest.raises(SoclicHandoffError, match="não existe no disco"):
+        prepare_soclic_draft(str(non_existent), dummy_snapshot)
+
+
+def test_prepare_soclic_draft_fails_when_panel_unavailable(tmp_path):
+    img_path = tmp_path / "render.jpg"
+    _make_dummy_image(img_path)
+
+    dummy_snapshot = JobSnapshot(
+        template_id="chaveiro-3x4",
+        template_version="1.0.0",
+        sources={},
+        slot_edits={},
+    )
+
+    with patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=None):
+        with pytest.raises(PanelUnavailableError, match="não está em execução"):
+            prepare_soclic_draft(str(img_path), dummy_snapshot)
+
+
+def test_prepare_soclic_draft_successful_dispatch(tmp_path):
+    rendered = tmp_path / "output.jpg"
+    _make_dummy_image(rendered)
+
+    orig_photo = tmp_path / "Ana #4101" / "foto.jpg"
+    orig_photo.parent.mkdir()
+    _make_dummy_image(orig_photo)
+
+    source = JobSource(
+        source_id="src_1",
+        path=orig_photo,
+        size_bytes=orig_photo.stat().st_size,
+        mtime_ns=orig_photo.stat().st_mtime_ns,
+    )
+    edit = SlotEdit(
+        source_id="src_1",
+        transform=SlotTransform(pan_x_norm=0, pan_y_norm=0, scale=1, rotation_deg=0),
+    )
+    snapshot = JobSnapshot(
+        template_id="chaveiro-3x4",
+        template_version="1.0.0",
+        sources={"src_1": source},
+        slot_edits={"slot_01": edit},
+    )
+
+    fake_response_data = {
+        "ok": True,
+        "job_id": "job_print_9988",
+        "observation": "Chaveiro | Ana #4101 | 1 folha",
+        "panel_url": "http://127.0.0.1:8095/panel/soclick?focus=job_print_9988#review",
+        "is_existing": False,
+        "total_orders": 1,
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps(fake_response_data).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=8095),
+        patch("urllib.request.urlopen", return_value=mock_resp) as mock_urlopen,
+        patch("webbrowser.open") as mock_browser,
+    ):
+        res = prepare_soclic_draft(str(rendered), snapshot, open_browser=True)
+
+        assert res["ok"] is True
+        assert res["job_id"] == "job_print_9988"
+        assert res["observation"] == "Chaveiro | Ana #4101 | 1 folha"
+        mock_browser.assert_called_once_with(
+            "http://127.0.0.1:8095/panel/soclick?focus=job_print_9988#review"
+        )
+
+        # Inspect request payload
+        call_args = mock_urlopen.call_args[0]
+        req = call_args[0]
+        assert req.full_url == "http://127.0.0.1:8095/api/soclick/intake/print-generator"
+        payload = json.loads(req.data.decode("utf-8"))
+        assert payload["contract_version"] == "1.0"
+        assert payload["template_id"] == "chaveiro-3x4"
+        assert "slot_01" in payload["slots"]
+        assert payload["slots"]["slot_01"]["original_path"] == str(orig_photo)
+
+
+def test_bridge_prepare_soclic_missing_output_path():
+    from evydencia_print_generator.app.bridge import DesktopBridge
+
+    b = DesktopBridge(
+        registry=MagicMock(),
+        ingest_service=MagicMock(),
+        preview_service=MagicMock(),
+        server_base_url="http://127.0.0.1:5000",
+    )
+    res = b.prepare_soclic({}, {})
+    assert res["ok"] is False
+    assert "ausente" in res["error"]
+
+
+def test_bridge_prepare_soclic_handles_panel_offline_gracefully(tmp_path):
+    from evydencia_print_generator.app.bridge import DesktopBridge
+    from evydencia_print_generator.ingest.models import ImageProbe, SourceAsset, SourceIdentity
+
+    rendered = tmp_path / "Chaveiro_test.jpg"
+    _make_dummy_image(rendered)
+
+    orig_photo = tmp_path / "foto.jpg"
+    _make_dummy_image(orig_photo)
+
+    probe = ImageProbe(
+        format="JPEG",
+        mode="RGB",
+        width_px=100,
+        height_px=100,
+        stored_width_px=100,
+        stored_height_px=100,
+        exif_orientation=1,
+        has_icc=False,
+        icc_description=None,
+    )
+    registry = MagicMock()
+    registry.get.return_value = SourceAsset(
+        id="src_1",
+        path=orig_photo,
+        identity=SourceIdentity(norm_path=str(orig_photo), size_bytes=100, mtime_ns=1000),
+        display_name="foto.jpg",
+        probe=probe,
+    )
+
+    from evydencia_print_generator.paths import templates_dir
+
+    b = DesktopBridge(
+        registry=registry,
+        ingest_service=MagicMock(),
+        preview_service=MagicMock(),
+        server_base_url="http://127.0.0.1:5000",
+        templates_root=templates_dir(),
+    )
+
+    edit_state_dict = {
+        "template_id": "chaveiro-3x4",
+        "template_version": "1.0.0",
+        "slot_edits": {
+            "slot_01": {
+                "source_id": "src_1",
+                "pan_x_norm": 0,
+                "pan_y_norm": 0,
+                "scale": 1,
+                "rotation_deg": 0,
+            },
+            "slot_02": {
+                "source_id": "src_1",
+                "pan_x_norm": 0,
+                "pan_y_norm": 0,
+                "scale": 1,
+                "rotation_deg": 0,
+            },
+        },
+    }
+
+    with patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=None):
+        res = b.prepare_soclic({"output_path": str(rendered)}, edit_state_dict)
+        assert res["ok"] is False
+        assert "não está em execução" in res["error"]
+

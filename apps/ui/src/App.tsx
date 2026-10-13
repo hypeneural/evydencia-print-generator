@@ -16,6 +16,7 @@ import {
   InfoRegular,
   DismissRegular,
   AddRegular,
+  SendRegular,
 } from "@fluentui/react-icons";
 import { bridge } from "./bridge/api";
 import { ProductCanvas } from "./components/ProductCanvas";
@@ -80,6 +81,11 @@ export const App: React.FC = () => {
   const [editState, setEditState] = useState<EditStateModel | null>(null);
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
+  const [isPreparingSoclic, setIsPreparingSoclic] = useState(false);
+  const [soclicFeedback, setSoclicFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [trayNotice, setTrayNotice] = useState<string | null>(null);
   const [rotationInputText, setRotationInputText] = useState<string | null>(null);
@@ -797,6 +803,7 @@ export const App: React.FC = () => {
       setRendering(true);
       setErrorMessage(null);
       setRenderResult(null);
+      setSoclicFeedback(null);
 
       const res = await bridge.renderJob(editState);
       setRenderResult(res);
@@ -811,6 +818,37 @@ export const App: React.FC = () => {
       setErrorMessage(err instanceof Error ? err.message : String(err));
     } finally {
       setRendering(false);
+    }
+  };
+
+  // SoClic Prepare Action
+  const handlePrepareSoclic = async () => {
+    if (isPreparingSoclic || !renderResult || !editState) return;
+
+    try {
+      setIsPreparingSoclic(true);
+      setSoclicFeedback(null);
+      const res = await bridge.prepareSoclic(renderResult, editState);
+      if (res.ok) {
+        setSoclicFeedback({
+          type: "success",
+          message: res.is_existing
+            ? "Rascunho já existente aberto na SóClick!"
+            : "Rascunho preparado e aberto na SóClick!",
+        });
+      } else {
+        setSoclicFeedback({
+          type: "error",
+          message: res.error || "Falha ao preparar na SóClick.",
+        });
+      }
+    } catch (err: unknown) {
+      setSoclicFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setIsPreparingSoclic(false);
     }
   };
 
@@ -1692,6 +1730,33 @@ export const App: React.FC = () => {
                   <FolderRegular style={{ fontSize: "14px" }} />
                   <span>Abrir pasta</span>
                 </button>
+                <button
+                  className="btn-secondary"
+                  style={{
+                    fontSize: "12px",
+                    padding: "4px 10px",
+                    borderColor: "#38bdf8",
+                    color: "#38bdf8",
+                  }}
+                  disabled={isPreparingSoclic}
+                  onClick={handlePrepareSoclic}
+                  aria-label="Preparar na SóClick"
+                  title="Importar para rascunho na SóClick e abrir tela de conferência"
+                >
+                  <SendRegular style={{ fontSize: "14px" }} />
+                  <span>{isPreparingSoclic ? "Preparando..." : "Preparar na SoClic"}</span>
+                </button>
+                {soclicFeedback && (
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: soclicFeedback.type === "success" ? "#38bdf8" : "#f87171",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {soclicFeedback.message}
+                  </span>
+                )}
               </div>
             )}
           </div>
