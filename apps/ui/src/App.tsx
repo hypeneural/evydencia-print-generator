@@ -140,11 +140,15 @@ export const App: React.FC = () => {
   useEffect(() => {
     async function init() {
       try {
-        const [availableTemplates, initialSources, startupBatch] = await Promise.all([
+        // The optional startup API must not prevent templates and photos from loading.
+        const [availableTemplates, initialSources] = await Promise.all([
           bridge.getTemplates(),
           bridge.getSources(),
-          bridge.getStartupBatch(),
         ]);
+        const startupBatch = await bridge.getStartupBatch(initialSources);
+        if (startupBatch.compatibility_warning) {
+          setTrayNotice(startupBatch.compatibility_warning);
+        }
         setTemplates(availableTemplates);
         setSources(initialSources);
         startupBatchIdsRef.current = startupBatch.accepted_ids;
@@ -199,16 +203,26 @@ export const App: React.FC = () => {
     );
     if (!hasPending) return;
 
+    let inFlight = false;
+    let disposed = false;
     const interval = setInterval(async () => {
+      if (inFlight || disposed || document.hidden) return;
+      inFlight = true;
       try {
         const updated = await bridge.getSources();
-        setSources(updated);
+        if (!disposed) setSources((previous) => {
+          const previousState = previous.map((source) => [source.id, source.preview.status, source.preview.url, source.preview.error_code]);
+          const nextState = updated.map((source) => [source.id, source.preview.status, source.preview.url, source.preview.error_code]);
+          return JSON.stringify(previousState) === JSON.stringify(nextState) ? previous : updated;
+        });
       } catch (e) {
         console.warn("Failed to poll sources:", e);
+      } finally {
+        inFlight = false;
       }
-    }, 250);
+    }, 750);
 
-    return () => clearInterval(interval);
+    return () => { disposed = true; clearInterval(interval); };
   }, [sources]);
 
   // Switch template
