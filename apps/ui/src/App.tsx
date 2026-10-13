@@ -82,6 +82,7 @@ export const App: React.FC = () => {
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [isPreparingSoclic, setIsPreparingSoclic] = useState(false);
+  const [showRenderModal, setShowRenderModal] = useState(false);
   const [soclicFeedback, setSoclicFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -419,6 +420,11 @@ export const App: React.FC = () => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as KeyTargetLike;
       if (isTextEditingTarget(target)) return;
+
+      if (e.key === "Escape") {
+        setShowRenderModal(false);
+        return;
+      }
 
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -790,14 +796,27 @@ export const App: React.FC = () => {
     );
   }, [template, editState]);
 
-  // Render Job
-  const handleRender = async () => {
+  // Render Job Click (Opens Confirmation/Choice Modal)
+  const handleRenderClick = () => {
     if (!editState || !template) return;
 
     if (!renderEligibility.canRender) {
       setErrorMessage(renderEligibility.statusMessage);
       return;
     }
+
+    setShowRenderModal(true);
+  };
+
+  const executeRender = async (sendToSoclic: boolean) => {
+    if (!editState || !template) return;
+
+    if (!renderEligibility.canRender) {
+      setErrorMessage(renderEligibility.statusMessage);
+      return;
+    }
+
+    setShowRenderModal(false);
 
     try {
       setRendering(true);
@@ -808,11 +827,38 @@ export const App: React.FC = () => {
       const res = await bridge.renderJob(editState);
       setRenderResult(res);
 
-      // Best-effort auto-reveal in Windows Explorer
-      try {
-        await bridge.openOutputFolder(res.output_path);
-      } catch {
-        // Auto-reveal failure does not invalidate successful render
+      if (sendToSoclic) {
+        setIsPreparingSoclic(true);
+        try {
+          const soclicRes = await bridge.prepareSoclic(res, editState);
+          if (soclicRes.ok) {
+            setSoclicFeedback({
+              type: "success",
+              message: soclicRes.is_existing
+                ? "Rascunho já existente aberto na SóClick!"
+                : "Rascunho preparado e aberto na SóClick!",
+            });
+          } else {
+            setSoclicFeedback({
+              type: "error",
+              message: soclicRes.error || "Falha ao preparar na SóClick.",
+            });
+          }
+        } catch (err: unknown) {
+          setSoclicFeedback({
+            type: "error",
+            message: err instanceof Error ? err.message : String(err),
+          });
+        } finally {
+          setIsPreparingSoclic(false);
+        }
+      } else {
+        // Best-effort auto-reveal in Windows Explorer
+        try {
+          await bridge.openOutputFolder(res.output_path);
+        } catch {
+          // Auto-reveal failure does not invalidate successful render
+        }
       }
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : String(err));
@@ -1763,8 +1809,8 @@ export const App: React.FC = () => {
 
           <button
             className="btn-success"
-            onClick={handleRender}
-            disabled={rendering || !renderEligibility.canRender}
+            onClick={handleRenderClick}
+            disabled={rendering || isPreparingSoclic || !renderEligibility.canRender}
             title={!renderEligibility.canRender ? renderEligibility.statusMessage : "Gerar impressão final"}
             aria-label={template?.status === "draft" ? "Gerar arquivo de prova" : "Gerar arquivo de produção"}
           >
@@ -1772,11 +1818,195 @@ export const App: React.FC = () => {
               ? template?.status === "draft"
                 ? "GERANDO PROVA..."
                 : "GERANDO ARQUIVO ORIGINAL..."
+              : isPreparingSoclic
+              ? "ENVIANDO PARA A SÓCLICK..."
               : template?.status === "draft"
               ? "GERAR ARQUIVO DE PROVA"
               : "GERAR ARQUIVO DE PRODUÇÃO"}
           </button>
         </footer>
+      )}
+
+      {/* Modal de Decisão de Geração */}
+      {showRenderModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="render-modal-title"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "20px",
+          }}
+          onClick={() => setShowRenderModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "#1e293b",
+              border: "1px solid #334155",
+              borderRadius: "12px",
+              width: "100%",
+              maxWidth: "480px",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 20px",
+                borderBottom: "1px solid #334155",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <SendRegular style={{ fontSize: "20px", color: "#38bdf8" }} />
+                <h2
+                  id="render-modal-title"
+                  style={{
+                    margin: 0,
+                    fontSize: "16px",
+                    fontWeight: 600,
+                    color: "#f8fafc",
+                  }}
+                >
+                  Opções de Geração de Produção
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowRenderModal(false)}
+                className="btn-secondary"
+                style={{
+                  padding: "4px",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  color: "#94a3b8",
+                }}
+                aria-label="Fechar"
+              >
+                <DismissRegular style={{ fontSize: "18px" }} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: "20px" }}>
+              <p
+                style={{
+                  margin: "0 0 16px 0",
+                  fontSize: "14px",
+                  color: "#cbd5e1",
+                  lineHeight: "1.5",
+                }}
+              >
+                Como você deseja prosseguir com a geração deste impresso?
+              </p>
+
+              {template && (
+                <div
+                  style={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #1e293b",
+                    borderRadius: "8px",
+                    padding: "12px 14px",
+                    marginBottom: "20px",
+                    fontSize: "13px",
+                    color: "#94a3b8",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px",
+                  }}
+                >
+                  <div>
+                    <strong style={{ color: "#f8fafc" }}>Produto:</strong> {template.name}
+                  </div>
+                  <div>
+                    <strong style={{ color: "#f8fafc" }}>Slots preenchidos:</strong>{" "}
+                    {filledSlotsCount} de {template.slots.length}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <button
+                  className="btn-primary"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "10px",
+                    padding: "12px 16px",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    backgroundColor: "#0284c7",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => executeRender(true)}
+                  autoFocus
+                >
+                  <SendRegular style={{ fontSize: "18px" }} />
+                  <span>Gerar e Enviar para a SóClick</span>
+                </button>
+
+                <button
+                  className="btn-secondary"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "10px",
+                    padding: "10px 16px",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    backgroundColor: "#334155",
+                    color: "#f8fafc",
+                    border: "1px solid #475569",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => executeRender(false)}
+                >
+                  <FolderRegular style={{ fontSize: "16px" }} />
+                  <span>Somente Gerar (Salvar no Computador)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                padding: "12px 20px",
+                backgroundColor: "#0f172a",
+                borderTop: "1px solid #334155",
+              }}
+            >
+              <button
+                className="btn-secondary"
+                style={{ fontSize: "12px", padding: "6px 14px" }}
+                onClick={() => setShowRenderModal(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
