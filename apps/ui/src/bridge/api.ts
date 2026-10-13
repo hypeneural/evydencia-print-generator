@@ -181,7 +181,7 @@ async function nativeMethod<K extends keyof NativeApi>(
   name: K,
   optional = false,
 ): Promise<NativeApi[K] | null> {
-  if (import.meta.env.DEV && !window.pywebview) return null;
+  if (import.meta.env.DEV && (typeof window === "undefined" || !window.pywebview)) return null;
 
   const method = () => {
     const api = window.pywebview?.api;
@@ -245,7 +245,7 @@ export const bridge = {
     // Old installed Python bridges do not expose this method. In a fresh
     // desktop window the initial registry contains precisely the CLI batch.
     // Preserve all files, not only the first, and show a diagnostic warning.
-    if (import.meta.env.DEV && !window.pywebview) return { accepted_ids: [] };
+    if (import.meta.env.DEV && (typeof window === "undefined" || !window.pywebview)) return { accepted_ids: [] };
     const sources = initialSources ?? await this.getSources();
     return {
       accepted_ids: sources.map((source) => source.id),
