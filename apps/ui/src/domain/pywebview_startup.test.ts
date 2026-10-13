@@ -13,7 +13,7 @@ const source: SourceAssetModel = {
     oriented_height: 600,
     has_icc: false,
   },
-  preview: { status: "queued", url: null },
+  preview: { status: "queued" },
 };
 
 afterEach(() => {
