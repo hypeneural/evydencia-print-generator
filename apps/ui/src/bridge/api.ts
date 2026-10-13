@@ -6,6 +6,11 @@ import type {
   TemplateModel,
 } from "../domain/types";
 
+export interface StartupBatchModel {
+  accepted_ids: string[];
+  compatibility_warning?: string;
+}
+
 export interface SoclicHandoffResponse {
   ok: boolean;
   job_id?: string;
@@ -22,7 +27,7 @@ declare global {
       api: {
         get_templates: () => Promise<TemplateModel[]>;
         get_sources: () => Promise<SourceAssetModel[]>;
-        get_startup_batch: () => Promise<{ accepted_ids: string[] }>;
+        get_startup_batch: () => Promise<StartupBatchModel>;
         open_file_dialog: () => Promise<IngestBatchModel>;
         ingest_paths: (paths: string[]) => Promise<SourceAssetModel[]>;
         render_job: (edit_state: EditStateModel) => Promise<RenderResultModel>;
@@ -167,31 +172,54 @@ const mockTemplates: TemplateModel[] = [
 
 let mockSources: SourceAssetModel[] = [];
 
-let pywebviewWaitPromise: Promise<boolean> | null = null;
+// pywebview exposes the Python methods asynchronously. An existing "api" object does
+// not mean each method is registered yet. Wait for the specific callable and honour
+// the official "pywebviewready" event. Browser mocks are DEV-ONLY.
+type NativeApi = NonNullable<Window["pywebview"]>["api"];
 
-function waitForPyWebView(timeoutMs = 1500): Promise<boolean> {
-  if (typeof window === "undefined") return Promise.resolve(false);
-  if (window.pywebview?.api) return Promise.resolve(true);
+async function nativeMethod<K extends keyof NativeApi>(
+  name: K,
+  optional = false,
+): Promise<NativeApi[K] | null> {
+  if (import.meta.env.DEV && !window.pywebview) return null;
 
-  if (!pywebviewWaitPromise) {
-    pywebviewWaitPromise = new Promise((resolve) => {
-      let resolved = false;
-      const handleReady = () => {
-        if (!resolved) {
-          resolved = true;
-          resolve(true);
-        }
-      };
-      window.addEventListener("pywebviewready", handleReady, { once: true });
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          resolve(!!window.pywebview?.api);
-        }
-      }, timeoutMs);
-    });
+  const method = () => {
+    const api = window.pywebview?.api;
+    const fn = api?.[name];
+    return typeof fn === "function" ? (fn.bind(api) as NativeApi[K]) : null;
+  };
+  if (method()) return method();
+
+  // pywebviewready can arrive after DOM load (or just before this listener).
+  // The short bounded probe also covers API registration after the event.
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    let intervalId: number | undefined;
+    let timeoutId: number | undefined;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("pywebviewready", check);
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      resolve();
+    };
+    const check = () => { if (method()) finish(); };
+    window.addEventListener("pywebviewready", check);
+    intervalId = window.setInterval(check, 50);
+    timeoutId = window.setTimeout(finish, optional ? 500 : 6000);
+    check();
+  });
+
+  const resolved = method();
+  if (!resolved && !optional) {
+    throw new Error(
+      `A API Python do gerador não disponibilizou ${String(name)}. ` +
+      "Feche todas as instâncias, atualize o aplicativo Python e reconstrua a interface (npm run build --prefix apps/ui). " +
+      "Verifique se o executável/atalho usa o mesmo checkout atualizado.",
+    );
   }
-  return pywebviewWaitPromise;
+  return resolved;
 }
 
 export const bridge = {
@@ -200,32 +228,34 @@ export const bridge = {
   },
 
   async getTemplates(): Promise<TemplateModel[]> {
-    await waitForPyWebView();
-    if (window.pywebview?.api) {
-      return window.pywebview.api.get_templates();
-    }
+    const getTemplates = await nativeMethod("get_templates");
+    if (getTemplates) return getTemplates();
     return mockTemplates;
   },
 
   async getSources(): Promise<SourceAssetModel[]> {
-    await waitForPyWebView();
-    if (window.pywebview?.api) {
-      return window.pywebview.api.get_sources();
-    }
+    const getSources = await nativeMethod("get_sources");
+    if (getSources) return getSources();
     return mockSources;
   },
 
-  async getStartupBatch(): Promise<{ accepted_ids: string[] }> {
-    if (window.pywebview?.api) {
-      return window.pywebview.api.get_startup_batch();
-    }
-    return { accepted_ids: [] };
+  async getStartupBatch(initialSources?: SourceAssetModel[]): Promise<StartupBatchModel> {
+    const getStartupBatch = await nativeMethod("get_startup_batch", true);
+    if (getStartupBatch) return getStartupBatch();
+    // Old installed Python bridges do not expose this method. In a fresh
+    // desktop window the initial registry contains precisely the CLI batch.
+    // Preserve all files, not only the first, and show a diagnostic warning.
+    if (import.meta.env.DEV && !window.pywebview) return { accepted_ids: [] };
+    const sources = initialSources ?? await this.getSources();
+    return {
+      accepted_ids: sources.map((source) => source.id),
+      compatibility_warning: "API Python antiga: get_startup_batch indisponível. Fotos recuperadas do registro; atualize o executável/ambiente Python.",
+    };
   },
 
   async openFileDialog(): Promise<IngestBatchModel> {
-    if (window.pywebview?.api) {
-      return window.pywebview.api.open_file_dialog();
-    }
+    const openDialog = await nativeMethod("open_file_dialog");
+    if (openDialog) return openDialog();
     // Mock image for browser dev
     const mockAsset: SourceAssetModel = {
       id: "mock_source_" + Date.now(),
@@ -252,16 +282,14 @@ export const bridge = {
   },
 
   async ingestPaths(paths: string[]): Promise<SourceAssetModel[]> {
-    if (window.pywebview?.api) {
-      return window.pywebview.api.ingest_paths(paths);
-    }
+    const ingestPaths = await nativeMethod("ingest_paths");
+    if (ingestPaths) return ingestPaths(paths);
     return mockSources;
   },
 
   async renderJob(editState: EditStateModel): Promise<RenderResultModel> {
-    if (window.pywebview?.api) {
-      return window.pywebview.api.render_job(editState);
-    }
+    const renderJob = await nativeMethod("render_job");
+    if (renderJob) return renderJob(editState);
     // Mock render
     await new Promise((r) => setTimeout(r, 600));
     return {
@@ -275,9 +303,8 @@ export const bridge = {
   },
 
   async openOutputFolder(filePath: string): Promise<boolean> {
-    if (window.pywebview?.api) {
-      return window.pywebview.api.open_output_folder(filePath);
-    }
+    const openOutput = await nativeMethod("open_output_folder");
+    if (openOutput) return openOutput(filePath);
     console.log("Mock open folder:", filePath);
     return true;
   },
@@ -286,9 +313,8 @@ export const bridge = {
     renderResult: RenderResultModel,
     editState: EditStateModel
   ): Promise<SoclicHandoffResponse> {
-    if (window.pywebview?.api) {
-      return window.pywebview.api.prepare_soclic(renderResult, editState);
-    }
+    const prepareSoclic = await nativeMethod("prepare_soclic");
+    if (prepareSoclic) return prepareSoclic(renderResult, editState);
     console.log("Mock prepareSoclic:", renderResult, editState);
     await new Promise((r) => setTimeout(r, 600));
     return {
