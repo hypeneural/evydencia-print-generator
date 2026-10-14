@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState } from "react";
+import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Canvas as FabricCanvas, FabricImage, Rect } from "fabric";
 import type { PreviewLayout } from "../domain/layout";
 import type { SlotTransform } from "../domain/transform";
@@ -16,6 +16,7 @@ import type {
 import type { DraftSlot, TemplateDraft } from "../domain/draft";
 import { pxToMm } from "../domain/draft";
 import { findSlotAtClientPoint } from "../domain/hittest";
+import { buildKeychainHeaderText } from "../domain/keychain_labels";
 
 interface ProductCanvasProps {
   template: TemplateModel;
@@ -135,6 +136,17 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
 
   const canvasW = template.canvas_px.width;
   const canvasH = template.canvas_px.height;
+
+  // Discrete customer identification header for chaveiro-3x4 (parity with Python compose)
+  const keychainHeaderText = useMemo(() => {
+    if (template.id !== "chaveiro-3x4") return "";
+    const editStateModel = {
+      template_id: template.id,
+      template_version: template.template_version,
+      slot_edits: slotEdits,
+    };
+    return buildKeychainHeaderText(template, editStateModel, sources);
+  }, [template, slotEdits, sources]);
 
   // Coalesced render scheduler via requestAnimationFrame (Gate 5)
   const scheduleRender = useCallback(() => {
@@ -1195,6 +1207,43 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       }}
     >
       <canvas ref={canvasElRef} />
+      {keychainHeaderText && (
+        <div
+          data-testid="keychain-header-preview"
+          style={{
+            position: "absolute",
+            left: `${71 * layout.fitScale}px`,
+            top: `${18 * layout.fitScale}px`,
+            width: `${(2480 - 71) * layout.fitScale}px`,
+            height: `${(94 - 18) * layout.fitScale}px`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 40,
+            borderBottom: "1px solid rgba(148, 163, 184, 0.5)",
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+            boxSizing: "border-box",
+            paddingBottom: `${2 * layout.fitScale}px`,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              fontSize: `${Math.max(9, Math.round(38 * layout.fitScale))}px`,
+              color: "#334155",
+              textTransform: "uppercase",
+              userSelect: "none",
+            }}
+          >
+            {keychainHeaderText}
+          </span>
+        </div>
+      )}
       {dragOverSlot && (
         <div
           style={{

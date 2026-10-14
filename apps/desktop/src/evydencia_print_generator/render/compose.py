@@ -8,6 +8,7 @@ from ..domain.job import JobSnapshot
 from ..domain.template import Template
 from ..domain.transform import SlotTransform
 from ..imaging.color import get_srgb_profile_bytes, normalize_to_srgb
+from .annotations import draw_keychain_header
 from .models import RenderError
 from .resample import resample_slot
 
@@ -110,6 +111,9 @@ def compose_canvas(
                 outline=(220, 220, 220, 255),
                 width=1,
             )
+
+    # Draw visual annotations if applicable (e.g. keychain customer header)
+    draw_keychain_header(canvas, template, snapshot)
 
     # Flatten for JPEG output if needed
     fmt_upper = template.output.format.strip().upper()

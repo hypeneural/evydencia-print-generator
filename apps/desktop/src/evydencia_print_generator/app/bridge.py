@@ -13,6 +13,7 @@ from ..domain.template import Template, load_template
 from ..ingest import IngestService, PreviewService, SourceRegistry
 from ..paths import templates_dir
 from ..render import RenderOptions, RenderResult, render
+from ..render.annotations import extract_client_label
 
 logger = logging.getLogger(__name__)
 
@@ -148,10 +149,13 @@ class DesktopBridge:
             if asset.preview.cached_path and asset.preview.cached_path.is_file():
                 preview_url = f"{self.server_base_url}/api/preview/{asset.preview.cached_path.name}"
 
+            client_label = extract_client_label(asset.path, asset.display_name)
+
             sources.append(
                 {
                     "id": asset.id,
                     "display_name": asset.display_name,
+                    "client_label": client_label,
                     "probe": {
                         "format": asset.probe.format,
                         "width": asset.probe.stored_width_px,

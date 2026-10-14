@@ -45,6 +45,7 @@ export interface TemplateModel {
 export interface SourceAssetModel {
   id: string;
   display_name: string;
+  client_label?: string;
   probe: {
     format: string;
     width: number;
