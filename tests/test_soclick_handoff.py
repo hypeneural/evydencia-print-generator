@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import io
 import json
-import socket
 import urllib.error
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -424,7 +423,7 @@ def test_soclick_timeout_is_uncertain_not_offline(tmp_path):
         patch("evydencia_print_generator.soclick.client.discover_panel_port",
               return_value=8095),
         patch("urllib.request.urlopen",
-              side_effect=urllib.error.URLError(socket.timeout("socket timed out"))),
+              side_effect=urllib.error.URLError(TimeoutError("socket timed out"))),
     ):
         with pytest.raises(SoclicHandoffError) as exc:
             prepare_soclic_draft(str(jpeg), snap, open_browser=False)
