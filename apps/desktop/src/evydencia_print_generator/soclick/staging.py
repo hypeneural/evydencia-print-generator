@@ -24,10 +24,11 @@ def configured_staging_root() -> Path | None:
     configured = os.environ.get("EVYDENCIA_SOCLICK_HANDOFF_DIR", "").strip()
     if configured:
         return Path(configured).expanduser().resolve()
-    if os.name == "nt":
+    if os.name == "nt" and WINDOWS_STAGING_ROOT.is_dir():
         return WINDOWS_STAGING_ROOT
-    # Linux CI and local tests continue using their original file unless
-    # the test explicitly opts into the Windows-style staging contract.
+    # Windows installation creates this directory during approved setup. Until
+    # then, preserve backward compatibility without creating C:\\Evydencia
+    # as an unintended side-effect in the Windows CI runner or on laptops.
     return None
 
 
