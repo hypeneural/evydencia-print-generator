@@ -977,7 +977,12 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
       const border = borders.get(s.id);
       if (!border) return;
 
-      const isSelectedSecondary = selectedSet.has(s.id) && s.id !== activeSlotId;
+      // Chaveiro selection is displayed in a separate HTML overlay ABOVE
+      // the photos, never by mutating the base Fabric/print slot borders.
+      const isSelectedSecondary =
+        template.id !== "chaveiro-3x4" &&
+        selectedSet.has(s.id) &&
+        s.id !== activeSlotId;
       if (isSelectedSecondary) {
         border.set({
           stroke: "#06b6d4",
@@ -1244,6 +1249,33 @@ export const ProductCanvas: React.FC<ProductCanvasProps> = ({
           </span>
         </div>
       )}
+      {/* Operator-only preview highlights. They never enter the Pillow/JPEG render.
+          Inset two screen pixels to keep the blue active border visible at
+          shared grid edges. pointerEvents none preserves Fabric gestures. */}
+      {mode === "operator" &&
+        template.id === "chaveiro-3x4" &&
+        selectedSlotIds.length > 1 &&
+        template.slots
+          .filter((slot) => selectedSlotIds.includes(slot.id) && slot.id !== activeSlotId)
+          .map((slot) => (
+            <div
+              key={slot.id}
+              data-testid={`keychain-multiselect-${slot.id}`}
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: `${slot.rect_px.left * layout.fitScale + 2}px`,
+                top: `${slot.rect_px.top * layout.fitScale + 2}px`,
+                width: `${Math.max(0, slot.rect_px.width * layout.fitScale - 4)}px`,
+                height: `${Math.max(0, slot.rect_px.height * layout.fitScale - 4)}px`,
+                border: "2px dashed #ef4444",
+                boxSizing: "border-box",
+                borderRadius: "2px",
+                pointerEvents: "none",
+                zIndex: 45,
+              }}
+            />
+          ))}
       {dragOverSlot && (
         <div
           style={{
