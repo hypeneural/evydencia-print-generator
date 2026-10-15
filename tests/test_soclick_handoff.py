@@ -352,7 +352,7 @@ def test_soclic_client_rejects_cross_origin_panel_link(tmp_path):
         patch("urllib.request.urlopen", return_value=mock_response),
         patch("webbrowser.open") as browser,
     ):
-        with pytest.raises(SoclicHandoffError, match="URL do editor"):
+        with pytest.raises(SoclicHandoffError, match="não corresponde ao rascunho"):
             prepare_soclic_draft(str(rendered), snapshot)
         browser.assert_not_called()
 
