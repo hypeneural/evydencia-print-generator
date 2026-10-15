@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import socket
 import urllib.error
 import urllib.request
 import webbrowser
@@ -22,11 +23,18 @@ logger = logging.getLogger(__name__)
 
 
 class SoclicHandoffError(Exception):
-    """Erro geral durante o handoff para a SóClick."""
+    """Safe error code and human-readable context for a failed draft handoff."""
+
+    def __init__(self, message: str, error_code: str = "SOCLICK_FAILED") -> None:
+        super().__init__(message)
+        self.error_code = error_code
 
 
 class PanelUnavailableError(SoclicHandoffError):
-    """Painel do EvydFlow está offline ou inacessível no host local."""
+    """The local EvydFlow panel could not be reached."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, error_code="PANEL_OFFLINE")
 
 
 def _compute_sha256(path: Path) -> str:
@@ -129,28 +137,69 @@ def prepare_soclic_draft(
             resp_body = resp.read().decode("utf-8")
             data = json.loads(resp_body)
     except urllib.error.HTTPError as err:
-        err_msg = err.reason
+        # Do not propagate arbitrary provider messages or local source paths
+        # into the operator UI. Keep the original response in the Python logger.
+        detail = ""
         try:
-            err_json = json.loads(err.read().decode("utf-8"))
-            err_msg = err_json.get("detail", err_msg)
-        except Exception:
+            payload_error = json.loads(err.read().decode("utf-8"))
+            if isinstance(payload_error, dict) and isinstance(payload_error.get("detail"), str):
+                detail = payload_error["detail"]
+        except (ValueError, UnicodeError, OSError):
             pass
-        raise SoclicHandoffError(f"Falha na SóClick ({err.code}): {err_msg}") from err
-    except urllib.error.URLError as err:
-        raise PanelUnavailableError(
-            f"Não foi possível conectar ao EvydFlow na porta {port}: {err.reason}"
+        logger.warning("SóClick intake HTTP %s (operator detail withheld)", err.code)
+        if err.code == 503 and "EVYDFLOW_ALLOWED_ROOTS" in detail:
+            raise SoclicHandoffError(
+                "A pasta de fotografias ainda não foi autorizada no EvydFlow.",
+                error_code="ROOTS_NOT_CONFIGURED",
+            ) from err
+        if err.code in (401, 403):
+            raise SoclicHandoffError(
+                "O EvydFlow não autorizou a preparação do rascunho.",
+                error_code="OPERATOR_NOT_AUTHORIZED",
+            ) from err
+        if err.code in (408, 429, 500, 502, 503, 504):
+            raise SoclicHandoffError(
+                "Não foi possível confirmar o resultado da preparação no EvydFlow.",
+                error_code="HANDOFF_UNCERTAIN",
+            ) from err
+        raise SoclicHandoffError(
+            "O EvydFlow recusou os dados enviados para criar o rascunho.",
+            error_code="HANDOFF_REJECTED",
         ) from err
-    except Exception as exc:
-        raise SoclicHandoffError(f"Erro inesperado no envio para a SóClick: {exc}") from exc
+    except urllib.error.URLError as err:
+        if isinstance(err.reason, (TimeoutError, socket.timeout)):
+            raise SoclicHandoffError(
+                "Tempo de resposta esgotado; o rascunho pode ter sido criado.",
+                error_code="HANDOFF_UNCERTAIN",
+            ) from err
+        raise PanelUnavailableError(
+            "O painel EvydFlow não está disponível neste computador."
+        ) from err
+    except (TimeoutError, socket.timeout) as err:
+        raise SoclicHandoffError(
+            "Tempo de resposta esgotado; o rascunho pode ter sido criado.",
+            error_code="HANDOFF_UNCERTAIN",
+        ) from err
+    except (ValueError, TypeError, UnicodeError) as err:
+        raise SoclicHandoffError(
+            "O EvydFlow retornou uma resposta incompleta. Confira o painel.",
+            error_code="HANDOFF_UNCERTAIN",
+        ) from err
 
     job_id = data.get("job_id")
     panel_url = data.get("panel_url")
-    if data.get("ok") is not True or not isinstance(job_id, str) or not re.fullmatch(
-        r"job_[A-Za-z0-9_-]{1,100}", job_id
-    ):
-        raise SoclicHandoffError("O painel devolveu uma resposta de rascunho inválida.")
+    if not isinstance(data, dict) or data.get("ok") is not True or not isinstance(
+        job_id, str
+    ) or not re.fullmatch(r"job_[A-Za-z0-9_-]{1,100}", job_id):
+        raise SoclicHandoffError(
+            "O EvydFlow retornou uma resposta incompleta. Confira o painel.",
+            error_code="HANDOFF_UNCERTAIN",
+        )
     if not isinstance(panel_url, str):
-        raise SoclicHandoffError("O painel não informou uma URL de conferência válida.")
+        raise SoclicHandoffError(
+            "O EvydFlow não informou a página de conferência.",
+            error_code="HANDOFF_UNCERTAIN",
+        )
     parsed = urlsplit(panel_url)
     query = parse_qs(parsed.query)
     if (
@@ -164,7 +213,8 @@ def prepare_soclic_draft(
         or parsed.fragment != "review"
     ):
         raise SoclicHandoffError(
-            "URL do editor SóClick não corresponde à API local verificada."
+            "A página devolvida pelo EvydFlow não corresponde ao rascunho criado.",
+            error_code="HANDOFF_UNCERTAIN",
         )
 
     browser_opened = False
