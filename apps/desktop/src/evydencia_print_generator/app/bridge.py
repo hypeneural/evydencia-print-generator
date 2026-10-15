@@ -266,6 +266,12 @@ class DesktopBridge:
 
         return reveal_in_explorer(file_path)
 
+    def recover_soclick_panel(self) -> dict[str, object]:
+        """Explicit operator request to run verified EvydFlow startup task."""
+        from ..soclick.recovery import recover_panel_from_scheduled_task
+
+        return recover_panel_from_scheduled_task()
+
     def prepare_soclic(
         self, render_result_dict: dict[str, Any], edit_state_dict: dict[str, Any]
     ) -> dict[str, Any]:
