@@ -14,15 +14,37 @@ DEFAULT_PROBE_PORTS = (8095, 8090)
 
 
 def _is_port_healthy(port: int, timeout_sec: float = 0.8) -> bool:
-    """Verifica se o servidor EvydFlow responde 200 OK na rota /health."""
-    try:
-        url = f"http://127.0.0.1:{port}/health"
-        req = urllib.request.Request(url, headers={"User-Agent": "PrintGenerator-Probe"})
-        with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
-            return resp.status == 200
-    except Exception:
-        return False
+    """Require the EvydFlow SóClick contract; a generic /health is insufficient.
 
+    Read-only loopback probes. In particular, a foreign service answering /health
+    on 8090 must never receive the local customer's production image paths.
+    """
+    if not isinstance(port, int) or not 1024 <= port <= 65535:
+        return False
+    base = f"http://127.0.0.1:{port}"
+    try:
+        health_req = urllib.request.Request(
+            f"{base}/health", headers={"User-Agent": "PrintGenerator-Probe"}
+        )
+        with urllib.request.urlopen(health_req, timeout=timeout_sec) as resp:
+            if resp.status != 200 or json.load(resp).get("ok") is not True:
+                return False
+        env_req = urllib.request.Request(
+            f"{base}/api/soclick/environment",
+            headers={"User-Agent": "PrintGenerator-Probe"},
+        )
+        with urllib.request.urlopen(env_req, timeout=timeout_sec) as resp:
+            if resp.status != 200:
+                return False
+            data = json.load(resp)
+        return (
+            isinstance(data, dict)
+            and data.get("environment") in {"OPERACIONAL", "HOMOLOGACAO", "OFFLINE_TEST"}
+            and isinstance(data.get("enviar_blocked"), bool)
+            and isinstance(data.get("real_production_allowed"), bool)
+        )
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
 
 def discover_panel_port(preferred_port: int | None = None, timeout_sec: float = 0.8) -> int | None:
     """Descobre a porta em que o painel EvydFlow está rodando ativamente.
@@ -41,7 +63,9 @@ def discover_panel_port(preferred_port: int | None = None, timeout_sec: float = 
     if env_url:
         try:
             parsed = urlsplit(env_url)
-            if parsed.port and _is_port_healthy(parsed.port, timeout_sec):
+            if (parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost"}
+                    and not parsed.username and not parsed.password and parsed.port
+                    and _is_port_healthy(parsed.port, timeout_sec)):
                 return parsed.port
         except Exception:
             pass

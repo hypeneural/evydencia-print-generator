@@ -14,6 +14,7 @@ from ..ingest import IngestService, PreviewService, SourceRegistry
 from ..paths import templates_dir
 from ..render import RenderOptions, RenderResult, render
 from ..render.annotations import extract_client_label
+from ..soclick.render_receipt import RenderReceipt, RenderReceiptError
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,8 @@ class DesktopBridge:
         self.templates_root = templates_root or templates_dir()
         self._startup_accepted_ids = list(startup_accepted_ids or [])
         self._window: Any = None
+        # Session-local authority: the JPEG and UI snapshot must remain identical.
+        self._last_render_receipt: RenderReceipt | None = None
 
     def set_window(self, window: Any) -> None:
         self._window = window
@@ -223,6 +226,7 @@ class DesktopBridge:
 
     def render_job(self, edit_state_dict: dict[str, Any]) -> dict[str, Any]:
         """Validate UI edit state, load template, build snapshot, and render from original photo."""
+        self._last_render_receipt = None
         edit_state = EditState.from_ui(edit_state_dict)
 
         # Find template
@@ -245,6 +249,7 @@ class DesktopBridge:
         template = load_template(tpl_path)
         snapshot = build_job_snapshot(template, edit_state, self.registry.get)
         result: RenderResult = render(template, snapshot, RenderOptions(draw_cut_guidelines=True))
+        self._last_render_receipt = RenderReceipt.capture(result.output_path, edit_state, snapshot)
 
         return {
             "output_path": str(result.output_path),
@@ -273,33 +278,24 @@ class DesktopBridge:
 
         try:
             edit_state = EditState.from_ui(edit_state_dict)
-
-            # Resolve template
-            tpl_path = self.templates_root / edit_state.template_id / "template.json"
-            if not tpl_path.is_file():
-                fixture_tpl = (
-                    Path(__file__).resolve().parents[4]
-                    / "tests"
-                    / "fixtures"
-                    / "templates"
-                    / edit_state.template_id
-                    / "template.json"
+            receipt = self._last_render_receipt
+            if receipt is None:
+                raise RenderReceiptError(
+                    "Sem comprovante da geração nesta sessão. "
+                    "Gere o JPEG novamente antes de preparar na SóClick."
                 )
-                if fixture_tpl.is_file():
-                    tpl_path = fixture_tpl
-                else:
-                    return {
-                        "ok": False,
-                        "error": f"Template não encontrado: {edit_state.template_id}",
-                    }
-
-            template = load_template(tpl_path)
-            snapshot = build_job_snapshot(template, edit_state, self.registry.get)
-            return prepare_soclic_draft(output_path, snapshot)
+            # Do not rebuild from mutable registry/current edits; use the exact
+            # source snapshot captured by render_job, including source paths.
+            snapshot = receipt.verify(str(output_path), edit_state)
+            return prepare_soclic_draft(
+                str(receipt.output_path),
+                snapshot,
+                expected_sha256=receipt.sha256,
+            )
         except PanelUnavailableError as err:
             logger.warning("SoClic panel unavailable: %s", err)
             return {"ok": False, "error": str(err)}
-        except SoclicHandoffError as err:
+        except (SoclicHandoffError, RenderReceiptError) as err:
             logger.warning("SoClic handoff failed: %s", err)
             return {"ok": False, "error": str(err)}
         except Exception as exc:
