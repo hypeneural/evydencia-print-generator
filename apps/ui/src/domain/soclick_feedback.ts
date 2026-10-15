@@ -61,7 +61,7 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
       return {
         type: "error",
         code,
-        message: "O arquivo está salvo. Falta concluir a configuração inicial da SóClick.",
+        message: "O arquivo foi salvo. Falta concluir a configuração inicial da SóClick.",
         nextStep: "Peça ao gestor para ativar a área segura de preparação no EvydFlow. Não precisa liberar todas as pastas do computador.",
       };
     case "HANDOFF_STAGING_FAILED":
@@ -83,7 +83,7 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
         type: "error",
         code,
         message: "O arquivo foi salvo. O painel SóClick não está disponível neste momento.",
-        nextStep: "Use Reativar painel SóClick abaixo. Se não funcionar, peça ao gestor para verificar o serviço.",
+        nextStep: "Use Reativar painel SóClick abaixo. Se não funcionar, peça ao gestor para verificar o EvydFlow.",
       };
     case "HANDOFF_UNCERTAIN":
       return {
