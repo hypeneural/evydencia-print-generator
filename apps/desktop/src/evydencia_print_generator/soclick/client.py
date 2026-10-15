@@ -10,8 +10,8 @@ import urllib.error
 import urllib.request
 import webbrowser
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs, urlsplit
 
 from .discovery import discover_panel_port
 

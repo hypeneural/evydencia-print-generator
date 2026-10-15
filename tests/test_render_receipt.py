@@ -4,7 +4,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from evydencia_print_generator.domain.job import EditState, JobSnapshot, SlotEdit, SlotTransform
 from evydencia_print_generator.soclick.render_receipt import RenderReceipt, RenderReceiptError
 
