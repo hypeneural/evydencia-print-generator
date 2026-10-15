@@ -52,6 +52,13 @@ import {
 } from "./domain/keyboard";
 import { getOperatorCapabilities } from "./domain/capabilities";
 import { parseRotationText } from "./domain/rotation_input";
+import {
+  presentSoclickHandoff,
+  requiresDraftReconciliation,
+  canPrepareAfterReview,
+  type SoclickNotice,
+  type SoclickHandoffResult,
+} from "./domain/soclick_feedback";
 
 declare global {
   interface Window {
@@ -84,11 +91,11 @@ export const App: React.FC = () => {
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [isPreparingSoclic, setIsPreparingSoclic] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
-  const [soclicFeedback, setSoclicFeedback] = useState<{
-    type: "success" | "error";
-    message: string;
-    panelUrl?: string;
-  } | null>(null);
+  const [soclicFeedback, setSoclicFeedback] = useState<SoclickNotice | null>(null);
+  const [draftReconciliationRequired, setDraftReconciliationRequired] = useState(false);
+  const [operatorConfirmedNoDraft, setOperatorConfirmedNoDraft] = useState(false);
+  const renderInFlightRef = useRef(false);
+  const soclicInFlightRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [trayNotice, setTrayNotice] = useState<string | null>(null);
   const [rotationInputText, setRotationInputText] = useState<string | null>(null);
@@ -837,6 +844,19 @@ export const App: React.FC = () => {
     );
   }, [template, editState]);
 
+  // The local draft may have committed before the network response was lost.
+  // Keep this gate separate from render success, which never implies printing.
+  const canPrepareSoclic = canPrepareAfterReview(
+    draftReconciliationRequired,
+    operatorConfirmedNoDraft
+  );
+  const recordSoclicResult = (res: SoclickHandoffResult) => {
+    setSoclicFeedback(presentSoclickHandoff(res));
+    const uncertain = requiresDraftReconciliation(res);
+    setDraftReconciliationRequired(uncertain);
+    setOperatorConfirmedNoDraft(false);
+  };
+
   // Render Job Click (Opens Confirmation/Choice Modal)
   const handleRenderClick = () => {
     if (!editState || !template) return;
@@ -850,13 +870,15 @@ export const App: React.FC = () => {
   };
 
   const executeRender = async (sendToSoclic: boolean) => {
-    if (!editState || !template) return;
+    if (!editState || !template || renderInFlightRef.current || soclicInFlightRef.current) return;
+    if (sendToSoclic && !canPrepareSoclic) return;
 
     if (!renderEligibility.canRender) {
       setErrorMessage(renderEligibility.statusMessage);
       return;
     }
 
+    renderInFlightRef.current = true;
     setShowRenderModal(false);
 
     try {
@@ -879,31 +901,15 @@ export const App: React.FC = () => {
       }
 
       if (sendToSoclic) {
+        soclicInFlightRef.current = true;
         setIsPreparingSoclic(true);
         try {
           const soclicRes = await bridge.prepareSoclic(res, editState);
-          if (soclicRes.ok) {
-            setSoclicFeedback({
-              type: "success",
-              message: soclicRes.browser_opened === false
-                ? "Rascunho salvo. O navegador não abriu automaticamente."
-                : soclicRes.is_existing
-                  ? "Rascunho existente carregado para conferência."
-                  : "Rascunho salvo e enviado para conferência no painel.",
-              panelUrl: soclicRes.browser_opened === false ? soclicRes.panel_url : undefined,
-            });
-          } else {
-            setSoclicFeedback({
-              type: "error",
-              message: soclicRes.error || "Falha ao preparar na SóClick.",
-            });
-          }
-        } catch (err: unknown) {
-          setSoclicFeedback({
-            type: "error",
-            message: err instanceof Error ? err.message : String(err),
-          });
+          recordSoclicResult(soclicRes);
+        } catch {
+          recordSoclicResult({ ok: false, error_code: "HANDOFF_UNCERTAIN" });
         } finally {
+          soclicInFlightRef.current = false;
           setIsPreparingSoclic(false);
         }
       } else {
@@ -917,40 +923,28 @@ export const App: React.FC = () => {
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : String(err));
     } finally {
+      renderInFlightRef.current = false;
       setRendering(false);
     }
   };
 
   // SoClic Prepare Action
   const handlePrepareSoclic = async () => {
-    if (isPreparingSoclic || !renderResult || !editState) return;
+    if (
+      isPreparingSoclic || soclicInFlightRef.current || renderInFlightRef.current ||
+      !canPrepareSoclic || !renderResult || !editState
+    ) return;
+    soclicInFlightRef.current = true;
 
     try {
       setIsPreparingSoclic(true);
       setSoclicFeedback(null);
       const res = await bridge.prepareSoclic(renderResult, editState);
-      if (res.ok) {
-        setSoclicFeedback({
-          type: "success",
-          message: res.browser_opened === false
-            ? "Rascunho salvo. O navegador não abriu automaticamente."
-            : res.is_existing
-              ? "Rascunho existente carregado para conferência."
-              : "Rascunho salvo e enviado para conferência no painel.",
-          panelUrl: res.browser_opened === false ? res.panel_url : undefined,
-        });
-      } else {
-        setSoclicFeedback({
-          type: "error",
-          message: res.error || "Falha ao preparar na SóClick.",
-        });
-      }
-    } catch (err: unknown) {
-      setSoclicFeedback({
-        type: "error",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      recordSoclicResult(res);
+    } catch {
+      recordSoclicResult({ ok: false, error_code: "HANDOFF_UNCERTAIN" });
     } finally {
+      soclicInFlightRef.current = false;
       setIsPreparingSoclic(false);
     }
   };
@@ -1158,7 +1152,7 @@ export const App: React.FC = () => {
             <span style={{ color: mode === "manager" ? "#38bdf8" : "#94a3b8", fontWeight: "600" }}>
               {mode === "manager"
                 ? `Slots do Draft (${draft?.slots.length || 0}):`
-                : `Slots (${filledSlotsCount}/${template.slots.length}):`}
+                : `Fotos na folha (${filledSlotsCount}/${template.slots.length}):`}
             </span>
             <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap" }}>
               {(mode === "manager" && draft ? draft.slots : template.slots).map((s) => {
@@ -1254,7 +1248,7 @@ export const App: React.FC = () => {
                       title="Duplicar enquadramento para o próximo slot (ou dê duplo clique no slot)"
                     >
                       <CopyRegular style={{ fontSize: "14px" }} />
-                      <span>Duplicar para próximo</span>
+                      <span>Duplicar no próximo espaço livre</span>
                     </button>
                   )}
                   <button
@@ -1269,7 +1263,7 @@ export const App: React.FC = () => {
                     }
                   >
                     <TableRegular style={{ fontSize: "14px" }} />
-                    <span>Preencher restantes ({emptySlotsCount})</span>
+                    <span>Preencher espaços vazios ({emptySlotsCount})</span>
                   </button>
                 </>
               )}
@@ -1811,7 +1805,7 @@ export const App: React.FC = () => {
               <div
                 role="status"
                 aria-live="polite"
-                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 12px", minWidth: 0 }}
               >
                 <div
                   style={{
@@ -1824,7 +1818,9 @@ export const App: React.FC = () => {
                   }}
                 >
                   <CheckmarkCircleRegular style={{ fontSize: "18px", flexShrink: 0 }} />
-                  <span>Arquivo gerado em {renderResult.render_time_ms.toFixed(0)} ms!</span>
+                  <span title={`Gerado em ${(renderResult.render_time_ms / 1000).toFixed(1)} segundos`}>
+                    Arquivo salvo no computador
+                  </span>
                 </div>
                 <button
                   className="btn-secondary"
@@ -1843,34 +1839,73 @@ export const App: React.FC = () => {
                     borderColor: "#38bdf8",
                     color: "#38bdf8",
                   }}
-                  disabled={isPreparingSoclic}
+                  disabled={rendering || isPreparingSoclic || !canPrepareSoclic}
                   onClick={handlePrepareSoclic}
                   aria-label="Preparar na SóClick"
                   title="Importar para rascunho na SóClick e abrir tela de conferência"
                 >
                   <SendRegular style={{ fontSize: "14px" }} />
-                  <span>{isPreparingSoclic ? "Preparando..." : "Preparar na SoClic"}</span>
+                  <span>{isPreparingSoclic
+                    ? "Preparando rascunho..."
+                    : !canPrepareSoclic
+                      ? "Confira o rascunho antes"
+                      : "Preparar na SóClick"}</span>
                 </button>
+                {draftReconciliationRequired && (
+                  <label style={{
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "flex-start",
+                    fontSize: "12px",
+                    color: "#f8fafc",
+                    maxWidth: "100%",
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={operatorConfirmedNoDraft}
+                      onChange={(event) => setOperatorConfirmedNoDraft(event.target.checked)}
+                      aria-label="Conferi na SóClick que o rascunho não existe"
+                    />
+                    <span>
+                      Conferi no painel SóClick que este rascunho não existe.
+                      Só então posso tentar preparar novamente.
+                    </span>
+                  </label>
+                )}
                 {soclicFeedback && (
-                  <span
+                  <div
+                    role={soclicFeedback.type === "error" ? "alert" : "status"}
+                    aria-live={soclicFeedback.type === "error" ? "assertive" : "polite"}
                     style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "3px",
                       fontSize: "12px",
-                      color: soclicFeedback.type === "success" ? "#38bdf8" : "#f87171",
+                      lineHeight: "1.45",
+                      flexBasis: "100%",
+                      minWidth: 0,
+                      overflowWrap: "anywhere",
+                      color: soclicFeedback.type === "success" ? "#7dd3fc" : "#fca5a5",
                       fontWeight: "500",
                     }}
                   >
-                    {soclicFeedback.message}
+                    <span>{soclicFeedback.message}</span>
+                    {soclicFeedback.nextStep && (
+                      <span style={{ color: "#e2e8f0", fontWeight: "400" }}>
+                        {soclicFeedback.nextStep}
+                      </span>
+                    )}
                     {soclicFeedback.panelUrl && (
                       <a
                         href={soclicFeedback.panelUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: "#38bdf8", textDecoration: "underline" }}
+                        style={{ color: "#7dd3fc", textDecoration: "underline" }}
                       >
-                        Abrir conferência SóClick
+                        Abrir rascunho na SóClick
                       </a>
                     )}
-                  </span>
+                  </div>
                 )}
               </div>
             )}
@@ -1888,7 +1923,7 @@ export const App: React.FC = () => {
                 ? "GERANDO PROVA..."
                 : "GERANDO ARQUIVO ORIGINAL..."
               : isPreparingSoclic
-              ? "ENVIANDO PARA A SÓCLICK..."
+              ? "PREPARANDO RASCUNHO NA SÓCLICK..."
               : template?.status === "draft"
               ? "GERAR ARQUIVO DE PROVA"
               : "GERAR ARQUIVO DE PRODUÇÃO"}
@@ -2026,6 +2061,10 @@ export const App: React.FC = () => {
                     cursor: "pointer",
                   }}
                   onClick={() => executeRender(true)}
+                  disabled={!canPrepareSoclic || rendering || isPreparingSoclic}
+                  title={!canPrepareSoclic
+                    ? "Confirme primeiro que o rascunho não existe no painel."
+                    : "Gerar arquivo e preparar um rascunho local na SóClick"}
                   autoFocus
                 >
                   <SendRegular style={{ fontSize: "18px" }} />
