@@ -86,6 +86,10 @@ describe("SóClick uncertain intake requires operator reconciliation", () => {
       .toBe(false);
     expect(requiresDraftReconciliation({ ok: true, error_code: "HANDOFF_UNCERTAIN" }))
       .toBe(false);
+    expect(requiresDraftReconciliation({ ok: false, error: "Falha antiga do bridge" }))
+      .toBe(true);
+    expect(requiresDraftReconciliation({ ok: false, error_code: "NEW_UNKNOWN_CODE" }))
+      .toBe(true);
   });
 
   it("does not allow a new preparation before checking that draft is absent", () => {
