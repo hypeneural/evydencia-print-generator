@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
 from .discovery import discover_panel_port
+from .staging import StagingError, stage_verified_jpeg
 
 if TYPE_CHECKING:
     from ..domain.job import JobSnapshot
@@ -95,6 +96,17 @@ def prepare_soclic_draft(
             "O JPEG foi alterado entre a geração e a preparação. Envio bloqueado."
         )
 
+    # The generator may read user-selected photographs anywhere the current
+    # Windows account has access. Only the final JPEG enters a fixed, explicitly
+    # allowed EvydFlow staging root. Never grant the HTTP API C:\\ as a root.
+    try:
+        intake_file = stage_verified_jpeg(out_file, file_sha)
+    except StagingError as err:
+        raise SoclicHandoffError(
+            "Não foi possível preparar o JPEG na pasta autorizada.",
+            error_code="HANDOFF_STAGING_FAILED",
+        ) from err
+
     # Mapeamento restrito aos slots efetivamente renderizados
     slots_map: dict[str, Any] = {}
     for slot_id, edit in snapshot.slot_edits.items():
@@ -112,7 +124,7 @@ def prepare_soclic_draft(
         "idempotency_key": f"{snapshot.template_id}:{file_sha[:16]}",
         "template_id": snapshot.template_id,
         "template_version": snapshot.template_version,
-        "output_path": str(out_file),
+        "output_path": str(intake_file),
         "file_sha256": file_sha,
         "bytes_written": out_file.stat().st_size,
         "slots": slots_map,
