@@ -20,6 +20,19 @@ export interface SoclickNotice {
   code?: string;
 }
 
+/** When a request may have committed, an explicit panel check is required. */
+export function requiresDraftReconciliation(result: SoclickHandoffResult): boolean {
+  return !result.ok && result.error_code === "HANDOFF_UNCERTAIN";
+}
+
+/** A browser checkbox only acknowledges a manual check; it never sends a POST. */
+export function canPrepareAfterReview(
+  reconciliationRequired: boolean,
+  checkedPanelNoDraft: boolean,
+): boolean {
+  return !reconciliationRequired || checkedPanelNoDraft;
+}
+
 export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNotice {
   if (result.ok) {
     return {
