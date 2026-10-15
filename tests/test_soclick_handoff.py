@@ -273,7 +273,10 @@ def test_discovery_accepts_evydflow_environment_contract():
 
     with patch("urllib.request.urlopen", side_effect=[
         response(b'{"ok":true}'),
-        response(b'{"environment":"OPERACIONAL","enviar_blocked":true,"real_production_allowed":false}'),
+        response(
+            b'{"environment":"OPERACIONAL","enviar_blocked":true,'
+            b'"real_production_allowed":false}'
+        ),
     ]) as urlopen:
         assert _is_port_healthy(8095)
         assert "/api/soclick/environment" in urlopen.call_args_list[1].args[0].full_url
