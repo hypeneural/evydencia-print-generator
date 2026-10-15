@@ -52,6 +52,7 @@ import {
 } from "./domain/keyboard";
 import { getOperatorCapabilities } from "./domain/capabilities";
 import { parseRotationText } from "./domain/rotation_input";
+import { presentSoclickHandoff, type SoclickNotice } from "./domain/soclick_feedback";
 
 declare global {
   interface Window {
@@ -84,11 +85,7 @@ export const App: React.FC = () => {
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [isPreparingSoclic, setIsPreparingSoclic] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
-  const [soclicFeedback, setSoclicFeedback] = useState<{
-    type: "success" | "error";
-    message: string;
-    panelUrl?: string;
-  } | null>(null);
+  const [soclicFeedback, setSoclicFeedback] = useState<SoclickNotice | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [trayNotice, setTrayNotice] = useState<string | null>(null);
   const [rotationInputText, setRotationInputText] = useState<string | null>(null);
@@ -882,27 +879,12 @@ export const App: React.FC = () => {
         setIsPreparingSoclic(true);
         try {
           const soclicRes = await bridge.prepareSoclic(res, editState);
-          if (soclicRes.ok) {
-            setSoclicFeedback({
-              type: "success",
-              message: soclicRes.browser_opened === false
-                ? "Rascunho salvo. O navegador não abriu automaticamente."
-                : soclicRes.is_existing
-                  ? "Rascunho existente carregado para conferência."
-                  : "Rascunho salvo e enviado para conferência no painel.",
-              panelUrl: soclicRes.browser_opened === false ? soclicRes.panel_url : undefined,
-            });
-          } else {
-            setSoclicFeedback({
-              type: "error",
-              message: soclicRes.error || "Falha ao preparar na SóClick.",
-            });
-          }
+          setSoclicFeedback(presentSoclickHandoff(soclicRes));
         } catch (err: unknown) {
-          setSoclicFeedback({
-            type: "error",
-            message: err instanceof Error ? err.message : String(err),
-          });
+          setSoclicFeedback(presentSoclickHandoff({
+            ok: false,
+            error_code: "HANDOFF_UNCERTAIN",
+          }));
         } finally {
           setIsPreparingSoclic(false);
         }
@@ -929,27 +911,12 @@ export const App: React.FC = () => {
       setIsPreparingSoclic(true);
       setSoclicFeedback(null);
       const res = await bridge.prepareSoclic(renderResult, editState);
-      if (res.ok) {
-        setSoclicFeedback({
-          type: "success",
-          message: res.browser_opened === false
-            ? "Rascunho salvo. O navegador não abriu automaticamente."
-            : res.is_existing
-              ? "Rascunho existente carregado para conferência."
-              : "Rascunho salvo e enviado para conferência no painel.",
-          panelUrl: res.browser_opened === false ? res.panel_url : undefined,
-        });
-      } else {
-        setSoclicFeedback({
-          type: "error",
-          message: res.error || "Falha ao preparar na SóClick.",
-        });
-      }
+      setSoclicFeedback(presentSoclickHandoff(res));
     } catch (err: unknown) {
-      setSoclicFeedback({
-        type: "error",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      setSoclicFeedback(presentSoclickHandoff({
+        ok: false,
+        error_code: "HANDOFF_UNCERTAIN",
+      }));
     } finally {
       setIsPreparingSoclic(false);
     }
@@ -1824,7 +1791,9 @@ export const App: React.FC = () => {
                   }}
                 >
                   <CheckmarkCircleRegular style={{ fontSize: "18px", flexShrink: 0 }} />
-                  <span>Arquivo gerado em {renderResult.render_time_ms.toFixed(0)} ms!</span>
+                  <span title={`Gerado em ${(renderResult.render_time_ms / 1000).toFixed(1)} segundos`}>
+                    Arquivo salvo no computador
+                  </span>
                 </div>
                 <button
                   className="btn-secondary"
@@ -1849,29 +1818,40 @@ export const App: React.FC = () => {
                   title="Importar para rascunho na SóClick e abrir tela de conferência"
                 >
                   <SendRegular style={{ fontSize: "14px" }} />
-                  <span>{isPreparingSoclic ? "Preparando..." : "Preparar na SoClic"}</span>
+                  <span>{isPreparingSoclic ? "Preparando rascunho..." : "Preparar na SóClick"}</span>
                 </button>
                 {soclicFeedback && (
-                  <span
+                  <div
+                    role={soclicFeedback.type === "error" ? "alert" : "status"}
+                    aria-live={soclicFeedback.type === "error" ? "assertive" : "polite"}
                     style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "3px",
                       fontSize: "12px",
-                      color: soclicFeedback.type === "success" ? "#38bdf8" : "#f87171",
+                      lineHeight: "1.45",
+                      color: soclicFeedback.type === "success" ? "#7dd3fc" : "#fca5a5",
                       fontWeight: "500",
                     }}
                   >
-                    {soclicFeedback.message}
+                    <span>{soclicFeedback.message}</span>
+                    {soclicFeedback.nextStep && (
+                      <span style={{ color: "#e2e8f0", fontWeight: "400" }}>
+                        {soclicFeedback.nextStep}
+                      </span>
+                    )}
                     {soclicFeedback.panelUrl && (
                       <a
                         href={soclicFeedback.panelUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: "#38bdf8", textDecoration: "underline" }}
+                        style={{ color: "#7dd3fc", textDecoration: "underline" }}
                       >
-                        Abrir conferência SóClick
+                        Abrir rascunho na SóClick
                       </a>
                     )}
-                  </span>
-                )}
+                  </div>
+                )
               </div>
             )}
           </div>
@@ -1888,7 +1868,7 @@ export const App: React.FC = () => {
                 ? "GERANDO PROVA..."
                 : "GERANDO ARQUIVO ORIGINAL..."
               : isPreparingSoclic
-              ? "ENVIANDO PARA A SÓCLICK..."
+              ? "PREPARANDO RASCUNHO NA SÓCLICK..."
               : template?.status === "draft"
               ? "GERAR ARQUIVO DE PROVA"
               : "GERAR ARQUIVO DE PRODUÇÃO"}
