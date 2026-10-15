@@ -52,7 +52,13 @@ import {
 } from "./domain/keyboard";
 import { getOperatorCapabilities } from "./domain/capabilities";
 import { parseRotationText } from "./domain/rotation_input";
-import { presentSoclickHandoff, type SoclickNotice } from "./domain/soclick_feedback";
+import {
+  presentSoclickHandoff,
+  requiresDraftReconciliation,
+  canPrepareAfterReview,
+  type SoclickNotice,
+  type SoclickHandoffResult,
+} from "./domain/soclick_feedback";
 
 declare global {
   interface Window {
@@ -86,6 +92,10 @@ export const App: React.FC = () => {
   const [isPreparingSoclic, setIsPreparingSoclic] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
   const [soclicFeedback, setSoclicFeedback] = useState<SoclickNotice | null>(null);
+  const [draftReconciliationRequired, setDraftReconciliationRequired] = useState(false);
+  const [operatorConfirmedNoDraft, setOperatorConfirmedNoDraft] = useState(false);
+  const renderInFlightRef = useRef(false);
+  const soclicInFlightRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [trayNotice, setTrayNotice] = useState<string | null>(null);
   const [rotationInputText, setRotationInputText] = useState<string | null>(null);
@@ -834,6 +844,19 @@ export const App: React.FC = () => {
     );
   }, [template, editState]);
 
+  // The local draft may have committed before the network response was lost.
+  // Keep this gate separate from render success, which never implies printing.
+  const canPrepareSoclic = canPrepareAfterReview(
+    draftReconciliationRequired,
+    operatorConfirmedNoDraft
+  );
+  const recordSoclicResult = (res: SoclickHandoffResult) => {
+    setSoclicFeedback(presentSoclickHandoff(res));
+    const uncertain = requiresDraftReconciliation(res);
+    setDraftReconciliationRequired(uncertain);
+    setOperatorConfirmedNoDraft(false);
+  };
+
   // Render Job Click (Opens Confirmation/Choice Modal)
   const handleRenderClick = () => {
     if (!editState || !template) return;
@@ -847,13 +870,15 @@ export const App: React.FC = () => {
   };
 
   const executeRender = async (sendToSoclic: boolean) => {
-    if (!editState || !template) return;
+    if (!editState || !template || renderInFlightRef.current || soclicInFlightRef.current) return;
+    if (sendToSoclic && !canPrepareSoclic) return;
 
     if (!renderEligibility.canRender) {
       setErrorMessage(renderEligibility.statusMessage);
       return;
     }
 
+    renderInFlightRef.current = true;
     setShowRenderModal(false);
 
     try {
@@ -876,16 +901,15 @@ export const App: React.FC = () => {
       }
 
       if (sendToSoclic) {
+        soclicInFlightRef.current = true;
         setIsPreparingSoclic(true);
         try {
           const soclicRes = await bridge.prepareSoclic(res, editState);
-          setSoclicFeedback(presentSoclickHandoff(soclicRes));
+          recordSoclicResult(soclicRes);
         } catch {
-          setSoclicFeedback(presentSoclickHandoff({
-            ok: false,
-            error_code: "HANDOFF_UNCERTAIN",
-          }));
+          recordSoclicResult({ ok: false, error_code: "HANDOFF_UNCERTAIN" });
         } finally {
+          soclicInFlightRef.current = false;
           setIsPreparingSoclic(false);
         }
       } else {
@@ -899,25 +923,28 @@ export const App: React.FC = () => {
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : String(err));
     } finally {
+      renderInFlightRef.current = false;
       setRendering(false);
     }
   };
 
   // SoClic Prepare Action
   const handlePrepareSoclic = async () => {
-    if (isPreparingSoclic || !renderResult || !editState) return;
+    if (
+      isPreparingSoclic || soclicInFlightRef.current || renderInFlightRef.current ||
+      !canPrepareSoclic || !renderResult || !editState
+    ) return;
+    soclicInFlightRef.current = true;
 
     try {
       setIsPreparingSoclic(true);
       setSoclicFeedback(null);
       const res = await bridge.prepareSoclic(renderResult, editState);
-      setSoclicFeedback(presentSoclickHandoff(res));
+      recordSoclicResult(res);
     } catch {
-      setSoclicFeedback(presentSoclickHandoff({
-        ok: false,
-        error_code: "HANDOFF_UNCERTAIN",
-      }));
+      recordSoclicResult({ ok: false, error_code: "HANDOFF_UNCERTAIN" });
     } finally {
+      soclicInFlightRef.current = false;
       setIsPreparingSoclic(false);
     }
   };
@@ -1812,14 +1839,39 @@ export const App: React.FC = () => {
                     borderColor: "#38bdf8",
                     color: "#38bdf8",
                   }}
-                  disabled={isPreparingSoclic}
+                  disabled={rendering || isPreparingSoclic || !canPrepareSoclic}
                   onClick={handlePrepareSoclic}
                   aria-label="Preparar na SóClick"
                   title="Importar para rascunho na SóClick e abrir tela de conferência"
                 >
                   <SendRegular style={{ fontSize: "14px" }} />
-                  <span>{isPreparingSoclic ? "Preparando rascunho..." : "Preparar na SóClick"}</span>
+                  <span>{isPreparingSoclic
+                    ? "Preparando rascunho..."
+                    : !canPrepareSoclic
+                      ? "Confira o rascunho antes"
+                      : "Preparar na SóClick"}</span>
                 </button>
+                {draftReconciliationRequired && (
+                  <label style={{
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "flex-start",
+                    fontSize: "12px",
+                    color: "#f8fafc",
+                    maxWidth: "100%",
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={operatorConfirmedNoDraft}
+                      onChange={(event) => setOperatorConfirmedNoDraft(event.target.checked)}
+                      aria-label="Conferi na SóClick que o rascunho não existe"
+                    />
+                    <span>
+                      Conferi no painel SóClick que este rascunho não existe.
+                      Só então posso tentar preparar novamente.
+                    </span>
+                  </label>
+                )}
                 {soclicFeedback && (
                   <div
                     role={soclicFeedback.type === "error" ? "alert" : "status"}
@@ -2009,6 +2061,10 @@ export const App: React.FC = () => {
                     cursor: "pointer",
                   }}
                   onClick={() => executeRender(true)}
+                  disabled={!canPrepareSoclic || rendering || isPreparingSoclic}
+                  title={!canPrepareSoclic
+                    ? "Confirme primeiro que o rascunho não existe no painel."
+                    : "Gerar arquivo e preparar um rascunho local na SóClick"}
                   autoFocus
                 >
                   <SendRegular style={{ fontSize: "18px" }} />
