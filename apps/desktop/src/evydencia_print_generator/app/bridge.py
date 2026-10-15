@@ -293,11 +293,18 @@ class DesktopBridge:
                 expected_sha256=receipt.sha256,
             )
         except PanelUnavailableError as err:
-            logger.warning("SoClic panel unavailable: %s", err)
-            return {"ok": False, "error": str(err)}
-        except (SoclicHandoffError, RenderReceiptError) as err:
-            logger.warning("SoClic handoff failed: %s", err)
-            return {"ok": False, "error": str(err)}
+            logger.warning("SoClic panel unavailable: %s", type(err).__name__)
+            return {"ok": False, "error": str(err), "error_code": err.error_code}
+        except SoclicHandoffError as err:
+            logger.warning("SoClic handoff rejected: %s", err.error_code)
+            return {"ok": False, "error": str(err), "error_code": err.error_code}
+        except RenderReceiptError as err:
+            logger.warning("SoClic rendered file changed: %s", type(err).__name__)
+            return {
+                "ok": False,
+                "error": str(err),
+                "error_code": "RENDER_CHANGED",
+            }
         except Exception as exc:
             logger.exception("Unexpected error during SoClic preparation")
             return {"ok": False, "error": f"Erro inesperado ao preparar na SóClick: {exc}"}
