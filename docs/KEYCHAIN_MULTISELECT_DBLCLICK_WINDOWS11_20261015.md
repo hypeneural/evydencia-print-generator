@@ -16,7 +16,8 @@
 - `templates/chaveiro-3x4/template.json` permanece **bit a bit** igual ao SHA na base (auditar por `git diff --exit-code BASE..HEAD -- templates`).
 - Folha **216×152 mm**, saída **2551×1795 px @ 300 DPI**, 18 slots 6×3 em **34×44 mm**; coordenadas e cabeçalho de cliente permanecem intactos.
 - `duplicateSelectedSlots`: usa ordem física dos slots, procura vazios após maior índice selecionado (depois wrap-around), nunca sobrescreve slots ocupados; cópia inclui source, pan, escala e ângulo. Se não houver vazios suficientes, copia só os que cabem e informa quantidade sem duplicação.
-- Duplicação individual do chaveiro continua com regra original `slot_N → slot_(N+1)`; não mudar essa sem outra solicitação explícita.
+- **Correção de integridade individual incorporada:** duplo clique individual e botão "Duplicar para próximo" usam agora `duplicateSelectedSlots` com um único slot. Assim, preservam a preferência por `slot_N+1` quando livre, ignoram destinos ocupados e procuram o próximo vazio, com retorno ao começo da grade. Em folha completa, **não sobrescrevem nenhuma foto** e exibem aviso. Globo permanece com a troca entre seus dois slots conforme regra anterior.
+- Após um Undo ou Redo, `editStateRef.current` é sincronizado imediatamente, antes do próximo gesto, para evitar duplicar a partir de um estado antigo se o usuário agir rapidamente.
 - Seleção visual é estado do React, nunca gravado no manifesto, output, SQLite ou API.
 
 ## Execução no Windows (Antigravity, não confiar em memória)
@@ -31,7 +32,7 @@
    ```
    Se os comandos diferirem, inspecionar os scripts reais. Não testar impressão física só para validar UI.
 4. Em execução local pelo app DESKTOP (não apenas Vite no navegador), importar **duas fotos de teste** com 18 slots na grade. Atribuir fotografias com `source_id` diferentes e zoom, pan e rotação diferentes nos slots #01/#02/#03. Usar Shift para selecionar #01, #02, #03; confirmar **#03 azul, #01/#02 vermelho**. Clicar #01 (sem Shift) deve torná-lo azul e manter #02/#03 em vermelho; duplo clique em #02 deve criar #04/#05/#06 (3 fotos e enquadramentos correspondentes) e marcar os novos destinos. Contar **um único Undo** para desfazer todo o lote.
-5. Clicar slot único preenchido e duplo clique: apenas duplicação individual original. Testar última célula; testar 3 slots com alguns destinos ocupados e capacidade insuficiente; não sobrescrever itens existentes em lote.
+5. Clicar em um slot único preenchido e dar duplo clique: deve copiar **uma única foto** para o primeiro slot vazio após ele. Reproduzir o bug corrigido: #01 preenchido, #02 com uma foto diferente, #03 vazio → duplicar #01 deve preservar #02 e preencher #03. Testar #18 com #01 ocupado e #02 vazio (wrap); testar folha 18/18 cheia: nenhuma mudança, aviso na interface, nenhuma nova entrada de Undo. Testar 3 slots selecionados com alguns destinos ocupados e capacidade insuficiente; não sobrescrever itens em lote.
 6. Verificar overlay em cima das fotografias e do placeholder; arraste, zoom via roda, escala pelo slider e drop continuam funcionando (pointer-events none). Quando troca para Globo, Calendário ou Manager, nenhum overlay vermelho deve aparecer.
 7. Capturar 2 screenshots (com PII ocultada) e, se viável, uma gravação de 10s demonstrando Shift+clique/duplo clique; registrar logs de Console apenas se aparecerem erros reais, sem dados de cliente.
 8. Renderizar UM JPEG **local** de teste antes/depois e comparar `canvas_size_px`, DPI e metadados físicos. Ao comparar pixels, só esperar igualdade se estado/sources forem os mesmos; seleção não entra no JPEG. Não enviar à SóClick, não usar flags de produção e não modificar photos originais.
