@@ -5,7 +5,6 @@ import urllib.error
 import urllib.request
 
 import pytest
-
 from evydencia_print_generator.app.server import AssetServer
 
 
