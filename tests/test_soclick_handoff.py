@@ -224,6 +224,16 @@ def test_bridge_prepare_soclic_handles_panel_offline_gracefully(tmp_path):
         },
     }
 
+    # Production bridge now requires an actual receipt from render_job.
+    from evydencia_print_generator.domain.job import EditState, build_job_snapshot
+    from evydencia_print_generator.domain.template import load_template
+    from evydencia_print_generator.soclick.render_receipt import RenderReceipt
+
+    state = EditState.from_ui(edit_state_dict)
+    template = load_template(templates_dir() / "chaveiro-3x4" / "template.json")
+    snapshot = build_job_snapshot(template, state, registry.get)
+    b._last_render_receipt = RenderReceipt.capture(rendered, state, snapshot)
+
     with patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=None):
         res = b.prepare_soclic({"output_path": str(rendered)}, edit_state_dict)
         assert res["ok"] is False
@@ -291,3 +301,83 @@ def test_discovery_rejects_wrong_environment_shape():
         response(b'{"environment":"OPERACIONAL"}'),
     ]):
         assert not _is_port_healthy(8095)
+
+
+def test_bridge_rejects_handoff_without_original_render_receipt(tmp_path):
+    from evydencia_print_generator.app.bridge import DesktopBridge
+    from evydencia_print_generator.soclick.client import prepare_soclic_draft
+
+    generated = tmp_path / "file.jpg"
+    _make_dummy_image(generated)
+    bridge = DesktopBridge(
+        registry=MagicMock(), ingest_service=MagicMock(),
+        preview_service=MagicMock(), server_base_url="http://127.0.0.1:5000",
+    )
+    with patch("evydencia_print_generator.soclick.client.prepare_soclic_draft") as post:
+        result = bridge.prepare_soclic(
+            {"output_path": str(generated)},
+            {"template_id": "chaveiro-3x4", "template_version": "1.0.0", "slot_edits": {}},
+        )
+    assert result["ok"] is False
+    assert "Sem comprovante" in result["error"]
+    post.assert_not_called()
+
+
+def test_soclic_client_rejects_mutated_jpeg_before_network(tmp_path):
+    image = tmp_path / "render.jpg"
+    _make_dummy_image(image)
+    snapshot = JobSnapshot(
+        template_id="chaveiro-3x4", template_version="1.0.0",
+        sources={}, slot_edits={},
+    )
+    with patch("urllib.request.urlopen") as post:
+        with pytest.raises(SoclicHandoffError, match="JPEG foi alterado"):
+            prepare_soclic_draft(str(image), snapshot, expected_sha256="0" * 64)
+    post.assert_not_called()
+
+
+def test_soclic_client_rejects_cross_origin_panel_link(tmp_path):
+    rendered = tmp_path / "output.jpg"
+    _make_dummy_image(rendered)
+    snapshot = JobSnapshot(
+        template_id="chaveiro-3x4", template_version="1.0.0",
+        sources={}, slot_edits={},
+    )
+    mock_response = MagicMock()
+    mock_response.read.return_value = json.dumps({
+        "ok": True, "job_id": "job_print_abcd",
+        "panel_url": "https://example.invalid/panel/soclick?focus=job_print_abcd#review",
+    }).encode()
+    mock_response.__enter__.return_value = mock_response
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=8095),
+        patch("urllib.request.urlopen", return_value=mock_response),
+        patch("webbrowser.open") as browser,
+    ):
+        with pytest.raises(SoclicHandoffError, match="URL do editor"):
+            prepare_soclic_draft(str(rendered), snapshot)
+        browser.assert_not_called()
+
+
+def test_soclic_client_reports_browser_failure_without_losing_draft(tmp_path):
+    rendered = tmp_path / "output.jpg"
+    _make_dummy_image(rendered)
+    snapshot = JobSnapshot(
+        template_id="chaveiro-3x4", template_version="1.0.0",
+        sources={}, slot_edits={},
+    )
+    mock_response = MagicMock()
+    mock_response.read.return_value = json.dumps({
+        "ok": True, "job_id": "job_print_abcd",
+        "panel_url": "http://127.0.0.1:8095/panel/soclick?focus=job_print_abcd#review",
+    }).encode()
+    mock_response.__enter__.return_value = mock_response
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=8095),
+        patch("urllib.request.urlopen", return_value=mock_response),
+        patch("webbrowser.open", return_value=False),
+    ):
+        result = prepare_soclic_draft(str(rendered), snapshot)
+    assert result["ok"] is True
+    assert result["browser_opened"] is False
+    assert result["job_id"] == "job_print_abcd"
