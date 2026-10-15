@@ -104,6 +104,35 @@ describe("duplicateSelectedSlots", () => {
     rotation_deg: -30,
   };
 
+  it("duplicates 3 independently cropped photos in template order on a group double-click", () => {
+    const third: SlotEditState = {
+      source_id: "src_C", pan_x_norm: 0.25, pan_y_norm: -0.15,
+      scale: 1.16, rotation_deg: 90,
+    };
+    const edits: Record<string, SlotEditState> = {
+      slot_01: editA,
+      slot_02: editB,
+      slot_03: third,
+    };
+    const res = duplicateSelectedSlots({
+      slotIds: chaveiroSlotIds,
+      // Selection order is intentionally different from physical template order.
+      selectedSlotIds: ["slot_03", "slot_01", "slot_02"],
+      slotEdits: edits,
+    });
+
+    expect(res.changed).toBe(true);
+    expect(res.duplicatedCount).toBe(3);
+    expect(res.unassignedCount).toBe(0);
+    expect(res.targetSlotIds).toEqual(["slot_04", "slot_05", "slot_06"]);
+    expect(res.nextSlotEdits.slot_04).toEqual(editA);
+    expect(res.nextSlotEdits.slot_05).toEqual(editB);
+    expect(res.nextSlotEdits.slot_06).toEqual(third);
+    expect(res.nextSlotEdits.slot_04).not.toBe(editA);
+    expect(res.nextSlotEdits.slot_06).not.toBe(third);
+    expect(Object.keys(edits)).toHaveLength(3);
+  });
+
   it("duplicates 2 selected slots to contiguous empty slots", () => {
     const edits: Record<string, SlotEditState> = {
       slot_01: editA,
