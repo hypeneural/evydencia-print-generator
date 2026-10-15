@@ -16,6 +16,7 @@ export interface SoclicHandoffResponse {
   job_id?: string;
   observation?: string;
   panel_url?: string;
+  browser_opened?: boolean;
   is_existing?: boolean;
   total_orders?: number;
   error?: string;
@@ -322,6 +323,7 @@ export const bridge = {
       job_id: "job_print_mock123",
       observation: "Chaveiro | Mock #4101 | 1 folha",
       panel_url: "http://127.0.0.1:8095/panel/soclick?focus=job_print_mock123#review",
+      browser_opened: true,
       is_existing: false,
       total_orders: 1,
     };
