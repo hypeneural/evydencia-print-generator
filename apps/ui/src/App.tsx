@@ -1125,7 +1125,7 @@ export const App: React.FC = () => {
             <span style={{ color: mode === "manager" ? "#38bdf8" : "#94a3b8", fontWeight: "600" }}>
               {mode === "manager"
                 ? `Slots do Draft (${draft?.slots.length || 0}):`
-                : `Slots (${filledSlotsCount}/${template.slots.length}):`}
+                : `Fotos na folha (${filledSlotsCount}/${template.slots.length}):`}
             </span>
             <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap" }}>
               {(mode === "manager" && draft ? draft.slots : template.slots).map((s) => {
@@ -1221,7 +1221,7 @@ export const App: React.FC = () => {
                       title="Duplicar enquadramento para o próximo slot (ou dê duplo clique no slot)"
                     >
                       <CopyRegular style={{ fontSize: "14px" }} />
-                      <span>Duplicar para próximo</span>
+                      <span>Duplicar no próximo espaço livre</span>
                     </button>
                   )}
                   <button
@@ -1236,7 +1236,7 @@ export const App: React.FC = () => {
                     }
                   >
                     <TableRegular style={{ fontSize: "14px" }} />
-                    <span>Preencher restantes ({emptySlotsCount})</span>
+                    <span>Preencher espaços vazios ({emptySlotsCount})</span>
                   </button>
                 </>
               )}
@@ -1778,7 +1778,7 @@ export const App: React.FC = () => {
               <div
                 role="status"
                 aria-live="polite"
-                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 12px", minWidth: 0 }}
               >
                 <div
                   style={{
@@ -1830,6 +1830,9 @@ export const App: React.FC = () => {
                       gap: "3px",
                       fontSize: "12px",
                       lineHeight: "1.45",
+                      flexBasis: "100%",
+                      minWidth: 0,
+                      overflowWrap: "anywhere",
                       color: soclicFeedback.type === "success" ? "#7dd3fc" : "#fca5a5",
                       fontWeight: "500",
                     }}
