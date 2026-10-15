@@ -23,11 +23,15 @@ CHECK_TASK = (
 )
 
 
+def is_windows_host() -> bool:
+    return os.name == "nt"
+
+
 def recover_panel_from_scheduled_task() -> dict[str, object]:
     """Manual operator click only; returns no paths, tokens or process output."""
     if discover_panel_port() is not None:
         return {"ok": True, "state": "RUNNING"}
-    if os.name != "nt":
+    if not is_windows_host():
         return {"ok": False, "state": "WINDOWS_ONLY"}
     try:
         verified = subprocess.run(
