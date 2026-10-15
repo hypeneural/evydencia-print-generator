@@ -1925,7 +1925,7 @@ export const App: React.FC = () => {
                   lineHeight: "1.5",
                 }}
               >
-                Como você deseja prosseguir com a geração deste impresso?
+                Como você deseja prosseguir com a geração deste impresso? O rascunho da SóClick será aberto para conferência; não haverá envio físico automático.
               </p>
 
               {template && (
@@ -1974,7 +1974,7 @@ export const App: React.FC = () => {
                   autoFocus
                 >
                   <SendRegular style={{ fontSize: "18px" }} />
-                  <span>Gerar e Enviar para a SóClick</span>
+                  <span>Gerar e preparar rascunho na SóClick</span>
                 </button>
 
                 <button
