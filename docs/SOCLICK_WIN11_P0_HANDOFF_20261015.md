@@ -67,7 +67,14 @@ No diretório `evydencia-print-generator`:
 npm --prefix apps/ui test
 npm --prefix apps/ui run build
 ```
-Não declarar PASS se comando não rodou. Registrar código de saída e quantidade real de testes. Se comando variar, confirmar scripts no `pyproject.toml`/`apps/ui/package.json`; não improvisar dependências nem alterar versões sem diagnóstico.
+Não declarar PASS se comando não rodou. Registrar código de saída e quantidade real de testes.
+
+**Bloqueador observado no GitHub:** CI da PR #27 está vermelho nos jobs `python-linux` e `python-windows` na etapa `pytest -q`; o job `frontend` aparece verde nos runs inspecionados. Logs completos da execução não foram expostos pelo conector remoto. **Não atribuir causa por hipótese**. Primeiro abrir o job de teste no GitHub Actions e copiar traceback sanitizado; depois reproduzir **somente em checkout/test DB isolado**:
+```powershell
+.\.venv\Scripts\python.exe -m pytest -x -vv tests/test_render_receipt.py tests/test_soclick_handoff.py tests/test_soclick_runtime_audit.py
+.\.venv\Scripts\python.exe -m pytest -x -vv
+```
+Ao corrigir, publicar commit na mesma branch e esperar novos checks verdes. Não promover PR com CI vermelho. Se comando variar, confirmar scripts no `pyproject.toml`/`apps/ui/package.json`; não improvisar dependências nem alterar versões sem diagnóstico.
 
 ### Etapa 2 — Auditoria read-only do Windows
 Não inferir caminho do banco a partir do checkout: resolver a variável `EVYDFLOW_SOCLICK_DB_PATH` no processo **sem publicar segredo ou path privado**. Identificar listener na 8095, PID e CommandLine via WMI, diretório do processo, `services_pids.json`, task Agendada, API, worker e hash HEAD. Identificar se a API pertence à PR #37 correta e se há instância duplicada.
