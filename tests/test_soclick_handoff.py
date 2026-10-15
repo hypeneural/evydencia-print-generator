@@ -479,3 +479,28 @@ def test_soclick_post_transport_errors_do_not_ask_for_blind_retry(
     assert exc.value.error_code == expected_code
     assert image.exists(), "A network error must not delete the generated JPEG."
     post.assert_called_once()
+
+
+def test_bridge_unexpected_exception_does_not_leak_private_paths_or_tokens():
+    from evydencia_print_generator.app.bridge import DesktopBridge
+
+    bridge = DesktopBridge(
+        registry=MagicMock(),
+        ingest_service=MagicMock(),
+        preview_service=MagicMock(),
+        server_base_url="http://127.0.0.1:5000",
+    )
+    bridge._last_render_receipt = MagicMock()
+    with patch(
+        "evydencia_print_generator.soclick.prepare_soclic_draft",
+        side_effect=RuntimeError(r"C:\\Private\\customer.jpg access token ABC"),
+    ):
+        result = bridge.prepare_soclic(
+            {"output_path": "C:/safe/sample.jpg"},
+            {"template_id": "chaveiro-3x4", "template_version": "1.0.0",
+             "slot_edits": {}},
+        )
+    assert result["ok"] is False
+    assert result["error_code"] == "HANDOFF_UNCERTAIN"
+    assert "customer.jpg" not in result["error"]
+    assert "token" not in result["error"].lower()
