@@ -16,9 +16,50 @@ CHECK_TASK = (
     "$t = Get-ScheduledTask -TaskName 'EvydFlow - Iniciar Servicos ao Entrar' "
     "-ErrorAction Stop; "
     "$a = @($t.Actions); "
+    "$expected = 'C:\\Evydencia\\evydflow-soclick-copies\\services\\boot-evydflow.ps1'; "
+    "$workingDir = 'C:\\Evydencia\\evydflow-soclick-copies'; "
     "if ($a.Count -ne 1 -or "
-    "$a[0].Execute -notmatch '(?i)powershell(\\.exe)?$' -or "
-    "$a[0].Arguments -notmatch 'boot-evydflow\\.ps1') { exit 42 }; "
+    "$a[0].Execute -notmatch '(?i)powershell(\\.exe)?
+    "Write-Output 'VERIFIED'"
+)
+
+
+def is_windows_host() -> bool:
+    return os.name == "nt"
+
+
+def recover_panel_from_scheduled_task() -> dict[str, object]:
+    """Manual operator click only; returns no paths, tokens or process output."""
+    if discover_panel_port() is not None:
+        return {"ok": True, "state": "RUNNING"}
+    if not is_windows_host():
+        return {"ok": False, "state": "WINDOWS_ONLY"}
+    try:
+        verified = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", CHECK_TASK],
+            capture_output=True, text=True, timeout=6, check=False,
+        )
+        if verified.returncode != 0 or verified.stdout.strip() != "VERIFIED":
+            return {"ok": False, "state": "TASK_NOT_VERIFIED"}
+        # Existing task is the only authorized starter. The task's bootstrap
+        # owns the EvydFlowStartup8095 mutex and checks running worker PIDs.
+        started = subprocess.run(
+            ["schtasks.exe", "/Run", "/TN", STARTUP_TASK_NAME],
+            capture_output=True, text=True, timeout=6, check=False,
+        )
+        if started.returncode != 0:
+            return {"ok": False, "state": "TASK_START_FAILED"}
+        for _ in range(5):
+            if discover_panel_port() is not None:
+                return {"ok": True, "state": "RUNNING"}
+            time.sleep(1)
+        return {"ok": False, "state": "STARTING"}
+    except (OSError, subprocess.TimeoutExpired):
+        return {"ok": False, "state": "TASK_START_FAILED"}
+ -or "
+    "$a[0].WorkingDirectory -ine $workingDir -or "
+    "$a[0].Arguments.IndexOf($expected, [StringComparison]::OrdinalIgnoreCase) -lt 0) "
+    "{ exit 42 }; "
     "Write-Output 'VERIFIED'"
 )
 
