@@ -40,13 +40,44 @@ describe("duplicateSlot", () => {
     expect(res?.nextSlotEdits.slot_03.scale).toBe(2.0);
   });
 
-  it("returns null when duplicating the last slot of Chaveiro", () => {
+  it("wraps from last Chaveiro slot into the first empty slot, without overwriting", () => {
     const edits: Record<string, SlotEditState> = {
+      slot_01: { ...sampleEdit, source_id: "original_customer" },
       slot_18: sampleEdit,
     };
 
     const res = duplicateSlot("chaveiro-3x4", chaveiroSlotIds, "slot_18", edits);
+    expect(res?.targetSlotId).toBe("slot_02");
+    expect(res?.nextSlotEdits.slot_02).toEqual(sampleEdit);
+    expect(res?.nextSlotEdits.slot_01).toEqual(edits.slot_01);
+    expect(res?.nextSlotEdits.slot_18).toEqual(sampleEdit);
+  });
+
+  it("skips consecutive occupied Chaveiro slots and retains other customers", () => {
+    const other = { ...sampleEdit, source_id: "different_customer", scale: 2 };
+    const edits: Record<string, SlotEditState> = {
+      slot_01: sampleEdit,
+      slot_02: other,
+      slot_03: { ...other, rotation_deg: 45 },
+    };
+    const res = duplicateSlot("chaveiro-3x4", chaveiroSlotIds, "slot_01", edits);
+    expect(res?.targetSlotId).toBe("slot_04");
+    expect(res?.nextSlotEdits.slot_04).toEqual(sampleEdit);
+    expect(res?.nextSlotEdits.slot_04).not.toBe(sampleEdit);
+    expect(res?.nextSlotEdits.slot_02).toEqual(other);
+    expect(res?.nextSlotEdits.slot_03).toEqual(edits.slot_03);
+    expect(edits.slot_04).toBeUndefined();
+  });
+
+  it("never changes a full Chaveiro sheet on individual duplication", () => {
+    const edits: Record<string, SlotEditState> = {};
+    for (const [index, id] of chaveiroSlotIds.entries()) {
+      edits[id] = { ...sampleEdit, source_id: `customer_${index}` };
+    }
+    const res = duplicateSlot("chaveiro-3x4", chaveiroSlotIds, "slot_11", edits);
     expect(res).toBeNull();
+    expect(Object.values(edits).map((edit) => edit.source_id)).toHaveLength(18);
+    expect(edits.slot_12.source_id).toBe("customer_11");
   });
 
   it("clones between foto_1 and foto_2 in Globo de Neve", () => {
@@ -103,6 +134,35 @@ describe("duplicateSelectedSlots", () => {
     scale: 2.0,
     rotation_deg: -30,
   };
+
+  it("duplicates 3 independently cropped photos in template order on a group double-click", () => {
+    const third: SlotEditState = {
+      source_id: "src_C", pan_x_norm: 0.25, pan_y_norm: -0.15,
+      scale: 1.16, rotation_deg: 90,
+    };
+    const edits: Record<string, SlotEditState> = {
+      slot_01: editA,
+      slot_02: editB,
+      slot_03: third,
+    };
+    const res = duplicateSelectedSlots({
+      slotIds: chaveiroSlotIds,
+      // Selection order is intentionally different from physical template order.
+      selectedSlotIds: ["slot_03", "slot_01", "slot_02"],
+      slotEdits: edits,
+    });
+
+    expect(res.changed).toBe(true);
+    expect(res.duplicatedCount).toBe(3);
+    expect(res.unassignedCount).toBe(0);
+    expect(res.targetSlotIds).toEqual(["slot_04", "slot_05", "slot_06"]);
+    expect(res.nextSlotEdits.slot_04).toEqual(editA);
+    expect(res.nextSlotEdits.slot_05).toEqual(editB);
+    expect(res.nextSlotEdits.slot_06).toEqual(third);
+    expect(res.nextSlotEdits.slot_04).not.toBe(editA);
+    expect(res.nextSlotEdits.slot_06).not.toBe(third);
+    expect(Object.keys(edits)).toHaveLength(3);
+  });
 
   it("duplicates 2 selected slots to contiguous empty slots", () => {
     const edits: Record<string, SlotEditState> = {

@@ -23,6 +23,7 @@ import { ProductCanvas } from "./components/ProductCanvas";
 import { ManagerInspector } from "./components/ManagerInspector";
 import { createHistoryManager } from "./domain/history";
 import { duplicateSlot, duplicateSelectedSlots } from "./domain/duplication";
+import { isKeychainGroupDoubleClick, selectKeychainSlot } from "./domain/keychain_selection";
 import { checkRenderEligibility } from "./domain/render_policy";
 import type { PreviewLayout } from "./domain/layout";
 import { computePreviewLayout } from "./domain/layout";
@@ -107,6 +108,7 @@ export const App: React.FC = () => {
   // Stable refs for event listeners and non-stale callbacks
   const editStateRef = useRef<EditStateModel | null>(null);
   const activeSlotIdRef = useRef<string>("");
+  const selectedSlotIdsRef = useRef<string[]>([]);
   const modeRef = useRef<"operator" | "manager">(mode);
   const templateRef = useRef<TemplateModel | null>(null);
   const layoutRef = useRef<PreviewLayout>(previewLayout);
@@ -118,6 +120,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     activeSlotIdRef.current = activeSlotId;
   }, [activeSlotId]);
+  useEffect(() => {
+    selectedSlotIdsRef.current = selectedSlotIds;
+  }, [selectedSlotIds]);
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
@@ -404,6 +409,9 @@ export const App: React.FC = () => {
     if (!historyRef.current || !historyRef.current.canUndo) return;
     const previous = historyRef.current.undo();
     if (previous) {
+      // Keep native Fabric callbacks and React in sync before the next render.
+      // Otherwise a fast double-click after Undo could use pre-Undo slot data.
+      editStateRef.current = previous;
       setEditState(previous);
     }
   }, []);
@@ -412,6 +420,7 @@ export const App: React.FC = () => {
     if (!historyRef.current || !historyRef.current.canRedo) return;
     const next = historyRef.current.redo();
     if (next) {
+      editStateRef.current = next;
       setEditState(next);
     }
   }, []);
@@ -617,88 +626,105 @@ export const App: React.FC = () => {
     });
   };
 
-  // Double-click handler per product (M4-D, M4-E)
+  // One batch implementation shared by the toolbar and canvas double click.
+  const duplicateKeychainSelection = useCallback(
+    (selection: readonly string[]) => {
+      const prev = editStateRef.current;
+      const tpl = templateRef.current;
+      if (!prev || tpl?.id !== "chaveiro-3x4") return;
+
+      const res = duplicateSelectedSlots({
+        slotIds: tpl.slots.map((s) => s.id),
+        selectedSlotIds: selection,
+        slotEdits: prev.slot_edits,
+      });
+      if (res.changed) {
+        commitEditState({ ...prev, slot_edits: res.nextSlotEdits });
+        if (res.targetSlotIds.length > 0) {
+          selectedSlotIdsRef.current = res.targetSlotIds;
+          setSelectedSlotIds(res.targetSlotIds);
+          activeSlotIdRef.current = res.targetSlotIds[0];
+          setActiveSlotId(res.targetSlotIds[0]);
+        }
+      }
+      if (res.unassignedCount > 0) {
+        setTrayNotice(
+          `${res.unassignedCount} foto(s) não puderam ser duplicadas por falta de campos vazios.`
+        );
+      }
+    },
+    [commitEditState]
+  );
+
+  // The Fabric double-click event occurs AFTER both mouse-down events.
+  // Single clicks on members preserve a group; Shift+click edits the group.
   const handleDoubleClickSlot = useCallback(
     (slotId: string) => {
       const prev = editStateRef.current;
       const tpl = templateRef.current;
       if (!prev || !tpl) return;
 
-      const slotIds = tpl.slots.map((s) => s.id);
-      const res = duplicateSlot(tpl.id, slotIds, slotId, prev.slot_edits);
+      const selected = selectedSlotIdsRef.current;
+      if (isKeychainGroupDoubleClick(tpl.id, selected, slotId, prev.slot_edits)) {
+        duplicateKeychainSelection(selected);
+        return;
+      }
+
+      // Retain existing single-slot / Globo behavior without changing geometry.
+      const res = duplicateSlot(
+        tpl.id,
+        tpl.slots.map((s) => s.id),
+        slotId,
+        prev.slot_edits
+      );
       if (res) {
-        commitEditState({
-          ...prev,
-          slot_edits: res.nextSlotEdits,
-        });
+        commitEditState({ ...prev, slot_edits: res.nextSlotEdits });
+        activeSlotIdRef.current = res.targetSlotId;
         setActiveSlotId(res.targetSlotId);
+        selectedSlotIdsRef.current = [res.targetSlotId];
+        setSelectedSlotIds([res.targetSlotId]);
       } else {
-        // Calendário or generic: focus slot
+        // A full Chaveiro sheet is a safe no-op, never an overwrite.
+        if (tpl.id === "chaveiro-3x4" && prev.slot_edits[slotId]) {
+          setTrayNotice("A folha está completa. Nenhuma foto foi substituída.");
+        }
+        activeSlotIdRef.current = slotId;
         setActiveSlotId(slotId);
       }
     },
-    [commitEditState]
+    [commitEditState, duplicateKeychainSelection]
   );
 
-  // Slot selection with Shift multi-select support for Chaveiro
+  // Shift+click toggles selected members. Clicking any already-selected member
+  // without Shift only changes the BLUE active focus, not the RED group.
   const handleSelectSlot = useCallback(
     (slotId: string, options?: { shiftKey?: boolean }) => {
-      if (
+      const selection =
         modeRef.current === "operator" &&
-        templateRef.current?.id === "chaveiro-3x4" &&
-        options?.shiftKey
-      ) {
-        setSelectedSlotIds((prev) => {
-          if (prev.includes(slotId)) {
-            const next = prev.filter((id) => id !== slotId);
-            return next.length > 0 ? next : [slotId];
-          }
-          return [...prev, slotId];
-        });
-        setActiveSlotId(slotId);
-      } else {
-        setSelectedSlotIds([slotId]);
-        setActiveSlotId(slotId);
-      }
+        templateRef.current?.id === "chaveiro-3x4"
+          ? selectKeychainSlot(
+              selectedSlotIdsRef.current,
+              slotId,
+              Boolean(options?.shiftKey)
+            )
+          : { activeSlotId: slotId, selectedSlotIds: [slotId] };
+      selectedSlotIdsRef.current = selection.selectedSlotIds;
+      activeSlotIdRef.current = selection.activeSlotId;
+      setSelectedSlotIds(selection.selectedSlotIds);
+      setActiveSlotId(selection.activeSlotId);
     },
     []
   );
 
-  // Batch action: Duplicate active slot to next slot in Chaveiro
+  // Existing toolbar actions share exact same domain logic as canvas dblclick.
   const handleDuplicateToNextSlot = useCallback(() => {
     if (!activeSlotId) return;
     handleDoubleClickSlot(activeSlotId);
   }, [activeSlotId, handleDoubleClickSlot]);
 
-  // Batch action: Duplicate multiple selected slots in Chaveiro
   const handleDuplicateSelected = useCallback(() => {
-    const prev = editStateRef.current;
-    const tpl = templateRef.current;
-    if (!prev || !tpl) return;
-
-    const slotIds = tpl.slots.map((s) => s.id);
-    const res = duplicateSelectedSlots({
-      slotIds,
-      selectedSlotIds,
-      slotEdits: prev.slot_edits,
-    });
-
-    if (res.changed) {
-      commitEditState({
-        ...prev,
-        slot_edits: res.nextSlotEdits,
-      });
-      if (res.targetSlotIds.length > 0) {
-        setActiveSlotId(res.targetSlotIds[0]);
-        setSelectedSlotIds(res.targetSlotIds);
-      }
-    }
-    if (res.unassignedCount > 0) {
-      setTrayNotice(
-        `${res.unassignedCount} foto(s) não puderam ser duplicadas por falta de campos vazios.`
-      );
-    }
-  }, [selectedSlotIds, commitEditState]);
+    duplicateKeychainSelection(selectedSlotIdsRef.current);
+  }, [duplicateKeychainSelection]);
 
   // Batch action: Fill remaining empty slots in Chaveiro
   const emptySlotsCount = useMemo(() => {
@@ -1143,6 +1169,8 @@ export const App: React.FC = () => {
                   <button
                     key={s.id}
                     onClick={(e) => handleSelectSlot(s.id, { shiftKey: e.shiftKey })}
+                    aria-pressed={selectedSlotIds.includes(s.id)}
+                    title="Clique para ativar; Shift+clique para selecionar ou retirar da seleção"
                     style={{
                       padding: "4px 10px",
                       borderRadius: "4px",
@@ -1151,21 +1179,21 @@ export const App: React.FC = () => {
                           ? "2px solid #38bdf8"
                           : "2px solid #3b82f6"
                         : isSelectedSecondary
-                        ? "2px solid #06b6d4"
+                        ? "2px dashed #ef4444"
                         : "1px solid #334155",
                       backgroundColor: isActive
                         ? mode === "manager"
                           ? "#0369a1"
                           : "#1e3a8a"
                         : isSelectedSecondary
-                        ? "#164e63"
+                        ? "#7f1d1d"
                         : hasPhoto
                         ? "#1e293b"
                         : "#0f172a",
                       color: isActive
                         ? "#ffffff"
                         : isSelectedSecondary
-                        ? "#a5f3fc"
+                        ? "#fecaca"
                         : hasPhoto
                         ? "#e2e8f0"
                         : "#64748b",

@@ -9,8 +9,10 @@ export interface DuplicationResult {
  * Pure domain logic for slot duplication (M4-D, M4-E).
  *
  * Rules:
- * - Chaveiro: double-clicking a filled slot clones full SlotEditState to the next slot (slot_N -> slot_N+1).
- *   Does nothing if already at the last slot.
+ * - Chaveiro: double-clicking a filled slot clones full SlotEditState to the next
+ *   EMPTY slot, wrapping at the end. Never replaces another customer's photo.
+ *   A full sheet is a no-op. This delegates to the batch policy so one and
+ *   multiple selections share the same placement and safety rules.
  * - Globo: double-clicking foto_1 clones to foto_2, and vice-versa.
  * - Calendario: single slot, duplication is a no-op.
  * - Empty source slot: duplication is a no-op.
@@ -27,10 +29,18 @@ export function duplicateSlot(
   let targetSlotId: string | null = null;
 
   if (templateId === "chaveiro-3x4") {
-    const currentIdx = slotIds.indexOf(sourceSlotId);
-    if (currentIdx !== -1 && currentIdx < slotIds.length - 1) {
-      targetSlotId = slotIds[currentIdx + 1];
-    }
+    // Same deterministic search policy as group duplication. In particular,
+    // do NOT write to slot_N+1 if it already contains a photograph.
+    const result = duplicateSelectedSlots({
+      slotIds,
+      selectedSlotIds: [sourceSlotId],
+      slotEdits,
+    });
+    if (!result.changed) return null;
+    return {
+      targetSlotId: result.targetSlotIds[0],
+      nextSlotEdits: result.nextSlotEdits,
+    };
   } else if (templateId === "globo-neve") {
     targetSlotId = sourceSlotId === "foto_1" ? "foto_2" : "foto_1";
   }
