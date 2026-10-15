@@ -56,26 +56,38 @@ class AssetHandler(http.server.BaseHTTPRequestHandler):
         self._serve_file(static_file, head_only=head_only)
 
     def _serve_file(self, target: Path, head_only: bool) -> None:
-        if not target.is_file():
+        # Native pywebview assets include customer photo previews. Resolving a
+        # path containing .. or a symlink must never escape an approved root.
+        resolved = target.resolve()
+        allowed_roots = (
+            self.ui_dist_dir.resolve(),
+            self.cache_dir.resolve(),
+            self.templates_root.resolve(),
+        )
+        if not any(resolved == root or root in resolved.parents for root in allowed_roots):
+            self.send_error(403, "Asset path is outside the application directories")
+            return
+        if not resolved.is_file():
             self.send_error(404, f"File not found: {target.name}")
             return
 
-        ctype, _ = mimetypes.guess_type(target.name)
+        ctype, _ = mimetypes.guess_type(resolved.name)
         if ctype is None:
             ctype = "application/octet-stream"
 
         try:
-            stat = target.stat()
+            stat = resolved.stat()
             self.send_response(200)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(stat.st_size))
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Connection", "close")
             self.end_headers()
 
             if not head_only:
-                with open(target, "rb") as f:
+                with open(resolved, "rb") as f:
                     self.wfile.write(f.read())
         except Exception:
             self.send_error(500, "Error reading file")
