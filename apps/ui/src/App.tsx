@@ -86,6 +86,7 @@ export const App: React.FC = () => {
   const [soclicFeedback, setSoclicFeedback] = useState<{
     type: "success" | "error";
     message: string;
+    panelUrl?: string;
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [trayNotice, setTrayNotice] = useState<string | null>(null);
@@ -841,6 +842,16 @@ export const App: React.FC = () => {
       const res = await bridge.renderJob(editState);
       setRenderResult(res);
 
+      // Avoid shipping an older JPEG when the user edited the canvas during rendering.
+      // Python verifies an independent immutable receipt before any network request.
+      if (sendToSoclic && editStateRef.current !== editState) {
+        setSoclicFeedback({
+          type: "error",
+          message: "O editor mudou durante a geração. Gere novamente antes de preparar na SóClick.",
+        });
+        return;
+      }
+
       if (sendToSoclic) {
         setIsPreparingSoclic(true);
         try {
@@ -848,9 +859,12 @@ export const App: React.FC = () => {
           if (soclicRes.ok) {
             setSoclicFeedback({
               type: "success",
-              message: soclicRes.is_existing
-                ? "Rascunho já existente aberto na SóClick!"
-                : "Rascunho preparado e aberto na SóClick!",
+              message: soclicRes.browser_opened === false
+                ? "Rascunho salvo. O navegador não abriu automaticamente."
+                : soclicRes.is_existing
+                  ? "Rascunho existente carregado para conferência."
+                  : "Rascunho salvo e enviado para conferência no painel.",
+              panelUrl: soclicRes.browser_opened === false ? soclicRes.panel_url : undefined,
             });
           } else {
             setSoclicFeedback({
@@ -892,9 +906,12 @@ export const App: React.FC = () => {
       if (res.ok) {
         setSoclicFeedback({
           type: "success",
-          message: res.is_existing
-            ? "Rascunho já existente aberto na SóClick!"
-            : "Rascunho preparado e aberto na SóClick!",
+          message: res.browser_opened === false
+            ? "Rascunho salvo. O navegador não abriu automaticamente."
+            : res.is_existing
+              ? "Rascunho existente carregado para conferência."
+              : "Rascunho salvo e enviado para conferência no painel.",
+          panelUrl: res.browser_opened === false ? res.panel_url : undefined,
         });
       } else {
         setSoclicFeedback({
@@ -1815,6 +1832,16 @@ export const App: React.FC = () => {
                     }}
                   >
                     {soclicFeedback.message}
+                    {soclicFeedback.panelUrl && (
+                      <a
+                        href={soclicFeedback.panelUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#38bdf8", textDecoration: "underline" }}
+                      >
+                        Abrir conferência SóClick
+                      </a>
+                    )}
                   </span>
                 )}
               </div>
