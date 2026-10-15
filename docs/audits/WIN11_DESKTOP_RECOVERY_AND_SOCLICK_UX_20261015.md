@@ -95,3 +95,10 @@ No relatório local constam `Pillow 11.1.0` e `React 19.0.0`, mas o repositório
 3. Na interface nativa, induzir HANDOFF_UNCERTAIN via serviço **isolado**, confirmar botão desativado, checar no painel sintético DRAFT ausente, marcar checkbox e provar que só então uma tentativa manual fica habilitada. Testar duplo clique rápido durante preparo: no máximo **um POST** em voo.
 4. Emitiu DRAFT? Conferir o rascunho pelo `job_id` e status, sem inferir envio ao laboratório.
 5. No relatório final diferenciar **PASS em CI**, **PASS no aplicativo nativo**, **PASS no Vite/Chrome** e **NOT_RUN** com dados reais. Não afirmar 60 FPS sem medição, nem autosave sem restauração após crash.
+
+### Banco autoritativo do DRAFT (validação cruzada com EvydFlow PR #37/#41)
+Foi conferido diretamente em `evydflow/api/soclick_routes.py:get_soclick_db_path` e `get_soclick_storage` da branch `fix/p0-soclick-copy-order-crm-links-timeline-20261013`. O contrato `POST /api/soclick/intake/print-generator` instancia `SoCliqueStorage(get_soclick_db_path())`; `evydflow/soclick/print_intake.py:intake_rendered_print` persiste o DRAFT por `storage.create_draft_job_from_manifest` e deduplica por referência baseada em SHA.
+
+Portanto **o banco autoritativo dos DRAFTs é `EVYDFLOW_SOCLICK_DB_PATH` (fallback `data/soclick_jobs.db`)**, NÃO se deve inferir que todo DRAFT reside em `production.db` ou `outbox.db`. Estes arquivos podem ser usados por etapas de produção/outbox distintas. O relatório do Antigravity listou `production.db` e `outbox.db` como se validassem o DRAFT: isso não prova a persistência na base correta. No Windows o caminho real anteriormente comunicado era `C:\\Evydencia\\evydflow-soclick-ops\\data\\soclick_jobs.db`, mas **confirme a variável efetivamente herdada pelo processo HTTP e o schema da base em modo somente leitura** antes de qualquer afirmação atual.
+
+Da mesma forma, `get_default_allowed_roots()` e `require_print_generator_allowed_roots` são executados **no processo do EvydFlow**, não no Print Generator. Corrigir apenas a mensagem React não remove o bloqueio real `HTTP 503`; não há motivo para desativar essa verificação em produção.
