@@ -174,9 +174,11 @@ def prepare_soclic_draft(
         raise PanelUnavailableError(
             "O painel EvydFlow não está disponível neste computador."
         ) from err
-    except TimeoutError as err:
+    except OSError as err:
+        # Includes TimeoutError and a connection dropping after the request
+        # was sent. The server may still have committed the draft.
         raise SoclicHandoffError(
-            "Tempo de resposta esgotado; o rascunho pode ter sido criado.",
+            "A conexão caiu durante a preparação; o rascunho pode ter sido criado.",
             error_code="HANDOFF_UNCERTAIN",
         ) from err
     except (ValueError, TypeError) as err:
