@@ -1,7 +1,10 @@
 """Unit tests for the SoClic handoff client and discovery in Print Generator."""
 from __future__ import annotations
 
+import io
 import json
+import socket
+import urllib.error
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -376,3 +379,71 @@ def test_soclic_client_reports_browser_failure_without_losing_draft(tmp_path):
     assert result["ok"] is True
     assert result["browser_opened"] is False
     assert result["job_id"] == "job_print_abcd"
+
+
+@pytest.mark.parametrize(
+    ("http_status", "detail", "expected_code"),
+    [
+        (503, "Configure EVYDFLOW_ALLOWED_ROOTS", "ROOTS_NOT_CONFIGURED"),
+        (403, "Access denied for local operator", "OPERATOR_NOT_AUTHORIZED"),
+        (503, "Worker not ready", "HANDOFF_UNCERTAIN"),
+        (500, "Internal error: C:\\private\\customer.jpg", "HANDOFF_UNCERTAIN"),
+        (400, "Corrupt JPEG file", "HANDOFF_REJECTED"),
+    ],
+)
+def test_soclick_http_errors_are_typed_and_do_not_leak_server_details(
+    tmp_path, http_status, detail, expected_code
+):
+    jpeg = tmp_path / "test.jpg"
+    _make_dummy_image(jpeg)
+    snap = JobSnapshot(template_id="chaveiro-3x4", template_version="1.0.0",
+                       sources={}, slot_edits={})
+    err = urllib.error.HTTPError(
+        "http://127.0.0.1:8095/api/soclick/intake/print-generator",
+        http_status, "Server failure", {},
+        io.BytesIO(json.dumps({"detail": detail}).encode("utf-8")),
+    )
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port",
+              return_value=8095),
+        patch("urllib.request.urlopen", side_effect=err),
+    ):
+        with pytest.raises(SoclicHandoffError) as exc:
+            prepare_soclic_draft(str(jpeg), snap, open_browser=False)
+    assert exc.value.error_code == expected_code
+    assert "C:\\private" not in str(exc.value)
+    assert "customer.jpg" not in str(exc.value)
+
+
+def test_soclick_timeout_is_uncertain_not_offline(tmp_path):
+    jpeg = tmp_path / "test.jpg"
+    _make_dummy_image(jpeg)
+    snap = JobSnapshot(template_id="chaveiro-3x4", template_version="1.0.0",
+                       sources={}, slot_edits={})
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port",
+              return_value=8095),
+        patch("urllib.request.urlopen",
+              side_effect=urllib.error.URLError(socket.timeout("socket timed out"))),
+    ):
+        with pytest.raises(SoclicHandoffError) as exc:
+            prepare_soclic_draft(str(jpeg), snap, open_browser=False)
+    assert exc.value.error_code == "HANDOFF_UNCERTAIN"
+
+
+def test_soclick_malformed_json_shape_is_uncertain_not_a_crash(tmp_path):
+    jpeg = tmp_path / "test.jpg"
+    _make_dummy_image(jpeg)
+    snap = JobSnapshot(template_id="chaveiro-3x4", template_version="1.0.0",
+                       sources={}, slot_edits={})
+    response = MagicMock()
+    response.read.return_value = b'["unexpected", "json"]'
+    response.__enter__.return_value = response
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port",
+              return_value=8095),
+        patch("urllib.request.urlopen", return_value=response),
+    ):
+        with pytest.raises(SoclicHandoffError) as exc:
+            prepare_soclic_draft(str(jpeg), snap, open_browser=False)
+    assert exc.value.error_code == "HANDOFF_UNCERTAIN"
