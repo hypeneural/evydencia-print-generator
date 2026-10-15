@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import re
-import socket
 import urllib.error
 import urllib.request
 import webbrowser
@@ -167,7 +166,7 @@ def prepare_soclic_draft(
             error_code="HANDOFF_REJECTED",
         ) from err
     except urllib.error.URLError as err:
-        if isinstance(err.reason, (TimeoutError, socket.timeout)):
+        if isinstance(err.reason, TimeoutError):
             raise SoclicHandoffError(
                 "Tempo de resposta esgotado; o rascunho pode ter sido criado.",
                 error_code="HANDOFF_UNCERTAIN",
@@ -175,7 +174,7 @@ def prepare_soclic_draft(
         raise PanelUnavailableError(
             "O painel EvydFlow não está disponível neste computador."
         ) from err
-    except (TimeoutError, socket.timeout) as err:
+    except TimeoutError as err:
         raise SoclicHandoffError(
             "Tempo de resposta esgotado; o rascunho pode ter sido criado.",
             error_code="HANDOFF_UNCERTAIN",
