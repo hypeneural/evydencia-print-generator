@@ -67,3 +67,31 @@ Fontes oficiais:
 
 ## 7. Próximo projeto arquitetural (NÃO IMPLEMENTADO)
 Persistência durável de edição: autosave atômico + manifesto de fontes (caminho/canonical ID/hash/mtime), reimportação segura/relacionamento do registry, schema versionado, recuperação explícita após crash, autorização dos arquivos locais, TTL/limpeza, proteção de PII e teste de corte de energia. Não salvar apenas a seleção em `localStorage`, isso não restaura `SourceRegistry`. Separadamente, supervisor Windows para EvydFlow deve validar PID e SQLite canônico e nunca realizar retry físico incerto.
+
+## 8. Revisão independente pós-homologação Antigravity (PR #29)
+O [comentário de homologação #6198992239](https://github.com/hypeneural/evydencia-print-generator/pull/29#issuecomment-6198992239) descreve 304 Vitest, 221 Pytest, 3 jobs de CI por execução e cenários por Chrome DevTools. **Os jobs são confirmáveis no GitHub; as fotos/capturas em `file:///C:/...` e a sessão nativa completa não foram inspecionadas independentemente.**
+
+### Divergências factuais encontradas no código
+- **HTTP 500 não é `HANDOFF_REJECTED`.** O cliente o classifica como `HANDOFF_UNCERTAIN` (possível DRAFT com resposta incompleta). `HANDOFF_REJECTED` cobre outros HTTP, como 400.
+- **Falha de conexão resetada após POST não é o mesmo que conexão recusada.** A implementação anterior interpretava `URLError(ConnectionResetError)` como `PANEL_OFFLINE` e autorizava tentar de novo pelo texto. Corrigido: somente `ConnectionRefusedError` é `PANEL_OFFLINE`; timeout, reset, pipe rompido e erros de transporte não confirmados resultam em `HANDOFF_UNCERTAIN`.
+- **Orientação não era bloqueio técnico.** Mesmo após um resultado incerto o botão Preparar continuava ativo. Corrigido: requer um reconhecimento explícito de que o operador conferiu no painel que o DRAFT não existe, antes de liberar outro POST. A caixa de seleção não executa POST. Não é garantia absoluta contra usuário que confirma sem conferir.
+- **Erro Python inesperado vazava detalhes brutos via objeto JSON do pywebview.** Corrigido: resposta agora é sanitizada e `HANDOFF_UNCERTAIN`, com stack apenas no log local.
+- **A velocidade de build Vite não mede o tempo de abertura do executável pywebview** e `pointer-events: none` não torna overlays HTML de custo zero. O relato de 60 FPS sem amostras `requestAnimationFrame`/traces permanece **não auditado**.
+- **960×700 px no Chrome é simulação**; `app/window.py` fixa largura mínima **1024** e altura mínima **680** para o desktop nativo. Não chamar isso de homologação de janela desktop abaixo da largura mínima.
+
+### Divergência de dependências instaladas
+No relatório local constam `Pillow 11.1.0` e `React 19.0.0`, mas o repositório exige **`Pillow>=12.3,<13`** em `pyproject.toml` e declara `react: 19.3.0` em `apps/ui/package.json`. É possível que o relatório contenha números copiados de outro ambiente; **é obrigatório medir na instância que efetivamente executa o app**. Adicionado `scripts/audit_win11_print_generator_runtime.py` (somente leitura, stdlib) com checagem real das restrições Python/Pillow/pywebview. Para frontend: `npm --prefix apps/ui ls react react-dom vite fabric --depth=0`; o retorno real não pode ser inferido do manifesto. Se a venv instalada usa Pillow 11.1, atualizar em ambiente de teste com versão compatível **antes** de aprovar release; não ajustar o pin para validar artificialmente versão velha.
+
+### Matriz residual de indisponibilidade e segurança
+- Rascunho confirmado / browser fechado: abrir URL do rascunho no painel, não disparar outra importação para compensar janela.
+- DRAFT de status incerto: consultar pelo idempotency_key / SHA do JPEG no painel/camada operacional. Nova tentativa **somente** após reconciliação; o checkbox apenas documenta a verificação humana.
+- `EVYDFLOW_ALLOWED_ROOTS` no ambiente herdado pela **API EvydFlow** continua sendo a causa do HTTP 503 real anterior. Mensagem amigável **não configura** a pasta autorizada. A pasta de saída pode variar com a foto primária: autorizar apenas diretórios canônicos, testando USB/Downloads não permitidos.
+- Falta de internet externa **não significa** indisponibilidade de `127.0.0.1:8095`; upload remoto ao laboratório depende de rede e de worker/reconciliação próprios.
+- `AtLogOn` garante apenas um disparo por logon, não supervisiona o processo para sempre. Backup/recuperação de edição não exportada **ainda não existe**: não declarar garantia após reboot/queda de energia, e não salvar tokens/fotos brutas em `localStorage`.
+
+### Gates adicionais para Windows 11 Home
+1. Confirmar worktree de origem e hash da PR, rodar `.\.venv\Scripts\python.exe scripts/audit_win11_print_generator_runtime.py` e `npm --prefix apps/ui ls react react-dom vite fabric --depth=0`; se houver versão divergente, classificar **FAIL** e registrar qual executável, sem instalar em produção durante a auditoria.
+2. Testar **também** `URLError(ConnectionResetError)`, `URLError(BrokenPipeError)`, refused e timeout no Python, e garantir que só recusada prova PANEL_OFFLINE. Não executar POST em produção durante simulação.
+3. Na interface nativa, induzir HANDOFF_UNCERTAIN via serviço **isolado**, confirmar botão desativado, checar no painel sintético DRAFT ausente, marcar checkbox e provar que só então uma tentativa manual fica habilitada. Testar duplo clique rápido durante preparo: no máximo **um POST** em voo.
+4. Emitiu DRAFT? Conferir o rascunho pelo `job_id` e status, sem inferir envio ao laboratório.
+5. No relatório final diferenciar **PASS em CI**, **PASS no aplicativo nativo**, **PASS no Vite/Chrome** e **NOT_RUN** com dados reais. Não afirmar 60 FPS sem medição, nem autosave sem restauração após crash.
