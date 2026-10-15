@@ -40,13 +40,44 @@ describe("duplicateSlot", () => {
     expect(res?.nextSlotEdits.slot_03.scale).toBe(2.0);
   });
 
-  it("returns null when duplicating the last slot of Chaveiro", () => {
+  it("wraps from last Chaveiro slot into the first empty slot, without overwriting", () => {
     const edits: Record<string, SlotEditState> = {
+      slot_01: { ...sampleEdit, source_id: "original_customer" },
       slot_18: sampleEdit,
     };
 
     const res = duplicateSlot("chaveiro-3x4", chaveiroSlotIds, "slot_18", edits);
+    expect(res?.targetSlotId).toBe("slot_02");
+    expect(res?.nextSlotEdits.slot_02).toEqual(sampleEdit);
+    expect(res?.nextSlotEdits.slot_01).toEqual(edits.slot_01);
+    expect(res?.nextSlotEdits.slot_18).toEqual(sampleEdit);
+  });
+
+  it("skips consecutive occupied Chaveiro slots and retains other customers", () => {
+    const other = { ...sampleEdit, source_id: "different_customer", scale: 2 };
+    const edits: Record<string, SlotEditState> = {
+      slot_01: sampleEdit,
+      slot_02: other,
+      slot_03: { ...other, rotation_deg: 45 },
+    };
+    const res = duplicateSlot("chaveiro-3x4", chaveiroSlotIds, "slot_01", edits);
+    expect(res?.targetSlotId).toBe("slot_04");
+    expect(res?.nextSlotEdits.slot_04).toEqual(sampleEdit);
+    expect(res?.nextSlotEdits.slot_04).not.toBe(sampleEdit);
+    expect(res?.nextSlotEdits.slot_02).toEqual(other);
+    expect(res?.nextSlotEdits.slot_03).toEqual(edits.slot_03);
+    expect(edits.slot_04).toBeUndefined();
+  });
+
+  it("never changes a full Chaveiro sheet on individual duplication", () => {
+    const edits: Record<string, SlotEditState> = {};
+    for (const [index, id] of chaveiroSlotIds.entries()) {
+      edits[id] = { ...sampleEdit, source_id: `customer_${index}` };
+    }
+    const res = duplicateSlot("chaveiro-3x4", chaveiroSlotIds, "slot_11", edits);
     expect(res).toBeNull();
+    expect(Object.values(edits).map((edit) => edit.source_id)).toHaveLength(18);
+    expect(edits.slot_12.source_id).toBe("customer_11");
   });
 
   it("clones between foto_1 and foto_2 in Globo de Neve", () => {
