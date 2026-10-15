@@ -5,10 +5,12 @@ import hashlib
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
 import webbrowser
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 from typing import TYPE_CHECKING, Any
 
 from .discovery import discover_panel_port
@@ -59,6 +61,7 @@ def prepare_soclic_draft(
     snapshot: JobSnapshot,
     panel_port: int | None = None,
     open_browser: bool = True,
+    expected_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Constrói contrato de handoff, envia para a API local do EvydFlow e abre conferência.
 
@@ -80,6 +83,10 @@ def prepare_soclic_draft(
         )
 
     file_sha = _compute_sha256(out_file)
+    if expected_sha256 is not None and file_sha != expected_sha256:
+        raise SoclicHandoffError(
+            "O JPEG foi alterado entre a geração e a preparação. Envio bloqueado."
+        )
 
     # Mapeamento restrito aos slots efetivamente renderizados
     slots_map: dict[str, Any] = {}
@@ -136,18 +143,43 @@ def prepare_soclic_draft(
     except Exception as exc:
         raise SoclicHandoffError(f"Erro inesperado no envio para a SóClick: {exc}") from exc
 
-    panel_url = data.get("panel_url", "")
-    if open_browser and panel_url:
+    job_id = data.get("job_id")
+    panel_url = data.get("panel_url")
+    if data.get("ok") is not True or not isinstance(job_id, str) or not re.fullmatch(
+        r"job_[A-Za-z0-9_-]{1,100}", job_id
+    ):
+        raise SoclicHandoffError("O painel devolveu uma resposta de rascunho inválida.")
+    if not isinstance(panel_url, str):
+        raise SoclicHandoffError("O painel não informou uma URL de conferência válida.")
+    parsed = urlsplit(panel_url)
+    query = parse_qs(parsed.query)
+    if (
+        parsed.scheme != "http"
+        or parsed.hostname != "127.0.0.1"
+        or parsed.port != port
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path != "/panel/soclick"
+        or query.get("focus") != [job_id]
+        or parsed.fragment != "review"
+    ):
+        raise SoclicHandoffError(
+            "URL do editor SóClick não corresponde à API local verificada."
+        )
+
+    browser_opened = False
+    if open_browser:
         try:
-            webbrowser.open(panel_url)
+            browser_opened = bool(webbrowser.open(panel_url))
         except Exception as exc:
-            logger.warning("Falha ao abrir navegador padrão: %s", exc)
+            logger.warning("Falha ao abrir navegador padrão: %s", type(exc).__name__)
 
     return {
         "ok": True,
-        "job_id": data.get("job_id", ""),
+        "job_id": job_id,
         "observation": data.get("observation", ""),
         "panel_url": panel_url,
+        "browser_opened": browser_opened,
         "is_existing": data.get("is_existing", False),
         "total_orders": data.get("total_orders", 0),
     }
