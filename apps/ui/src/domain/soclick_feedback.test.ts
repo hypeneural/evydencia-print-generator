@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { presentSoclickHandoff } from "./soclick_feedback";
+import {
+  presentSoclickHandoff,
+  requiresDraftReconciliation,
+  canPrepareAfterReview,
+} from "./soclick_feedback";
 
 describe("SóClick handoff — operator messages remain safe and understandable", () => {
   it("keeps local JPEG success separate from missing allowed roots", () => {
@@ -69,5 +73,30 @@ describe("SóClick handoff — operator messages remain safe and understandable"
     });
     expect(notice.panelUrl).toBe(url);
     expect(notice.nextStep).toContain("navegador não abriu");
+  });
+});
+
+describe("SóClick uncertain intake requires operator reconciliation", () => {
+  it("requires an explicit check only when the result is uncertain", () => {
+    expect(requiresDraftReconciliation({ ok: false, error_code: "HANDOFF_UNCERTAIN" }))
+      .toBe(true);
+    expect(requiresDraftReconciliation({ ok: false, error_code: "PANEL_OFFLINE" }))
+      .toBe(false);
+    expect(requiresDraftReconciliation({ ok: false, error_code: "ROOTS_NOT_CONFIGURED" }))
+      .toBe(false);
+    expect(requiresDraftReconciliation({ ok: true, error_code: "HANDOFF_UNCERTAIN" }))
+      .toBe(false);
+  });
+
+  it("does not allow a new preparation before checking that draft is absent", () => {
+    expect(canPrepareAfterReview(true, false)).toBe(false);
+    expect(canPrepareAfterReview(true, true)).toBe(true);
+    expect(canPrepareAfterReview(false, false)).toBe(true);
+  });
+
+  it("500 is uncertain, not a confidently rejected draft", () => {
+    const n = presentSoclickHandoff({ ok: false, error_code: "HANDOFF_UNCERTAIN" });
+    expect(n.message).toContain("não sabemos");
+    expect(n.nextStep).toContain("antes de tentar novamente");
   });
 });
