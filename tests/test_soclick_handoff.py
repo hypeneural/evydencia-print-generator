@@ -17,7 +17,7 @@ from evydencia_print_generator.soclick.client import (
     SoclicHandoffError,
     prepare_soclic_draft,
 )
-from evydencia_print_generator.soclick.discovery import discover_panel_port
+from evydencia_print_generator.soclick.discovery import _is_port_healthy, discover_panel_port
 from PIL import Image
 
 
@@ -240,11 +240,7 @@ def test_bridge_prepare_soclic_handles_panel_offline_gracefully(tmp_path):
         assert "não está em execução" in res["error"]
 
 
-
 def test_discovery_rejects_health_only_foreign_server():
-    from evydencia_print_generator.soclick.discovery import _is_port_healthy
-    import io
-    from unittest.mock import MagicMock
 
     def response(payload):
         obj = MagicMock()
@@ -261,8 +257,6 @@ def test_discovery_rejects_health_only_foreign_server():
 
 
 def test_discovery_accepts_evydflow_environment_contract():
-    from evydencia_print_generator.soclick.discovery import _is_port_healthy
-    from unittest.mock import MagicMock
 
     def response(payload):
         obj = MagicMock()
@@ -283,7 +277,6 @@ def test_discovery_accepts_evydflow_environment_contract():
 
 
 def test_discovery_rejects_invalid_port_without_network():
-    from evydencia_print_generator.soclick.discovery import _is_port_healthy
     with patch("urllib.request.urlopen") as urlopen:
         assert not _is_port_healthy(0)
         assert not _is_port_healthy(99999)
@@ -291,8 +284,6 @@ def test_discovery_rejects_invalid_port_without_network():
 
 
 def test_discovery_rejects_wrong_environment_shape():
-    from evydencia_print_generator.soclick.discovery import _is_port_healthy
-    from unittest.mock import MagicMock
     def response(payload):
         obj = MagicMock()
         obj.status = 200
