@@ -880,7 +880,7 @@ export const App: React.FC = () => {
         try {
           const soclicRes = await bridge.prepareSoclic(res, editState);
           setSoclicFeedback(presentSoclickHandoff(soclicRes));
-        } catch (err: unknown) {
+        } catch {
           setSoclicFeedback(presentSoclickHandoff({
             ok: false,
             error_code: "HANDOFF_UNCERTAIN",
@@ -912,7 +912,7 @@ export const App: React.FC = () => {
       setSoclicFeedback(null);
       const res = await bridge.prepareSoclic(renderResult, editState);
       setSoclicFeedback(presentSoclickHandoff(res));
-    } catch (err: unknown) {
+    } catch {
       setSoclicFeedback(presentSoclickHandoff({
         ok: false,
         error_code: "HANDOFF_UNCERTAIN",
