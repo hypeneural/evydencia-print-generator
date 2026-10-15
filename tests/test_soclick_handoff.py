@@ -305,8 +305,6 @@ def test_discovery_rejects_wrong_environment_shape():
 
 def test_bridge_rejects_handoff_without_original_render_receipt(tmp_path):
     from evydencia_print_generator.app.bridge import DesktopBridge
-    from evydencia_print_generator.soclick.client import prepare_soclic_draft
-
     generated = tmp_path / "file.jpg"
     _make_dummy_image(generated)
     bridge = DesktopBridge(
