@@ -305,9 +305,15 @@ class DesktopBridge:
                 "error": str(err),
                 "error_code": "RENDER_CHANGED",
             }
-        except Exception as exc:
+        except Exception:
+            # This boundary is exposed through pywebview. Do not send internal
+            # exceptions (source file paths, tokens or stack context) to JS.
             logger.exception("Unexpected error during SoClic preparation")
-            return {"ok": False, "error": f"Erro inesperado ao preparar na SóClick: {exc}"}
+            return {
+                "ok": False,
+                "error": "Não foi possível confirmar a preparação do rascunho.",
+                "error_code": "HANDOFF_UNCERTAIN",
+            }
 
     def handle_drag_ignore(self, event: dict[str, Any]) -> None:
         """No-op handler to acknowledge dragenter/dragover with prevent_default."""
