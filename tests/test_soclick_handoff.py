@@ -229,3 +229,65 @@ def test_bridge_prepare_soclic_handles_panel_offline_gracefully(tmp_path):
         assert res["ok"] is False
         assert "não está em execução" in res["error"]
 
+
+
+def test_discovery_rejects_health_only_foreign_server():
+    from evydencia_print_generator.soclick.discovery import _is_port_healthy
+    import io
+    from unittest.mock import MagicMock
+
+    def response(payload):
+        obj = MagicMock()
+        obj.status = 200
+        obj.read.side_effect = [payload]
+        obj.__enter__.return_value = obj
+        return obj
+
+    with patch("urllib.request.urlopen", side_effect=[
+        response(b'{"ok": true}'),
+        response(b'{"detail":"Not Found"}'),
+    ]):
+        assert _is_port_healthy(8095) is False
+
+
+def test_discovery_accepts_evydflow_environment_contract():
+    from evydencia_print_generator.soclick.discovery import _is_port_healthy
+    from unittest.mock import MagicMock
+
+    def response(payload):
+        obj = MagicMock()
+        obj.status = 200
+        obj.read.side_effect = [payload]
+        obj.__enter__.return_value = obj
+        return obj
+
+    with patch("urllib.request.urlopen", side_effect=[
+        response(b'{"ok":true}'),
+        response(b'{"environment":"OPERACIONAL","enviar_blocked":true,"real_production_allowed":false}'),
+    ]) as urlopen:
+        assert _is_port_healthy(8095)
+        assert "/api/soclick/environment" in urlopen.call_args_list[1].args[0].full_url
+
+
+def test_discovery_rejects_invalid_port_without_network():
+    from evydencia_print_generator.soclick.discovery import _is_port_healthy
+    with patch("urllib.request.urlopen") as urlopen:
+        assert not _is_port_healthy(0)
+        assert not _is_port_healthy(99999)
+        urlopen.assert_not_called()
+
+
+def test_discovery_rejects_wrong_environment_shape():
+    from evydencia_print_generator.soclick.discovery import _is_port_healthy
+    from unittest.mock import MagicMock
+    def response(payload):
+        obj = MagicMock()
+        obj.status = 200
+        obj.read.side_effect = [payload]
+        obj.__enter__.return_value = obj
+        return obj
+    with patch("urllib.request.urlopen", side_effect=[
+        response(b'{"ok":true}'),
+        response(b'{"environment":"OPERACIONAL"}'),
+    ]):
+        assert not _is_port_healthy(8095)
