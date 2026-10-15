@@ -166,13 +166,16 @@ def prepare_soclic_draft(
             error_code="HANDOFF_REJECTED",
         ) from err
     except urllib.error.URLError as err:
-        if isinstance(err.reason, TimeoutError):
-            raise SoclicHandoffError(
-                "Tempo de resposta esgotado; o rascunho pode ter sido criado.",
-                error_code="HANDOFF_UNCERTAIN",
+        # Refused connection proves no listener accepted it. A reset, timeout,
+        # broken pipe or unrecognized transport failure MAY happen after the
+        # server commits DRAFT. Never recommend a blind retry for those cases.
+        if isinstance(err.reason, ConnectionRefusedError):
+            raise PanelUnavailableError(
+                "O painel EvydFlow não está disponível neste computador."
             ) from err
-        raise PanelUnavailableError(
-            "O painel EvydFlow não está disponível neste computador."
+        raise SoclicHandoffError(
+            "A conexão foi interrompida; o rascunho pode ter sido criado.",
+            error_code="HANDOFF_UNCERTAIN",
         ) from err
     except OSError as err:
         # Includes TimeoutError and a connection dropping after the request
