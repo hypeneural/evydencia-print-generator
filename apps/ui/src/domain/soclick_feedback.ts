@@ -22,7 +22,16 @@ export interface SoclickNotice {
 
 /** When a request may have committed, an explicit panel check is required. */
 export function requiresDraftReconciliation(result: SoclickHandoffResult): boolean {
-  return !result.ok && result.error_code === "HANDOFF_UNCERTAIN";
+  if (result.ok) return false;
+  // Older Python bridges can omit error_code entirely; fail closed when they
+  // cannot establish that the draft was rejected before creation.
+  return ![
+    "ROOTS_NOT_CONFIGURED",
+    "OPERATOR_NOT_AUTHORIZED",
+    "PANEL_OFFLINE",
+    "RENDER_CHANGED",
+    "HANDOFF_REJECTED",
+  ].includes(result.error_code ?? "");
 }
 
 /** A browser checkbox only acknowledges a manual check; it never sends a POST. */
