@@ -331,7 +331,10 @@ def test_soclic_client_rejects_mutated_jpeg_before_network(tmp_path):
         template_id="chaveiro-3x4", template_version="1.0.0",
         sources={}, slot_edits={},
     )
-    with patch("urllib.request.urlopen") as post:
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=8095),
+        patch("urllib.request.urlopen") as post,
+    ):
         with pytest.raises(SoclicHandoffError, match="JPEG foi alterado"):
             prepare_soclic_draft(str(image), snapshot, expected_sha256="0" * 64)
     post.assert_not_called()
