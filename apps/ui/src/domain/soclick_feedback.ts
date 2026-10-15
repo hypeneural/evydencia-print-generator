@@ -61,8 +61,15 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
       return {
         type: "error",
         code,
-        message: "O arquivo foi salvo, mas a SóClick ainda não está pronta.",
-        nextStep: "Peça ao gestor para autorizar a pasta de fotos no EvydFlow. Depois, clique em Preparar na SóClick.",
+        message: "O arquivo está salvo. Falta concluir a configuração inicial da SóClick.",
+        nextStep: "Peça ao gestor para ativar a área segura de preparação no EvydFlow. Não precisa liberar todas as pastas do computador.",
+      };
+    case "HANDOFF_STAGING_FAILED":
+      return {
+        type: "error",
+        code,
+        message: "O arquivo foi salvo, mas não foi possível preparar a cópia para a SóClick.",
+        nextStep: "Confira se a pasta de preparação está acessível. A foto original continua salva.",
       };
     case "OPERATOR_NOT_AUTHORIZED":
       return {
@@ -76,7 +83,7 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
         type: "error",
         code,
         message: "O arquivo foi salvo. O painel SóClick não está disponível neste momento.",
-        nextStep: "Verifique se o EvydFlow está aberto e tente preparar o arquivo novamente.",
+        nextStep: "Use Reativar painel SóClick abaixo. Se não funcionar, peça ao gestor para verificar o serviço.",
       };
     case "HANDOFF_UNCERTAIN":
       return {
