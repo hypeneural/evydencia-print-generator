@@ -409,6 +409,9 @@ export const App: React.FC = () => {
     if (!historyRef.current || !historyRef.current.canUndo) return;
     const previous = historyRef.current.undo();
     if (previous) {
+      // Keep native Fabric callbacks and React in sync before the next render.
+      // Otherwise a fast double-click after Undo could use pre-Undo slot data.
+      editStateRef.current = previous;
       setEditState(previous);
     }
   }, []);
@@ -417,6 +420,7 @@ export const App: React.FC = () => {
     if (!historyRef.current || !historyRef.current.canRedo) return;
     const next = historyRef.current.redo();
     if (next) {
+      editStateRef.current = next;
       setEditState(next);
     }
   }, []);
@@ -639,6 +643,7 @@ export const App: React.FC = () => {
         if (res.targetSlotIds.length > 0) {
           selectedSlotIdsRef.current = res.targetSlotIds;
           setSelectedSlotIds(res.targetSlotIds);
+          activeSlotIdRef.current = res.targetSlotIds[0];
           setActiveSlotId(res.targetSlotIds[0]);
         }
       }
@@ -674,10 +679,16 @@ export const App: React.FC = () => {
       );
       if (res) {
         commitEditState({ ...prev, slot_edits: res.nextSlotEdits });
+        activeSlotIdRef.current = res.targetSlotId;
         setActiveSlotId(res.targetSlotId);
         selectedSlotIdsRef.current = [res.targetSlotId];
         setSelectedSlotIds([res.targetSlotId]);
       } else {
+        // A full Chaveiro sheet is a safe no-op, never an overwrite.
+        if (tpl.id === "chaveiro-3x4" && prev.slot_edits[slotId]) {
+          setTrayNotice("A folha está completa. Nenhuma foto foi substituída.");
+        }
+        activeSlotIdRef.current = slotId;
         setActiveSlotId(slotId);
       }
     },
