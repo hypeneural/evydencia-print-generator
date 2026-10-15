@@ -446,3 +446,36 @@ def test_soclick_malformed_json_shape_is_uncertain_not_a_crash(tmp_path):
         with pytest.raises(SoclicHandoffError) as exc:
             prepare_soclic_draft(str(jpeg), snap, open_browser=False)
     assert exc.value.error_code == "HANDOFF_UNCERTAIN"
+
+@pytest.mark.parametrize(
+    ("reason", "expected_code"),
+    [
+        (ConnectionRefusedError("actively refused"), "PANEL_OFFLINE"),
+        (ConnectionResetError("connection reset after request body"), "HANDOFF_UNCERTAIN"),
+        (BrokenPipeError("socket closed during send"), "HANDOFF_UNCERTAIN"),
+        (TimeoutError("no response from API"), "HANDOFF_UNCERTAIN"),
+        (OSError("unexpected transport error"), "HANDOFF_UNCERTAIN"),
+    ],
+)
+def test_soclick_post_transport_errors_do_not_ask_for_blind_retry(
+    tmp_path, reason, expected_code
+):
+    image = tmp_path / "safe-render.jpg"
+    _make_dummy_image(image)
+    snapshot = JobSnapshot(
+        template_id="chaveiro-3x4", template_version="1.0.0",
+        sources={}, slot_edits={},
+    )
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port",
+              return_value=8095),
+        patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.URLError(reason),
+        ) as post,
+    ):
+        with pytest.raises(SoclicHandoffError) as exc:
+            prepare_soclic_draft(str(image), snapshot, open_browser=False)
+    assert exc.value.error_code == expected_code
+    assert image.exists(), "A network error must not delete the generated JPEG."
+    post.assert_called_once()
