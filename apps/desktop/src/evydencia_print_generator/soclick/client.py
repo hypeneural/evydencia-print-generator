@@ -143,7 +143,7 @@ def prepare_soclic_draft(
             payload_error = json.loads(err.read().decode("utf-8"))
             if isinstance(payload_error, dict) and isinstance(payload_error.get("detail"), str):
                 detail = payload_error["detail"]
-        except (ValueError, UnicodeError, OSError):
+        except (ValueError, OSError):
             pass
         logger.warning("SóClick intake HTTP %s (operator detail withheld)", err.code)
         if err.code == 503 and "EVYDFLOW_ALLOWED_ROOTS" in detail:
@@ -179,7 +179,7 @@ def prepare_soclic_draft(
             "Tempo de resposta esgotado; o rascunho pode ter sido criado.",
             error_code="HANDOFF_UNCERTAIN",
         ) from err
-    except (ValueError, TypeError, UnicodeError) as err:
+    except (ValueError, TypeError) as err:
         raise SoclicHandoffError(
             "O EvydFlow retornou uma resposta incompleta. Confira o painel.",
             error_code="HANDOFF_UNCERTAIN",
