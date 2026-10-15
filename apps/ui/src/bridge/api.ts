@@ -20,6 +20,7 @@ export interface SoclicHandoffResponse {
   is_existing?: boolean;
   total_orders?: number;
   error?: string;
+  error_code?: string;
 }
 
 declare global {
