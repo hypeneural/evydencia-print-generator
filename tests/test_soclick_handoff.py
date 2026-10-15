@@ -504,3 +504,49 @@ def test_bridge_unexpected_exception_does_not_leak_private_paths_or_tokens():
     assert result["error_code"] == "HANDOFF_UNCERTAIN"
     assert "customer.jpg" not in result["error"]
     assert "token" not in result["error"].lower()
+
+
+def test_real_handoff_payload_references_approved_copy_not_arbitrary_original(
+    tmp_path, monkeypatch
+):
+    import hashlib
+
+    source = tmp_path / "external-drive" / "Calendario_FOTO_01.jpg"
+    source.parent.mkdir()
+    _make_dummy_image(source)
+    original_bytes = source.read_bytes()
+    approved_root = tmp_path / "evydflow-authorized"
+    monkeypatch.setenv("EVYDENCIA_SOCLICK_HANDOFF_DIR", str(approved_root))
+
+    snapshot = JobSnapshot(
+        template_id="calendario-2027",
+        template_version="1.0.0",
+        sources={},
+        slot_edits={},
+    )
+    data = {
+        "ok": True,
+        "job_id": "job_print_safe123",
+        "panel_url": "http://127.0.0.1:8095/panel/soclick"
+                     "?focus=job_print_safe123#review",
+    }
+    response = MagicMock()
+    response.read.return_value = json.dumps(data).encode("utf-8")
+    response.__enter__.return_value = response
+
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port",
+              return_value=8095),
+        patch("urllib.request.urlopen", return_value=response) as opened,
+    ):
+        result = prepare_soclic_draft(str(source), snapshot, open_browser=False)
+
+    assert result["ok"] is True
+    payload = json.loads(opened.call_args[0][0].data)
+    transmitted = Path(payload["output_path"])
+    assert transmitted != source
+    assert approved_root.resolve() in transmitted.parents
+    assert transmitted.name == source.name
+    assert transmitted.read_bytes() == original_bytes
+    assert source.read_bytes() == original_bytes
+    assert payload["file_sha256"] == hashlib.sha256(original_bytes).hexdigest()
