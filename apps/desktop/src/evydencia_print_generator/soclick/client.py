@@ -186,9 +186,14 @@ def prepare_soclic_draft(
             error_code="HANDOFF_UNCERTAIN",
         ) from err
 
+    if not isinstance(data, dict):
+        raise SoclicHandoffError(
+            "O EvydFlow retornou uma resposta incompleta. Confira o painel.",
+            error_code="HANDOFF_UNCERTAIN",
+        )
     job_id = data.get("job_id")
     panel_url = data.get("panel_url")
-    if not isinstance(data, dict) or data.get("ok") is not True or not isinstance(
+    if data.get("ok") is not True or not isinstance(
         job_id, str
     ) or not re.fullmatch(r"job_[A-Za-z0-9_-]{1,100}", job_id):
         raise SoclicHandoffError(
