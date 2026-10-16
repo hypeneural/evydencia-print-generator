@@ -5,6 +5,7 @@
 ## PRs empilhadas: não fechar antes de integrar
 | Camada | PR | Branch base → head | Estado |
 |---|---|---|---|
+| Gerador features anteriores absorvidas | [#20](https://github.com/hypeneural/evydencia-print-generator/pull/20), [#21](https://github.com/hypeneural/evydencia-print-generator/pull/21), [#22](https://github.com/hypeneural/evydencia-print-generator/pull/22), [#23](https://github.com/hypeneural/evydencia-print-generator/pull/23), [#24](https://github.com/hypeneural/evydencia-print-generator/pull/24) | HEADs ancestrais da #30 (`behind_by=0`) | **Fechadas sem merge** como absorvidas pela cadeia; commits e branches preservados |
 | Gerador fundação SóClick | [#27](https://github.com/hypeneural/evydencia-print-generator/pull/27) | `feat/soclick-operator-handoff` → `codex/soclick-operational-readiness-20261015` | Draft; CI verde, não integrada |
 | UX Chaveiro | [#28](https://github.com/hypeneural/evydencia-print-generator/pull/28) | #27 → `codex/keychain-multiselect-dblclick-ux-20261015` | Draft; CI verde, não integrada |
 | Resiliência do handoff | [#29](https://github.com/hypeneural/evydencia-print-generator/pull/29) | #28 → `codex/print-generator-operational-recovery-20261015` | Draft; CI verde, não integrada |
@@ -28,7 +29,7 @@
 
 ## Checklist para encerramento técnico
 - [x] CI da #30 verde no HEAD `acbaabee`, testes de isolamento WebView2 e estabilidade JPEG.
-- [x] Portado teste único da PR #39 à #42; PR #39 fechada como superseded. PRs #32/#33/#35/#36 fechadas como inteiramente absorvidas pela #37, sem merge/deleção.
+- [x] PRs do Gerador #20–#24 encerradas como absorvidas pela cadeia #30, e PRs EvydFlow #32/#33/#35/#36 absorvidas pela #37. PR #39 fechada após portar o único teste exclusivo para #42. Tudo sem merge adicional nem exclusão de branches.
 - [ ] Inserir e auditar supervisor `recover-api.ps1` em #42; testes P0 de recuperação API-only sem duplicar workers.
 - [ ] Validar CI completo atual da release EvydFlow #37 + #42 e migrações/schema no banco canônico.
 - [ ] Conferir ACL/backup da pasta segura, planejar `-Apply` e restart API com aprovações **separadas**.
