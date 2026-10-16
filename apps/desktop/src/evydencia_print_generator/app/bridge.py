@@ -293,6 +293,19 @@ class DesktopBridge:
             # Do not rebuild from mutable registry/current edits; use the exact
             # source snapshot captured by render_job, including source paths.
             snapshot = receipt.verify(str(output_path), edit_state)
+            # Recover the local service automatically BEFORE the first intake POST.
+            # Never re-POST after a transport timeout: that outcome is uncertain.
+            from ..soclick.discovery import discover_panel_port
+            from ..soclick.recovery import recover_panel_from_scheduled_task
+
+            if discover_panel_port() is None:
+                recovered = recover_panel_from_scheduled_task()
+                if not recovered.get("ok"):
+                    return {
+                        "ok": False,
+                        "error": "Painel SóClick não disponível após recuperação segura.",
+                        "error_code": "PANEL_OFFLINE",
+                    }
             return prepare_soclic_draft(
                 str(receipt.output_path),
                 snapshot,
