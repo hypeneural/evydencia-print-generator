@@ -13,8 +13,8 @@ describe("SóClick handoff — operator messages remain safe and understandable"
       error: "Falha na SóClick (503): Configure EVYDFLOW_ALLOWED_ROOTS",
     });
     expect(notice.type).toBe("error");
-    expect(notice.message).toContain("arquivo foi salvo");
-    expect(notice.nextStep).toContain("gestor");
+    expect(notice.message).toContain("arquivo está salvo");
+    expect(notice.nextStep).toContain("automática");
     expect(JSON.stringify(notice)).not.toContain("EVYDFLOW_ALLOWED_ROOTS");
     expect(JSON.stringify(notice)).not.toContain("503");
   });
@@ -38,7 +38,7 @@ describe("SóClick handoff — operator messages remain safe and understandable"
       error_code: "OPERATOR_NOT_AUTHORIZED",
       error: "Bearer TOP-SECRET and C:\\Private\\Users",
     });
-    expect(notice.nextStep).toContain("gestor");
+    expect(notice.nextStep).toContain("Configurações");
     expect(JSON.stringify(notice)).not.toContain("TOP-SECRET");
   });
 
