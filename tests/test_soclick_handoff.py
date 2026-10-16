@@ -236,10 +236,16 @@ def test_bridge_prepare_soclic_handles_panel_offline_gracefully(tmp_path):
     snapshot = build_job_snapshot(template, state, registry.get)
     b._last_render_receipt = RenderReceipt.capture(rendered, state, snapshot)
 
-    with patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=None):
+    with (
+        patch("evydencia_print_generator.soclick.discovery.discover_panel_port", return_value=None),
+        patch("evydencia_print_generator.soclick.recovery.recover_panel_from_scheduled_task",
+              return_value={"ok": False, "state": "TASK_NOT_VERIFIED"}),
+        patch("evydencia_print_generator.soclick.prepare_soclic_draft") as send,
+    ):
         res = b.prepare_soclic({"output_path": str(rendered)}, edit_state_dict)
         assert res["ok"] is False
-        assert "não está em execução" in res["error"]
+        assert res["error_code"] == "PANEL_OFFLINE"
+        send.assert_not_called()
 
 
 def test_discovery_rejects_health_only_foreign_server():
@@ -491,9 +497,12 @@ def test_bridge_unexpected_exception_does_not_leak_private_paths_or_tokens():
         server_base_url="http://127.0.0.1:5000",
     )
     bridge._last_render_receipt = MagicMock()
-    with patch(
-        "evydencia_print_generator.soclick.prepare_soclic_draft",
-        side_effect=RuntimeError(r"C:\\Private\\customer.jpg access token ABC"),
+    with (
+        patch("evydencia_print_generator.soclick.discovery.discover_panel_port", return_value=8095),
+        patch(
+            "evydencia_print_generator.soclick.prepare_soclic_draft",
+            side_effect=RuntimeError(r"C:\\Private\\customer.jpg access token ABC"),
+        ),
     ):
         result = bridge.prepare_soclic(
             {"output_path": "C:/safe/sample.jpg"},
