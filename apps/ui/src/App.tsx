@@ -17,6 +17,7 @@ import {
   DismissRegular,
   AddRegular,
   SendRegular,
+  ArrowClockwiseRegular,
 } from "@fluentui/react-icons";
 import { bridge } from "./bridge/api";
 import { ProductCanvas } from "./components/ProductCanvas";
@@ -90,6 +91,7 @@ export const App: React.FC = () => {
   const [rendering, setRendering] = useState(false);
   const [renderResult, setRenderResult] = useState<RenderResultModel | null>(null);
   const [isPreparingSoclic, setIsPreparingSoclic] = useState(false);
+  const [isRecoveringPanel, setIsRecoveringPanel] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
   const [soclicFeedback, setSoclicFeedback] = useState<SoclickNotice | null>(null);
   const [draftReconciliationRequired, setDraftReconciliationRequired] = useState(false);
@@ -928,6 +930,49 @@ export const App: React.FC = () => {
     }
   };
 
+  // Explicit local recovery: run only the verified EvydFlow Windows task;
+  // never retry a DRAFT POST or enable physical production here.
+  const handleRecoverPanel = async () => {
+    if (isRecoveringPanel || isPreparingSoclic || rendering) return;
+    setIsRecoveringPanel(true);
+    try {
+      const result = await bridge.recoverSoclickPanel();
+      if (result.ok) {
+        setSoclicFeedback({
+          type: "success",
+          message: "Painel SóClick disponível novamente.",
+          nextStep: "Agora você pode preparar o rascunho para conferência.",
+        });
+      } else {
+        setSoclicFeedback({
+          type: "error",
+          code: "PANEL_OFFLINE",
+          message:
+            result.state === "STARTING"
+              ? "O EvydFlow está iniciando, mas ainda não respondeu."
+              : result.state === "SUPERVISOR_REFUSED"
+                ? "A recuperação automática foi recusada por segurança para proteger a fila ativa."
+                : "Não foi possível reativar o painel automaticamente.",
+          nextStep:
+            result.state === "TASK_NOT_VERIFIED"
+              ? "Verifique a tarefa agendada do EvydFlow nas configurações do Windows."
+              : result.state === "SUPERVISOR_REFUSED"
+                ? "A recuperação foi bloqueada para proteger a fila. Confira o painel EvydFlow nas Configurações."
+                : "Confira o status do EvydFlow no computador e tente novamente após a recuperação.",
+        });
+      }
+    } catch {
+      setSoclicFeedback({
+        type: "error",
+        code: "PANEL_OFFLINE",
+        message: "Não foi possível confirmar a recuperação do EvydFlow.",
+        nextStep: "Confira o status do EvydFlow nas Configurações.",
+      });
+    } finally {
+      setIsRecoveringPanel(false);
+    }
+  };
+
   // SoClic Prepare Action
   const handlePrepareSoclic = async () => {
     if (
@@ -988,7 +1033,7 @@ export const App: React.FC = () => {
           {/* Mode Switcher */}
           <div
             role="group"
-            aria-label="Modo de operação"
+            aria-label="Área de trabalho"
             style={{
               display: "flex",
               backgroundColor: "#0f172a",
@@ -1018,7 +1063,7 @@ export const App: React.FC = () => {
               }}
             >
               <PersonRegular style={{ fontSize: "15px" }} />
-              <span>Operador</span>
+              <span>Produção</span>
             </button>
             <button
               type="button"
@@ -1045,7 +1090,7 @@ export const App: React.FC = () => {
               }}
             >
               <SettingsRegular style={{ fontSize: "15px" }} />
-              <span>Gestor</span>
+              <span>Configurações</span>
             </button>
           </div>
 
@@ -1851,6 +1896,20 @@ export const App: React.FC = () => {
                       ? "Confira o rascunho antes"
                       : "Preparar na SóClick"}</span>
                 </button>
+                {soclicFeedback?.code === "PANEL_OFFLINE" && (
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    disabled={isRecoveringPanel || isPreparingSoclic || rendering}
+                    onClick={handleRecoverPanel}
+                    title="Reativar usando a tarefa registrada do EvydFlow; não envia fotos"
+                    aria-label="Verificar e reativar painel SóClick"
+                    style={{ fontSize: "12px", padding: "5px 10px" }}
+                  >
+                    <ArrowClockwiseRegular style={{ fontSize: "14px" }} />
+                    <span>{isRecoveringPanel ? "Verificando serviço..." : "Reativar painel SóClick"}</span>
+                  </button>
+                )}
                 {draftReconciliationRequired && (
                   <label style={{
                     display: "flex",

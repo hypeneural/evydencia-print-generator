@@ -34,15 +34,24 @@ class RenderReceipt:
     edit_state: EditState
     snapshot: JobSnapshot
     sha256: str
+    receipt_id: str = ""
 
     @classmethod
     def capture(
-        cls, output_path: Path, edit_state: EditState, snapshot: JobSnapshot
+        cls,
+        output_path: Path,
+        edit_state: EditState,
+        snapshot: JobSnapshot,
+        receipt_id: str | None = None,
     ) -> RenderReceipt:
         resolved = output_path.resolve(strict=True)
         if not resolved.is_file():
             raise RenderReceiptError("O arquivo gerado não é um arquivo regular.")
-        return cls(resolved, edit_state, snapshot, file_sha256(resolved))
+        if not receipt_id:
+            import uuid
+
+            receipt_id = f"rcpt_{uuid.uuid4().hex[:12]}"
+        return cls(resolved, edit_state, snapshot, file_sha256(resolved), receipt_id)
 
     def verify(self, output_path: str, edit_state: EditState) -> JobSnapshot:
         """Fail closed on a different render, changed edits or modified output."""

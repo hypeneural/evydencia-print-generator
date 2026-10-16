@@ -11,6 +11,17 @@ export interface StartupBatchModel {
   compatibility_warning?: string;
 }
 
+export interface SoclickRecoveryResponse {
+  ok: boolean;
+  state:
+    | "RUNNING"
+    | "STARTING"
+    | "WINDOWS_ONLY"
+    | "TASK_NOT_VERIFIED"
+    | "TASK_START_FAILED"
+    | "SUPERVISOR_REFUSED";
+}
+
 export interface SoclicHandoffResponse {
   ok: boolean;
   job_id?: string;
@@ -38,6 +49,7 @@ declare global {
           render_result: RenderResultModel,
           edit_state: EditStateModel
         ) => Promise<SoclicHandoffResponse>;
+        recover_soclick_panel: () => Promise<SoclickRecoveryResponse>;
       };
     };
   }
@@ -309,6 +321,12 @@ export const bridge = {
     if (openOutput) return openOutput(filePath);
     console.log("Mock open folder:", filePath);
     return true;
+  },
+
+  async recoverSoclickPanel(): Promise<SoclickRecoveryResponse> {
+    const recover = await nativeMethod("recover_soclick_panel", true);
+    if (recover) return recover();
+    return { ok: false, state: "WINDOWS_ONLY" };
   },
 
   async prepareSoclic(

@@ -61,22 +61,29 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
       return {
         type: "error",
         code,
-        message: "O arquivo foi salvo, mas a SóClick ainda não está pronta.",
-        nextStep: "Peça ao gestor para autorizar a pasta de fotos no EvydFlow. Depois, clique em Preparar na SóClick.",
+        message: "O arquivo está salvo. O EvydFlow ainda não conseguiu preparar a integração com a SóClick.",
+        nextStep: "A área segura é preparada automaticamente quando o EvydFlow inicia. Se a API ainda usa a versão antiga, será necessária uma reinicialização segura do serviço, sem interromper pedidos em andamento.",
+      };
+    case "HANDOFF_STAGING_FAILED":
+      return {
+        type: "error",
+        code,
+        message: "O arquivo foi salvo, mas não foi possível preparar a cópia para a SóClick.",
+        nextStep: "Confira se a pasta de preparação está acessível. A foto original continua salva.",
       };
     case "OPERATOR_NOT_AUTHORIZED":
       return {
         type: "error",
         code,
         message: "O arquivo foi salvo, mas este computador não tem acesso à SóClick.",
-        nextStep: "Peça ao gestor para conferir a autorização do EvydFlow.",
+        nextStep: "Verifique as credenciais locais do EvydFlow em Configurações. O arquivo permanece salvo.",
       };
     case "PANEL_OFFLINE":
       return {
         type: "error",
         code,
         message: "O arquivo foi salvo. O painel SóClick não está disponível neste momento.",
-        nextStep: "Verifique se o EvydFlow está aberto e tente preparar o arquivo novamente.",
+        nextStep: "O Gerador tenta reativar o painel automaticamente antes do envio. Confira a conexão local e o status do EvydFlow se não voltar.",
       };
     case "HANDOFF_UNCERTAIN":
       return {
@@ -97,7 +104,7 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
         type: "error",
         code,
         message: "O arquivo foi salvo, mas a SóClick não aceitou o rascunho.",
-        nextStep: "Peça ao gestor para conferir os dados do pedido e a configuração do painel.",
+        nextStep: "Confira os dados do pedido e a configuração do painel SóClick.",
       };
     default:
       return {

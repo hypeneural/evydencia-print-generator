@@ -236,10 +236,16 @@ def test_bridge_prepare_soclic_handles_panel_offline_gracefully(tmp_path):
     snapshot = build_job_snapshot(template, state, registry.get)
     b._last_render_receipt = RenderReceipt.capture(rendered, state, snapshot)
 
-    with patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=None):
+    with (
+        patch("evydencia_print_generator.soclick.discovery.discover_panel_port", return_value=None),
+        patch("evydencia_print_generator.soclick.recovery.recover_panel_from_scheduled_task",
+              return_value={"ok": False, "state": "TASK_NOT_VERIFIED"}),
+        patch("evydencia_print_generator.soclick.prepare_soclic_draft") as send,
+    ):
         res = b.prepare_soclic({"output_path": str(rendered)}, edit_state_dict)
         assert res["ok"] is False
-        assert "não está em execução" in res["error"]
+        assert res["error_code"] == "PANEL_OFFLINE"
+        send.assert_not_called()
 
 
 def test_discovery_rejects_health_only_foreign_server():
@@ -491,9 +497,12 @@ def test_bridge_unexpected_exception_does_not_leak_private_paths_or_tokens():
         server_base_url="http://127.0.0.1:5000",
     )
     bridge._last_render_receipt = MagicMock()
-    with patch(
-        "evydencia_print_generator.soclick.prepare_soclic_draft",
-        side_effect=RuntimeError(r"C:\\Private\\customer.jpg access token ABC"),
+    with (
+        patch("evydencia_print_generator.soclick.discovery.discover_panel_port", return_value=8095),
+        patch(
+            "evydencia_print_generator.soclick.prepare_soclic_draft",
+            side_effect=RuntimeError(r"C:\\Private\\customer.jpg access token ABC"),
+        ),
     ):
         result = bridge.prepare_soclic(
             {"output_path": "C:/safe/sample.jpg"},
@@ -504,3 +513,125 @@ def test_bridge_unexpected_exception_does_not_leak_private_paths_or_tokens():
     assert result["error_code"] == "HANDOFF_UNCERTAIN"
     assert "customer.jpg" not in result["error"]
     assert "token" not in result["error"].lower()
+
+
+def test_real_handoff_payload_references_approved_copy_not_arbitrary_original(
+    tmp_path, monkeypatch
+):
+    import hashlib
+
+    source = tmp_path / "external-drive" / "Calendario_FOTO_01.jpg"
+    source.parent.mkdir()
+    _make_dummy_image(source)
+    original_bytes = source.read_bytes()
+    approved_root = tmp_path / "evydflow-authorized"
+    monkeypatch.setenv("EVYDENCIA_SOCLICK_HANDOFF_DIR", str(approved_root))
+
+    snapshot = JobSnapshot(
+        template_id="calendario-2027",
+        template_version="1.0.0",
+        sources={},
+        slot_edits={},
+    )
+    data = {
+        "ok": True,
+        "job_id": "job_print_safe123",
+        "panel_url": "http://127.0.0.1:8095/panel/soclick"
+                     "?focus=job_print_safe123#review",
+    }
+    response = MagicMock()
+    response.read.return_value = json.dumps(data).encode("utf-8")
+    response.__enter__.return_value = response
+
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port",
+              return_value=8095),
+        patch("urllib.request.urlopen", return_value=response) as opened,
+    ):
+        result = prepare_soclic_draft(str(source), snapshot, open_browser=False)
+
+    assert result["ok"] is True
+    payload = json.loads(opened.call_args[0][0].data)
+    transmitted = Path(payload["output_path"])
+    assert transmitted != source
+    assert approved_root.resolve() in transmitted.parents
+    assert transmitted.name == source.name
+    assert transmitted.read_bytes() == original_bytes
+    assert source.read_bytes() == original_bytes
+    assert payload["file_sha256"] == hashlib.sha256(original_bytes).hexdigest()
+
+
+def test_prepare_soclic_draft_idempotency_order_scope_and_retry(tmp_path):
+    from evydencia_print_generator.soclick.client import compute_order_scope_fingerprint
+
+    rendered = tmp_path / "Chaveiro_Shared.jpg"
+    _make_dummy_image(rendered)
+
+    # Order #9001
+    photo1 = tmp_path / "Ana #9001" / "foto1.jpg"
+    photo1.parent.mkdir()
+    _make_dummy_image(photo1)
+
+    # Order #9002
+    photo2 = tmp_path / "Ana #9002" / "foto2.jpg"
+    photo2.parent.mkdir()
+    _make_dummy_image(photo2)
+
+    src1 = JobSource(source_id="s1", path=photo1, size_bytes=100, mtime_ns=1000)
+    src2 = JobSource(source_id="s2", path=photo2, size_bytes=100, mtime_ns=1000)
+    edit1 = SlotEdit(source_id="s1", transform=SlotTransform(0, 0, 1, 0))
+    edit2 = SlotEdit(source_id="s2", transform=SlotTransform(0, 0, 1, 0))
+
+    snap1 = JobSnapshot(
+        template_id="chaveiro-3x4",
+        template_version="1.0.0",
+        sources={"s1": src1},
+        slot_edits={"slot_01": edit1},
+    )
+    snap2 = JobSnapshot(
+        template_id="chaveiro-3x4",
+        template_version="1.0.0",
+        sources={"s2": src2},
+        slot_edits={"slot_01": edit2},
+    )
+
+    scope1 = compute_order_scope_fingerprint(snap1)
+    scope2 = compute_order_scope_fingerprint(snap2)
+    assert scope1 != scope2, "Order scopes for #9001 and #9002 must differ"
+
+    fake_resp = MagicMock()
+    fake_resp.read.return_value = json.dumps({
+        "ok": True,
+        "job_id": "job_print_order_test",
+        "panel_url": "http://127.0.0.1:8095/panel/soclick?focus=job_print_order_test#review",
+    }).encode("utf-8")
+    fake_resp.__enter__.return_value = fake_resp
+
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=8095),
+        patch("urllib.request.urlopen", return_value=fake_resp) as opened,
+    ):
+        # Case A: Retry of same render intent (same order_intent_id) -> same idempotency_key
+        res_a1 = prepare_soclic_draft(
+            str(rendered), snap1, open_browser=False, order_intent_id="intent_100"
+        )
+        assert res_a1["ok"] is True
+        key_a1 = json.loads(opened.call_args_list[-1][0][0].data)["idempotency_key"]
+
+        res_a2 = prepare_soclic_draft(
+            str(rendered), snap1, open_browser=False, order_intent_id="intent_100"
+        )
+        assert res_a2["ok"] is True
+        key_a2 = json.loads(opened.call_args_list[-1][0][0].data)["idempotency_key"]
+        assert key_a1 == key_a2, "Retry of same intent must yield identical idempotency_key"
+        assert f"chaveiro-3x4:{scope1}:intent_100:" in key_a1
+
+        # Case B: Second intentional order with same art (different intent) -> distinct key
+        res_b = prepare_soclic_draft(
+            str(rendered), snap2, open_browser=False, order_intent_id="intent_200"
+        )
+        assert res_b["ok"] is True
+        key_b = json.loads(opened.call_args_list[-1][0][0].data)["idempotency_key"]
+        assert key_b != key_a1, "Second intentional order must have distinct idempotency_key"
+        assert f"chaveiro-3x4:{scope2}:intent_200:" in key_b
+

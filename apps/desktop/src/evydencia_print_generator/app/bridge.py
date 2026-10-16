@@ -266,6 +266,12 @@ class DesktopBridge:
 
         return reveal_in_explorer(file_path)
 
+    def recover_soclick_panel(self) -> dict[str, object]:
+        """Explicit operator request to run verified EvydFlow startup task."""
+        from ..soclick.recovery import recover_panel_from_scheduled_task
+
+        return recover_panel_from_scheduled_task()
+
     def prepare_soclic(
         self, render_result_dict: dict[str, Any], edit_state_dict: dict[str, Any]
     ) -> dict[str, Any]:
@@ -287,10 +293,24 @@ class DesktopBridge:
             # Do not rebuild from mutable registry/current edits; use the exact
             # source snapshot captured by render_job, including source paths.
             snapshot = receipt.verify(str(output_path), edit_state)
+            # Recover the local service automatically BEFORE the first intake POST.
+            # Never re-POST after a transport timeout: that outcome is uncertain.
+            from ..soclick.discovery import discover_panel_port
+            from ..soclick.recovery import recover_panel_from_scheduled_task
+
+            if discover_panel_port() is None:
+                recovered = recover_panel_from_scheduled_task()
+                if not recovered.get("ok"):
+                    return {
+                        "ok": False,
+                        "error": "Painel SóClick não disponível após recuperação segura.",
+                        "error_code": "PANEL_OFFLINE",
+                    }
             return prepare_soclic_draft(
                 str(receipt.output_path),
                 snapshot,
                 expected_sha256=receipt.sha256,
+                order_intent_id=getattr(receipt, "receipt_id", None),
             )
         except PanelUnavailableError as err:
             logger.warning("SoClic panel unavailable: %s", type(err).__name__)

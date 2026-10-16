@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
 from .discovery import discover_panel_port
+from .staging import StagingError, stage_verified_jpeg
 
 if TYPE_CHECKING:
     from ..domain.job import JobSnapshot
@@ -63,12 +64,34 @@ def _get_operator_token() -> str:
     return ""
 
 
+def compute_order_scope_fingerprint(snapshot: JobSnapshot) -> str:
+    """Extrai escopo determinístico do pedido a partir das fontes dos slots."""
+    order_keys: set[str] = set()
+    for edit in snapshot.slot_edits.values():
+        src = snapshot.sources.get(edit.source_id)
+        if src and src.path:
+            parent_name = src.path.parent.name
+            match = re.search(r"(?:pedido\s*#?|#)(\d{1,18})", parent_name, re.IGNORECASE)
+            if match:
+                order_keys.add(f"order_{match.group(1)}")
+            elif parent_name:
+                clean_name = re.sub(r"[^A-Za-z0-9._-]", "_", parent_name.lower()).strip("_")
+                if clean_name:
+                    order_keys.add(f"folder_{clean_name[:20]}")
+    if order_keys:
+        joined = ":".join(sorted(order_keys))
+        return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:12]
+    return "default"
+
+
 def prepare_soclic_draft(
     output_path_str: str,
     snapshot: JobSnapshot,
     panel_port: int | None = None,
     open_browser: bool = True,
     expected_sha256: str | None = None,
+    order_intent_id: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     """Constrói contrato de handoff, envia para a API local do EvydFlow e abre conferência.
 
@@ -77,6 +100,8 @@ def prepare_soclic_draft(
     2. Descobre a porta real sem valores hardcoded.
     3. Falha graciosamente se o painel estiver offline.
     4. Abre o modal de conferência diretamente através de #review no navegador padrão.
+    5. Idempotência por pedido: retentativas do mesmo pedido/intent reutilizam o rascunho
+       existente (is_existing=True), enquanto um segundo pedido com a mesma arte cria novo rascunho.
     """
     out_file = Path(output_path_str).resolve()
     if not out_file.is_file():
@@ -95,6 +120,17 @@ def prepare_soclic_draft(
             "O JPEG foi alterado entre a geração e a preparação. Envio bloqueado."
         )
 
+    # The generator may read user-selected photographs anywhere the current
+    # Windows account has access. Only the final JPEG enters a fixed, explicitly
+    # allowed EvydFlow staging root. Never grant the HTTP API C:\\ as a root.
+    try:
+        intake_file = stage_verified_jpeg(out_file, file_sha)
+    except StagingError as err:
+        raise SoclicHandoffError(
+            "Não foi possível preparar o JPEG na pasta autorizada.",
+            error_code="HANDOFF_STAGING_FAILED",
+        ) from err
+
     # Mapeamento restrito aos slots efetivamente renderizados
     slots_map: dict[str, Any] = {}
     for slot_id, edit in snapshot.slot_edits.items():
@@ -107,12 +143,21 @@ def prepare_soclic_draft(
                 "mtime_ns": src.mtime_ns,
             }
 
+    if not idempotency_key:
+        order_scope = compute_order_scope_fingerprint(snapshot)
+        if order_intent_id:
+            idempotency_key = (
+                f"{snapshot.template_id}:{order_scope}:{order_intent_id}:{file_sha[:16]}"
+            )
+        else:
+            idempotency_key = f"{snapshot.template_id}:{order_scope}:{file_sha[:16]}"
+
     payload = {
         "contract_version": "1.0",
-        "idempotency_key": f"{snapshot.template_id}:{file_sha[:16]}",
+        "idempotency_key": idempotency_key,
         "template_id": snapshot.template_id,
         "template_version": snapshot.template_version,
-        "output_path": str(out_file),
+        "output_path": str(intake_file),
         "file_sha256": file_sha,
         "bytes_written": out_file.stat().st_size,
         "slots": slots_map,
