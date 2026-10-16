@@ -69,7 +69,9 @@ def test_prepare_uses_healthy_panel_without_restarting_services(tmp_path):
     with (
         patch("evydencia_print_generator.app.bridge.EditState.from_ui", return_value=object()),
         patch("evydencia_print_generator.soclick.discovery.discover_panel_port", return_value=8095),
-        patch("evydencia_print_generator.soclick.recovery.recover_panel_from_scheduled_task") as recover,
+        patch(
+            "evydencia_print_generator.soclick.recovery.recover_panel_from_scheduled_task"
+        ) as recover,
         patch(
             "evydencia_print_generator.soclick.prepare_soclic_draft",
             return_value={"ok": True},
