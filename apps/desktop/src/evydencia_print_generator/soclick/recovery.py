@@ -76,7 +76,9 @@ def _try_api_only_supervisor(script_path: Path | None = None) -> str | None:
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
-        timeout=25,
+        # The supervisor may wait up to 15s for the boot mutex and up to 20s
+        # for the API to become healthy; 25s truncates a legitimate recovery.
+        timeout=45,
         check=False,
     )
     if res.returncode == 0 and discover_panel_port() is not None:
