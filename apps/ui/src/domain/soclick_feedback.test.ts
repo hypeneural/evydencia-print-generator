@@ -14,7 +14,7 @@ describe("SóClick handoff — operator messages remain safe and understandable"
     });
     expect(notice.type).toBe("error");
     expect(notice.message).toContain("arquivo está salvo");
-    expect(notice.nextStep).toContain("automática");
+    expect(notice.nextStep).toContain("automaticamente");
     expect(JSON.stringify(notice)).not.toContain("EVYDFLOW_ALLOWED_ROOTS");
     expect(JSON.stringify(notice)).not.toContain("503");
   });
