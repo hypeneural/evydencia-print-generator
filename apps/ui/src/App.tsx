@@ -955,9 +955,9 @@ export const App: React.FC = () => {
                 : "Não foi possível reativar o painel automaticamente.",
           nextStep:
             result.state === "TASK_NOT_VERIFIED"
-              ? "Peça ao gestor para verificar a tarefa agendada do EvydFlow."
+              ? "Verifique a tarefa agendada do EvydFlow nas configurações do Windows."
               : result.state === "SUPERVISOR_REFUSED"
-                ? "Peça ao gestor para verificar o painel EvydFlow antes de tentar novamente."
+                ? "A recuperação foi bloqueada para proteger a fila. Confira o painel EvydFlow nas Configurações."
                 : "Confira o status do EvydFlow no computador e tente novamente após a recuperação.",
         });
       }
@@ -966,7 +966,7 @@ export const App: React.FC = () => {
         type: "error",
         code: "PANEL_OFFLINE",
         message: "Não foi possível confirmar a recuperação do EvydFlow.",
-        nextStep: "Peça ao gestor para conferir os serviços do Windows.",
+        nextStep: "Confira o status do EvydFlow nas Configurações.",
       });
     } finally {
       setIsRecoveringPanel(false);
@@ -1033,7 +1033,7 @@ export const App: React.FC = () => {
           {/* Mode Switcher */}
           <div
             role="group"
-            aria-label="Modo de operação"
+            aria-label="Área de trabalho"
             style={{
               display: "flex",
               backgroundColor: "#0f172a",
@@ -1063,7 +1063,7 @@ export const App: React.FC = () => {
               }}
             >
               <PersonRegular style={{ fontSize: "15px" }} />
-              <span>Operador</span>
+              <span>Produção</span>
             </button>
             <button
               type="button"
@@ -1090,7 +1090,7 @@ export const App: React.FC = () => {
               }}
             >
               <SettingsRegular style={{ fontSize: "15px" }} />
-              <span>Gestor</span>
+              <span>Configurações</span>
             </button>
           </div>
 
