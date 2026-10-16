@@ -13,7 +13,13 @@ export interface StartupBatchModel {
 
 export interface SoclickRecoveryResponse {
   ok: boolean;
-  state: "RUNNING" | "STARTING" | "WINDOWS_ONLY" | "TASK_NOT_VERIFIED" | "TASK_START_FAILED";
+  state:
+    | "RUNNING"
+    | "STARTING"
+    | "WINDOWS_ONLY"
+    | "TASK_NOT_VERIFIED"
+    | "TASK_START_FAILED"
+    | "SUPERVISOR_REFUSED";
 }
 
 export interface SoclicHandoffResponse {

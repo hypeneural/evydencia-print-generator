@@ -1,17 +1,26 @@
 """Opt-in local EvydFlow recovery via its already-registered safe startup task.
 
 Never spawn a worker or invoke powershell from untrusted input. The EvydFlow
-boot script owns process mutexes/worker idempotence. No physical print flags.
+boot script owns process mutexes/worker idempotence. When the startup task
+refuses full-stack boot because a live worker already exists without an API
+listener, fall back strictly to the canonical API-only supervisor in the same
+verified worktree (never passing -AllowForceStop or -ReloadOwnedApi, and never
+re-submitting a DRAFT). No physical print flags.
 """
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 import time
+from pathlib import Path
 
 from .discovery import discover_panel_port
 
 STARTUP_TASK_NAME = "EvydFlow - Iniciar Servicos ao Entrar"
+CANONICAL_WORKTREE = Path(r"C:\Evydencia\evydflow-soclick-copies")
+CANONICAL_RECOVER_API_SCRIPT = CANONICAL_WORKTREE / "services" / "recover-api.ps1"
+
 CHECK_TASK = (
     "$t = Get-ScheduledTask -TaskName 'EvydFlow - Iniciar Servicos ao Entrar' "
     "-ErrorAction Stop; "
@@ -30,6 +39,49 @@ CHECK_TASK = (
 
 def is_windows_host() -> bool:
     return os.name == "nt"
+
+
+def _is_verified_regular_script(path: Path) -> bool:
+    """Confirm script exists inside canonical checkout and is not a link/reparse point."""
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+    if not stat.S_ISREG(st.st_mode) or stat.S_ISLNK(st.st_mode):
+        return False
+    if getattr(st, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400):
+        return False
+    return True
+
+
+def _try_api_only_supervisor(script_path: Path | None = None) -> str | None:
+    """Run verified API-only supervisor without force-stop or reload flags."""
+    target = script_path or CANONICAL_RECOVER_API_SCRIPT
+    if not _is_verified_regular_script(target):
+        return None
+    cmd = [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(target),
+        "-Port",
+        "8095",
+        "-Json",
+    ]
+    res = subprocess.run(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=25,
+        check=False,
+    )
+    if res.returncode == 0 and discover_panel_port() is not None:
+        return "RUNNING"
+    return "SUPERVISOR_REFUSED"
 
 
 def recover_panel_from_scheduled_task() -> dict[str, object]:
@@ -55,6 +107,15 @@ def recover_panel_from_scheduled_task() -> dict[str, object]:
             if discover_panel_port() is not None:
                 return {"ok": True, "state": "RUNNING"}
             time.sleep(1)
+
+        # If the scheduled task ran but the API is still down (e.g. boot-evydflow.ps1
+        # refused to start a full stack because a queue worker is already alive),
+        # attempt the canonical API-only supervisor from the same verified worktree.
+        sup_state = _try_api_only_supervisor()
+        if sup_state == "RUNNING":
+            return {"ok": True, "state": "RUNNING"}
+        if sup_state == "SUPERVISOR_REFUSED":
+            return {"ok": False, "state": "SUPERVISOR_REFUSED"}
         return {"ok": False, "state": "STARTING"}
     except (OSError, subprocess.TimeoutExpired):
         return {"ok": False, "state": "TASK_START_FAILED"}

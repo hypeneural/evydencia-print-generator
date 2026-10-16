@@ -947,12 +947,18 @@ export const App: React.FC = () => {
         setSoclicFeedback({
           type: "error",
           code: "PANEL_OFFLINE",
-          message: result.state === "STARTING"
-            ? "O EvydFlow está iniciando, mas ainda não respondeu."
-            : "Não foi possível reativar o painel automaticamente.",
-          nextStep: result.state === "TASK_NOT_VERIFIED"
-            ? "Peça ao gestor para verificar a tarefa agendada do EvydFlow."
-            : "Confira o status do EvydFlow no computador e tente novamente após a recuperação.",
+          message:
+            result.state === "STARTING"
+              ? "O EvydFlow está iniciando, mas ainda não respondeu."
+              : result.state === "SUPERVISOR_REFUSED"
+                ? "A recuperação automática foi recusada por segurança para proteger a fila ativa."
+                : "Não foi possível reativar o painel automaticamente.",
+          nextStep:
+            result.state === "TASK_NOT_VERIFIED"
+              ? "Peça ao gestor para verificar a tarefa agendada do EvydFlow."
+              : result.state === "SUPERVISOR_REFUSED"
+                ? "Peça ao gestor para verificar o painel EvydFlow antes de tentar novamente."
+                : "Confira o status do EvydFlow no computador e tente novamente após a recuperação.",
         });
       }
     } catch {

@@ -79,3 +79,61 @@ def test_explicit_recovery_only_uses_registered_task(monkeypatch):
     assert recovery.recover_panel_from_scheduled_task() == {"ok": True, "state": "RUNNING"}
     assert len(calls) == 2
     assert calls[1] == ["schtasks.exe", "/Run", "/TN", recovery.STARTUP_TASK_NAME]
+
+
+def test_recovery_falls_back_to_verified_api_only_supervisor_without_force_stop(
+    monkeypatch, tmp_path
+):
+    script = tmp_path / "recover-api.ps1"
+    script.write_text("# mock supervisor\n", encoding="utf-8")
+    monkeypatch.setattr(recovery, "CANONICAL_RECOVER_API_SCRIPT", script)
+    monkeypatch.setattr(recovery, "is_windows_host", lambda: True)
+    # 1 initial check + 5 post-schtasks checks return None, then supervisor check returns 8095
+    probes = iter([None, None, None, None, None, None, 8095])
+    monkeypatch.setattr(recovery, "discover_panel_port", lambda: next(probes))
+    monkeypatch.setattr(recovery.time, "sleep", lambda _: None)
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if "-Command" in args:
+            return subprocess.CompletedProcess(args, 0, stdout="VERIFIED\n")
+        if args[0] == "schtasks.exe":
+            return subprocess.CompletedProcess(args, 0, stdout="SUCCESS")
+        return subprocess.CompletedProcess(
+            args, 0, stdout='{"ok":true,"status":"RECOVERED_API_ONLY"}\n'
+        )
+
+    monkeypatch.setattr(recovery.subprocess, "run", fake_run)
+    assert recovery.recover_panel_from_scheduled_task() == {"ok": True, "state": "RUNNING"}
+    assert len(calls) == 3
+    sup_args = calls[2]
+    assert "-File" in sup_args
+    assert str(script) in sup_args
+    assert "-AllowForceStop" not in sup_args
+    assert "-ReloadOwnedApi" not in sup_args
+
+
+def test_recovery_reports_supervisor_refused_when_api_only_fails_closed(
+    monkeypatch, tmp_path
+):
+    script = tmp_path / "recover-api.ps1"
+    script.write_text("# mock supervisor\n", encoding="utf-8")
+    monkeypatch.setattr(recovery, "CANONICAL_RECOVER_API_SCRIPT", script)
+    monkeypatch.setattr(recovery, "is_windows_host", lambda: True)
+    monkeypatch.setattr(recovery, "discover_panel_port", lambda: None)
+    monkeypatch.setattr(recovery.time, "sleep", lambda _: None)
+
+    def fake_run(args, **kwargs):
+        if "-Command" in args:
+            return subprocess.CompletedProcess(args, 0, stdout="VERIFIED\n")
+        if args[0] == "schtasks.exe":
+            return subprocess.CompletedProcess(args, 0, stdout="SUCCESS")
+        return subprocess.CompletedProcess(args, 2, stdout='{"ok":false,"status":"NO_GO"}\n')
+
+    monkeypatch.setattr(recovery.subprocess, "run", fake_run)
+    assert recovery.recover_panel_from_scheduled_task() == {
+        "ok": False,
+        "state": "SUPERVISOR_REFUSED",
+    }
+
