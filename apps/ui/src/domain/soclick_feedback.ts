@@ -62,7 +62,7 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
         type: "error",
         code,
         message: "O arquivo está salvo. O EvydFlow ainda não conseguiu preparar a integração com a SóClick.",
-        nextStep: "A preparação da área segura é automática na inicialização. Se o serviço já estava aberto, feche e abra o Gerador depois da atualização do EvydFlow.",
+        nextStep: "A área segura é preparada automaticamente quando o EvydFlow inicia. Se a API ainda usa a versão antiga, será necessária uma reinicialização segura do serviço, sem interromper pedidos em andamento.",
       };
     case "HANDOFF_STAGING_FAILED":
       return {
