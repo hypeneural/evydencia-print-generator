@@ -61,8 +61,8 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
       return {
         type: "error",
         code,
-        message: "O arquivo foi salvo. Falta concluir a configuração inicial da SóClick.",
-        nextStep: "Peça ao gestor para ativar a área segura de preparação no EvydFlow. Não precisa liberar todas as pastas do computador.",
+        message: "O arquivo está salvo. O EvydFlow ainda não conseguiu preparar a integração com a SóClick.",
+        nextStep: "A preparação da área segura é automática na inicialização. Se o serviço já estava aberto, feche e abra o Gerador depois da atualização do EvydFlow.",
       };
     case "HANDOFF_STAGING_FAILED":
       return {
@@ -76,14 +76,14 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
         type: "error",
         code,
         message: "O arquivo foi salvo, mas este computador não tem acesso à SóClick.",
-        nextStep: "Peça ao gestor para conferir a autorização do EvydFlow.",
+        nextStep: "Verifique as credenciais locais do EvydFlow em Configurações. O arquivo permanece salvo.",
       };
     case "PANEL_OFFLINE":
       return {
         type: "error",
         code,
         message: "O arquivo foi salvo. O painel SóClick não está disponível neste momento.",
-        nextStep: "Use Reativar painel SóClick abaixo. Se não funcionar, peça ao gestor para verificar o EvydFlow.",
+        nextStep: "O Gerador tenta reativar o painel automaticamente antes do envio. Confira a conexão local e o status do EvydFlow se não voltar.",
       };
     case "HANDOFF_UNCERTAIN":
       return {
@@ -104,7 +104,7 @@ export function presentSoclickHandoff(result: SoclickHandoffResult): SoclickNoti
         type: "error",
         code,
         message: "O arquivo foi salvo, mas a SóClick não aceitou o rascunho.",
-        nextStep: "Peça ao gestor para conferir os dados do pedido e a configuração do painel.",
+        nextStep: "Confira os dados do pedido e a configuração do painel SóClick.",
       };
     default:
       return {
