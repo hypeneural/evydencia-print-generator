@@ -12,6 +12,7 @@
 | EvydFlow release consolidado | [#37](https://github.com/hypeneural/evydflow/pull/37) | `main` → `fix/p0-soclick-copy-order-crm-links-timeline-20261013` | Draft; cabeça `bd47a4c0`; ~803 commits sobre main, release ampla, **alto risco de merge cego** |
 | EvydFlow boot/pasta | [#42](https://github.com/hypeneural/evydflow/pull/42) | #37 → `codex/soclick-approved-staging-boot-20261015` | Draft; HEAD `43426b25` ou posterior, sem aprovação de restart |
 | EvydFlow status legado | [#39](https://github.com/hypeneural/evydflow/pull/39) | Ramificação antiga da #37 | **Fechada sem merge como superseded**: script/doc já na #37, único teste novo portado à #42 no commit `43426b25` (blobs idênticos) |
+| EvydFlow branches anteriores absorvidas | [#32](https://github.com/hypeneural/evydflow/pull/32), [#33](https://github.com/hypeneural/evydflow/pull/33), [#35](https://github.com/hypeneural/evydflow/pull/35), [#36](https://github.com/hypeneural/evydflow/pull/36) | HEAD de cada uma é ancestral da #37 (`behind_by=0`) | **Fechadas sem merge** como absorvidas, com comentários e branches históricas preservadas |
 | EvydFlow patches históricos | [#40](https://github.com/hypeneural/evydflow/pull/40), [#41](https://github.com/hypeneural/evydflow/pull/41) | Base #37 | Já **merged** na base #37; preservar histórico, não reabrir |
 
 **Ancestralidade confirmada:** `print-generator/main` é ancestral do head #30, mas ainda há aproximadamente **123 commits** não integrados, incluindo a fundação anterior à #27. `evydflow/main` é ancestral do head #37, que contém aproximadamente **803 commits** ainda não presentes na main. CI de PR #30 não é CI de toda a árvore EvydFlow. `merged` de #40/#41 significa merge na **branch de base**, não necessariamente publicação em main.
@@ -27,7 +28,7 @@
 
 ## Checklist para encerramento técnico
 - [x] CI da #30 verde no HEAD `acbaabee`, testes de isolamento WebView2 e estabilidade JPEG.
-- [x] Portado teste único da PR #39 à #42; PR #39 fechada como superseded sem deletar branch.
+- [x] Portado teste único da PR #39 à #42; PR #39 fechada como superseded. PRs #32/#33/#35/#36 fechadas como inteiramente absorvidas pela #37, sem merge/deleção.
 - [ ] Inserir e auditar supervisor `recover-api.ps1` em #42; testes P0 de recuperação API-only sem duplicar workers.
 - [ ] Validar CI completo atual da release EvydFlow #37 + #42 e migrações/schema no banco canônico.
 - [ ] Conferir ACL/backup da pasta segura, planejar `-Apply` e restart API com aprovações **separadas**.
