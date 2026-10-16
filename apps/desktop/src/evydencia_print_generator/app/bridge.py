@@ -310,6 +310,7 @@ class DesktopBridge:
                 str(receipt.output_path),
                 snapshot,
                 expected_sha256=receipt.sha256,
+                order_intent_id=getattr(receipt, "receipt_id", None),
             )
         except PanelUnavailableError as err:
             logger.warning("SoClic panel unavailable: %s", type(err).__name__)

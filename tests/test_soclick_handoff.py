@@ -559,3 +559,79 @@ def test_real_handoff_payload_references_approved_copy_not_arbitrary_original(
     assert transmitted.read_bytes() == original_bytes
     assert source.read_bytes() == original_bytes
     assert payload["file_sha256"] == hashlib.sha256(original_bytes).hexdigest()
+
+
+def test_prepare_soclic_draft_idempotency_order_scope_and_retry(tmp_path):
+    from evydencia_print_generator.soclick.client import compute_order_scope_fingerprint
+
+    rendered = tmp_path / "Chaveiro_Shared.jpg"
+    _make_dummy_image(rendered)
+
+    # Order #9001
+    photo1 = tmp_path / "Ana #9001" / "foto1.jpg"
+    photo1.parent.mkdir()
+    _make_dummy_image(photo1)
+
+    # Order #9002
+    photo2 = tmp_path / "Ana #9002" / "foto2.jpg"
+    photo2.parent.mkdir()
+    _make_dummy_image(photo2)
+
+    src1 = JobSource(source_id="s1", path=photo1, size_bytes=100, mtime_ns=1000)
+    src2 = JobSource(source_id="s2", path=photo2, size_bytes=100, mtime_ns=1000)
+    edit1 = SlotEdit(source_id="s1", transform=SlotTransform(0, 0, 1, 0))
+    edit2 = SlotEdit(source_id="s2", transform=SlotTransform(0, 0, 1, 0))
+
+    snap1 = JobSnapshot(
+        template_id="chaveiro-3x4",
+        template_version="1.0.0",
+        sources={"s1": src1},
+        slot_edits={"slot_01": edit1},
+    )
+    snap2 = JobSnapshot(
+        template_id="chaveiro-3x4",
+        template_version="1.0.0",
+        sources={"s2": src2},
+        slot_edits={"slot_01": edit2},
+    )
+
+    scope1 = compute_order_scope_fingerprint(snap1)
+    scope2 = compute_order_scope_fingerprint(snap2)
+    assert scope1 != scope2, "Order scopes for #9001 and #9002 must differ"
+
+    fake_resp = MagicMock()
+    fake_resp.read.return_value = json.dumps({
+        "ok": True,
+        "job_id": "job_print_order_test",
+        "panel_url": "http://127.0.0.1:8095/panel/soclick?focus=job_print_order_test#review",
+    }).encode("utf-8")
+    fake_resp.__enter__.return_value = fake_resp
+
+    with (
+        patch("evydencia_print_generator.soclick.client.discover_panel_port", return_value=8095),
+        patch("urllib.request.urlopen", return_value=fake_resp) as opened,
+    ):
+        # Case A: Retry of same render intent (same order_intent_id) -> same idempotency_key
+        res_a1 = prepare_soclic_draft(
+            str(rendered), snap1, open_browser=False, order_intent_id="intent_100"
+        )
+        assert res_a1["ok"] is True
+        key_a1 = json.loads(opened.call_args_list[-1][0][0].data)["idempotency_key"]
+
+        res_a2 = prepare_soclic_draft(
+            str(rendered), snap1, open_browser=False, order_intent_id="intent_100"
+        )
+        assert res_a2["ok"] is True
+        key_a2 = json.loads(opened.call_args_list[-1][0][0].data)["idempotency_key"]
+        assert key_a1 == key_a2, "Retry of same intent must yield identical idempotency_key"
+        assert f"chaveiro-3x4:{scope1}:intent_100:" in key_a1
+
+        # Case B: Second intentional order with same art (different intent) -> distinct key
+        res_b = prepare_soclic_draft(
+            str(rendered), snap2, open_browser=False, order_intent_id="intent_200"
+        )
+        assert res_b["ok"] is True
+        key_b = json.loads(opened.call_args_list[-1][0][0].data)["idempotency_key"]
+        assert key_b != key_a1, "Second intentional order must have distinct idempotency_key"
+        assert f"chaveiro-3x4:{scope2}:intent_200:" in key_b
+
